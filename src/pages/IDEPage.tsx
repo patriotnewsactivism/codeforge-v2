@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import {
   ResizableHandle,
@@ -13,6 +13,9 @@ import { EditorTabs } from "@/components/ide/EditorTabs";
 import { ChatPanel } from "@/components/ide/ChatPanel";
 import { LivePreview } from "@/components/ide/LivePreview";
 import { CollaborationBar } from "@/components/ide/CollaborationBar";
+import { SuggestionsPanel } from "@/components/ide/SuggestionsPanel";
+import { BuildProgress } from "@/components/ide/BuildProgress";
+import { AgentPanel } from "@/components/ide/AgentPanel";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { toast } from "sonner";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
@@ -21,7 +24,11 @@ import {
   PanelBottomClose,
   MessageSquare,
   MessageSquareOff,
+  Lightbulb,
+  Zap,
 } from "lucide-react";
+
+type RightPanel = "chat" | "suggestions" | "agents";
 
 export function IDEPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -45,6 +52,7 @@ export function IDEPage() {
   const deleteFile = useMutation(api.files.remove);
   const getOrCreateSession = useMutation(api.chat.getOrCreateSession);
   const heartbeat = useMutation(api.collaboration.heartbeat);
+  const runBuildLoop = useAction(api.buildLoop.runBuildLoop);
 
   const [openFilePaths, setOpenFilePaths] = useState<string[]>([]);
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
@@ -54,7 +62,8 @@ export function IDEPage() {
   const [unsavedFiles, setUnsavedFiles] = useState<Set<string>>(new Set());
   const [sessionId, setSessionId] = useState<Id<"chatSessions"> | null>(null);
   const [showPreview, setShowPreview] = useState(true);
-  const [showChat, setShowChat] = useState(true);
+  const [rightPanel, setRightPanel] = useState<RightPanel>("chat");
+  const [showRightPanel, setShowRightPanel] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   // Initialize chat session
@@ -75,7 +84,6 @@ export function IDEPage() {
         activeFile: activeFilePath ?? undefined,
       }).catch(() => {});
     }, 10_000);
-    // Initial heartbeat
     heartbeat({
       projectId: projectId as Id<"projects">,
       activeFile: activeFilePath ?? undefined,
@@ -95,13 +103,15 @@ export function IDEPage() {
     }
   }, [files, openFilePaths.length]);
 
-  const activeFile =
-    files?.find((f) => f.path === activeFilePath) ?? null;
+  const activeFile = files?.find((f) => f.path === activeFilePath) ?? null;
 
-  // Get effective content (buffer or saved)
   const getFileContent = useCallback(
     (path: string) => {
-      return fileBuffers.get(path) ?? files?.find((f) => f.path === path)?.content ?? "";
+      return (
+        fileBuffers.get(path) ??
+        files?.find((f) => f.path === path)?.content ??
+        ""
+      );
     },
     [fileBuffers, files]
   );
@@ -121,9 +131,10 @@ export function IDEPage() {
       setOpenFilePaths((prev) => prev.filter((p) => p !== filePath));
       if (activeFilePath === filePath) {
         const remaining = openFilePaths.filter((p) => p !== filePath);
-        setActiveFilePath(remaining.length > 0 ? remaining[remaining.length - 1] : null);
+        setActiveFilePath(
+          remaining.length > 0 ? remaining[remaining.length - 1] : null
+        );
       }
-      // Clean up buffer
       setFileBuffers((prev) => {
         const next = new Map(prev);
         next.delete(filePath);
@@ -142,7 +153,9 @@ export function IDEPage() {
     (content: string) => {
       if (!activeFilePath) return;
       setFileBuffers((prev) => new Map(prev).set(activeFilePath, content));
-      const original = files?.find((f) => f.path === activeFilePath)?.content;
+      const original = files?.find(
+        (f) => f.path === activeFilePath
+      )?.content;
       if (content !== original) {
         setUnsavedFiles((prev) => new Set(prev).add(activeFilePath));
       } else {
@@ -212,6 +225,27 @@ export function IDEPage() {
     [files, deleteFile, handleTabClose]
   );
 
+  // Handle implementing a suggestion via the build loop
+  const handleImplementSuggestion = useCallback(
+    async (prompt: string, suggestionId: Id<"suggestions">) => {
+      if (!projectId) return;
+      toast.info("Starting build...", { duration: 2000 });
+      try {
+        const result = await runBuildLoop({
+          projectId: projectId as Id<"projects">,
+          prompt,
+          suggestionId,
+        });
+        toast.success(`Build complete: ${result}`, { duration: 4000 });
+      } catch (e) {
+        toast.error(
+          `Build failed: ${e instanceof Error ? e.message : String(e)}`
+        );
+      }
+    },
+    [projectId, runBuildLoop]
+  );
+
   // Build file list with buffers applied for preview
   const previewFiles =
     files?.map((f) => ({
@@ -242,6 +276,9 @@ export function IDEPage() {
         projectName={project.name}
       />
 
+      {/* Build progress overlay */}
+      <BuildProgress projectId={projectId as Id<"projects">} />
+
       {/* Main IDE area */}
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal">
@@ -260,7 +297,7 @@ export function IDEPage() {
           <ResizableHandle />
 
           {/* Editor + Preview area */}
-          <ResizablePanel defaultSize={showChat ? 55 : 70}>
+          <ResizablePanel defaultSize={showRightPanel ? 55 : 70}>
             <ResizablePanelGroup direction="vertical">
               {/* Code Editor */}
               <ResizablePanel defaultSize={showPreview ? 55 : 100}>
@@ -274,7 +311,14 @@ export function IDEPage() {
                   />
                   <div className="flex-1">
                     <CodeEditor
-                      file={activeFile ? { ...activeFile, content: getFileContent(activeFile.path) } : null}
+                      file={
+                        activeFile
+                          ? {
+                              ...activeFile,
+                              content: getFileContent(activeFile.path),
+                            }
+                          : null
+                      }
                       onChange={handleContentChange}
                       onSave={handleSave}
                     />
@@ -298,21 +342,79 @@ export function IDEPage() {
             </ResizablePanelGroup>
           </ResizablePanel>
 
-          {showChat && (
+          {showRightPanel && (
             <>
               <ResizableHandle />
-              {/* AI Chat */}
+              {/* Right panel: Chat / Suggestions / Agents */}
               <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
-                <ChatPanel
-                  projectId={projectId as Id<"projects">}
-                  sessionId={sessionId}
-                  currentFileContent={
-                    activeFile
-                      ? getFileContent(activeFile.path)
-                      : undefined
-                  }
-                  currentFileName={activeFile?.name}
-                />
+                <div className="h-full flex flex-col">
+                  {/* Panel tabs */}
+                  <div className="flex border-b border-border bg-[oklch(0.10_0.02_260)]">
+                    <button
+                      type="button"
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                        rightPanel === "chat"
+                          ? "text-primary border-b-2 border-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      onClick={() => setRightPanel("chat")}
+                    >
+                      <MessageSquare className="h-3 w-3" />
+                      Chat
+                    </button>
+                    <button
+                      type="button"
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                        rightPanel === "suggestions"
+                          ? "text-amber-400 border-b-2 border-amber-400"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      onClick={() => setRightPanel("suggestions")}
+                    >
+                      <Lightbulb className="h-3 w-3" />
+                      Ideas
+                    </button>
+                    <button
+                      type="button"
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                        rightPanel === "agents"
+                          ? "text-amber-400 border-b-2 border-amber-400"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      onClick={() => setRightPanel("agents")}
+                    >
+                      <Zap className="h-3 w-3" />
+                      Agents
+                    </button>
+                  </div>
+
+                  {/* Panel content */}
+                  <div className="flex-1 overflow-hidden">
+                    {rightPanel === "chat" && (
+                      <ChatPanel
+                        projectId={projectId as Id<"projects">}
+                        sessionId={sessionId}
+                        currentFileContent={
+                          activeFile
+                            ? getFileContent(activeFile.path)
+                            : undefined
+                        }
+                        currentFileName={activeFile?.name}
+                      />
+                    )}
+                    {rightPanel === "suggestions" && (
+                      <SuggestionsPanel
+                        projectId={projectId as Id<"projects">}
+                        onImplement={handleImplementSuggestion}
+                      />
+                    )}
+                    {rightPanel === "agents" && (
+                      <AgentPanel
+                        projectId={projectId as Id<"projects">}
+                      />
+                    )}
+                  </div>
+                </div>
               </ResizablePanel>
             </>
           )}
@@ -322,9 +424,7 @@ export function IDEPage() {
       {/* Bottom status bar */}
       <div className="flex items-center justify-between px-3 py-1 bg-[oklch(0.09_0.02_260)] border-t border-border text-[10px] text-muted-foreground">
         <div className="flex items-center gap-3">
-          <span>
-            {activeFile?.language ?? "plaintext"}
-          </span>
+          <span>{activeFile?.language ?? "plaintext"}</span>
           {unsavedFiles.size > 0 && (
             <span className="text-primary">
               {unsavedFiles.size} unsaved
@@ -347,14 +447,14 @@ export function IDEPage() {
           <button
             type="button"
             className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[oklch(0.16_0.02_260)] transition-colors"
-            onClick={() => setShowChat(!showChat)}
+            onClick={() => setShowRightPanel(!showRightPanel)}
           >
-            {showChat ? (
+            {showRightPanel ? (
               <MessageSquareOff className="h-3 w-3" />
             ) : (
               <MessageSquare className="h-3 w-3" />
             )}
-            Chat
+            Panel
           </button>
           <span>CodeForge</span>
         </div>

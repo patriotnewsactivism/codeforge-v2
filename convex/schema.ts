@@ -10,8 +10,8 @@ const schema = defineSchema({
     name: v.string(),
     description: v.optional(v.string()),
     ownerId: v.id("users"),
-    githubRepo: v.optional(v.string()), // e.g. "owner/repo"
-    githubToken: v.optional(v.string()), // encrypted token
+    githubRepo: v.optional(v.string()),
+    githubToken: v.optional(v.string()),
     language: v.optional(v.string()),
     lastOpenedAt: v.number(),
   })
@@ -21,12 +21,12 @@ const schema = defineSchema({
   // Files within a project
   files: defineTable({
     projectId: v.id("projects"),
-    path: v.string(), // e.g. "src/index.html"
-    name: v.string(), // e.g. "index.html"
+    path: v.string(),
+    name: v.string(),
     content: v.string(),
-    language: v.optional(v.string()), // detected language
+    language: v.optional(v.string()),
     isDirectory: v.boolean(),
-    parentPath: v.optional(v.string()), // parent directory path
+    parentPath: v.optional(v.string()),
   })
     .index("by_project", ["projectId"])
     .index("by_project_and_path", ["projectId", "path"]),
@@ -36,9 +36,9 @@ const schema = defineSchema({
     projectId: v.id("projects"),
     userId: v.id("users"),
     title: v.optional(v.string()),
-    model: v.string(), // current model for session
+    model: v.string(),
     totalTokensUsed: v.number(),
-    totalCost: v.number(), // in dollars
+    totalCost: v.number(),
   })
     .index("by_project", ["projectId"])
     .index("by_user", ["userId"]),
@@ -47,13 +47,16 @@ const schema = defineSchema({
   chatMessages: defineTable({
     sessionId: v.id("chatSessions"),
     projectId: v.id("projects"),
-    userId: v.optional(v.id("users")), // null for AI messages
+    userId: v.optional(v.id("users")),
     role: v.union(v.literal("user"), v.literal("assistant"), v.literal("system")),
     content: v.string(),
-    model: v.optional(v.string()), // which model generated this
+    model: v.optional(v.string()),
     tokensUsed: v.optional(v.number()),
     cost: v.optional(v.number()),
     isError: v.optional(v.boolean()),
+    // For multi-agent mode: which agent produced this message
+    agentId: v.optional(v.string()),
+    agentRole: v.optional(v.string()),
   }).index("by_session", ["sessionId"]),
 
   // Collaboration: active presence in a project
@@ -61,24 +64,99 @@ const schema = defineSchema({
     projectId: v.id("projects"),
     userId: v.id("users"),
     userName: v.string(),
-    activeFile: v.optional(v.string()), // which file they're viewing
+    activeFile: v.optional(v.string()),
     cursorLine: v.optional(v.number()),
     cursorColumn: v.optional(v.number()),
     lastSeenAt: v.number(),
-    color: v.string(), // assigned color for presence indicator
+    color: v.string(),
   })
     .index("by_project", ["projectId"])
     .index("by_project_and_user", ["projectId", "userId"]),
 
-  // Collaboration invites
+  // Collaboration invites (shareable links)
   projectInvites: defineTable({
     projectId: v.id("projects"),
     invitedBy: v.id("users"),
     inviteCode: v.string(),
     expiresAt: v.number(),
+    isPublic: v.optional(v.boolean()), // public collab session links
+    sessionName: v.optional(v.string()), // friendly name for the session
   })
     .index("by_code", ["inviteCode"])
     .index("by_project", ["projectId"]),
+
+  // Smart feature suggestions
+  suggestions: defineTable({
+    projectId: v.id("projects"),
+    title: v.string(),
+    description: v.string(),
+    category: v.string(), // "ui", "functionality", "performance", "ux", "security"
+    priority: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("implementing"),
+      v.literal("done"),
+      v.literal("dismissed")
+    ),
+    implementationPrompt: v.string(), // what to tell the AI to implement it
+    generatedAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_status", ["projectId", "status"]),
+
+  // Build loop: tracks autonomous build steps
+  buildSessions: defineTable({
+    projectId: v.id("projects"),
+    userId: v.id("users"),
+    status: v.union(
+      v.literal("running"),
+      v.literal("paused"),
+      v.literal("completed"),
+      v.literal("error")
+    ),
+    currentStep: v.optional(v.string()),
+    totalSteps: v.optional(v.number()),
+    completedSteps: v.optional(v.number()),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+  }).index("by_project", ["projectId"]),
+
+  // Build steps (log of what the AI did in a build session)
+  buildSteps: defineTable({
+    buildSessionId: v.id("buildSessions"),
+    projectId: v.id("projects"),
+    stepNumber: v.number(),
+    action: v.string(), // "create_file", "edit_file", "fix_error", "add_feature"
+    description: v.string(),
+    filesChanged: v.array(v.string()),
+    status: v.union(v.literal("running"), v.literal("done"), v.literal("error")),
+    errorMessage: v.optional(v.string()),
+    timestamp: v.number(),
+  })
+    .index("by_build_session", ["buildSessionId"])
+    .index("by_project", ["projectId"]),
+
+  // Multi-agent tasks
+  agentTasks: defineTable({
+    projectId: v.id("projects"),
+    buildSessionId: v.optional(v.id("buildSessions")),
+    agentId: v.string(), // "ui-agent", "backend-agent", "test-agent", etc.
+    agentName: v.string(),
+    agentIcon: v.string(), // emoji
+    task: v.string(),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("done"),
+      v.literal("error")
+    ),
+    result: v.optional(v.string()),
+    filesChanged: v.optional(v.array(v.string())),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_build_session", ["buildSessionId"]),
 });
 
 export default schema;
