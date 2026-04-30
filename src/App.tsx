@@ -21,8 +21,10 @@ function App() {
       <ThemeProvider defaultTheme="dark" switchable={false}>
         <Toaster />
         <Routes>
+          {/* Landing page has its own header */}
+          <Route path="/" element={<LandingPage />} />
+
           <Route element={<PublicLayout />}>
-            <Route path="/" element={<LandingPage />} />
             <Route element={<PublicOnlyRoute />}>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />

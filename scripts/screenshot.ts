@@ -1,84 +1,31 @@
-import { type ChildProcess, spawn } from "node:child_process";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { createPageHelper } from "./auth";
+import { runTest } from "./scripts/auth";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const projectRoot = resolve(__dirname, "..");
+runTest("Take Screenshots", async (helper) => {
+  const { page } = helper;
 
-const PREVIEW_PORT = 4173;
-const PREVIEW_URL = `http://localhost:${PREVIEW_PORT}`;
-const MAX_WAIT_MS = 30000;
-const POLL_INTERVAL_MS = 500;
+  // Screenshot landing page
+  await helper.goto("/");
+  await page.waitForTimeout(2000);
+  await page.screenshot({ path: "screenshots/landing.png", fullPage: true });
+  console.log("Landing screenshot taken");
 
-async function waitForServer(url: string, maxWait: number): Promise<boolean> {
-  const start = Date.now();
-  while (Date.now() - start < maxWait) {
-    try {
-      const response = await fetch(url);
-      if (response.ok || response.status === 304) {
-        return true;
-      }
-    } catch {
-      // Server not ready yet
-    }
-    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+  // Go to dashboard
+  await helper.goto("/dashboard");
+  await page.waitForTimeout(2000);
+  await page.screenshot({ path: "screenshots/dashboard.png", fullPage: true });
+  console.log("Dashboard screenshot taken");
+
+  // Create a project and open IDE
+  const newProjectBtn = page.locator("text=New Project").first();
+  if (await newProjectBtn.isVisible()) {
+    await newProjectBtn.click();
+    await page.waitForTimeout(500);
+    await page.fill('input[id="name"]', "My First App");
+    await page.fill('input[id="desc"]', "A test project");
+    await page.locator("text=Create Project").click();
+    await page.waitForTimeout(3000);
+    await page.screenshot({ path: "screenshots/ide.png", fullPage: true });
+    console.log("IDE screenshot taken");
   }
-  return false;
-}
 
-function startPreviewServer(): ChildProcess {
-  const server = spawn("bun", ["run", "preview"], {
-    cwd: projectRoot,
-    stdio: ["ignore", "pipe", "pipe"],
-    detached: false,
-  });
-
-  server.stdout?.on("data", () => {});
-  server.stderr?.on("data", () => {});
-
-  return server;
-}
-
-async function main() {
-  const args = process.argv.slice(2);
-  const path = args[0] || "/";
-  const filename = args[1] || `screenshot-${Date.now()}.png`;
-
-  console.log("🚀 Starting preview server...");
-  const server = startPreviewServer();
-
-  try {
-    console.log(`⏳ Waiting for server at ${PREVIEW_URL}...`);
-    const ready = await waitForServer(PREVIEW_URL, MAX_WAIT_MS);
-
-    if (!ready) {
-      console.error(
-        "❌ Server failed to start. Run 'bun run sync:build' first.",
-      );
-      process.exit(1);
-    }
-
-    console.log(`📸 Taking screenshot of ${path}...\n`);
-
-    process.env.APP_URL = PREVIEW_URL;
-    const helper = await createPageHelper();
-
-    await helper.goto(path);
-    await helper.screenshot(filename);
-
-    console.log(`\n📍 URL: ${helper.page.url()}`);
-    await helper.printPageContent();
-    helper.printConsoleLogs();
-
-    await helper.close();
-    console.log("\n✅ Done!");
-  } finally {
-    server.kill("SIGTERM");
-  }
-}
-
-main().catch(err => {
-  console.error("Failed:", err);
-  process.exit(1);
-});
+}).catch(() => process.exit(1));
