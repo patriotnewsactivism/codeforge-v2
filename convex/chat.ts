@@ -1,0 +1,297 @@
+import { v } from "convex/values";
+import { action, mutation, query } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { api } from "./_generated/api";
+
+declare const process: { env: Record<string, string | undefined> };
+
+const VIKTOR_API_URL = process.env.VIKTOR_SPACES_API_URL!;
+const PROJECT_NAME = process.env.VIKTOR_SPACES_PROJECT_NAME!;
+const PROJECT_SECRET = process.env.VIKTOR_SPACES_PROJECT_SECRET!;
+
+// Model configurations with pricing (per 1M tokens)
+const MODELS: Record<
+  string,
+  { name: string; inputCostPer1M: number; outputCostPer1M: number }
+> = {
+  "deepseek-v3.2": {
+    name: "DeepSeek V3.2",
+    inputCostPer1M: 0.27,
+    outputCostPer1M: 1.1,
+  },
+  "grok-4.1-fast": {
+    name: "Grok 4.1 Fast",
+    inputCostPer1M: 3.0,
+    outputCostPer1M: 15.0,
+  },
+  "gpt-5-mini": {
+    name: "GPT-5 Mini",
+    inputCostPer1M: 1.5,
+    outputCostPer1M: 6.0,
+  },
+};
+
+// Cost estimation (rough: ~4 chars per token)
+function estimateCost(
+  text: string,
+  model: string,
+  isOutput: boolean
+): { tokens: number; cost: number } {
+  const tokens = Math.ceil(text.length / 4);
+  const config = MODELS[model] ?? MODELS["deepseek-v3.2"];
+  const costPer1M = isOutput ? config.outputCostPer1M : config.inputCostPer1M;
+  const cost = (tokens / 1_000_000) * costPer1M;
+  return { tokens, cost };
+}
+
+export const getOrCreateSession = mutation({
+  args: { projectId: v.id("projects"), model: v.optional(v.string()) },
+  returns: v.id("chatSessions"),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    // Find existing session for this project/user
+    const existing = await ctx.db
+      .query("chatSessions")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    const userSession = existing.find((s) => s.userId === userId);
+    if (userSession) return userSession._id;
+
+    return await ctx.db.insert("chatSessions", {
+      projectId: args.projectId,
+      userId,
+      model: args.model ?? "deepseek-v3.2",
+      totalTokensUsed: 0,
+      totalCost: 0,
+    });
+  },
+});
+
+export const getSession = query({
+  args: { sessionId: v.id("chatSessions") },
+  returns: v.union(
+    v.object({
+      _id: v.id("chatSessions"),
+      _creationTime: v.number(),
+      projectId: v.id("projects"),
+      userId: v.id("users"),
+      title: v.optional(v.string()),
+      model: v.string(),
+      totalTokensUsed: v.number(),
+      totalCost: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.sessionId);
+  },
+});
+
+export const updateModel = mutation({
+  args: { sessionId: v.id("chatSessions"), model: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    await ctx.db.patch(args.sessionId, { model: args.model });
+    return null;
+  },
+});
+
+export const listMessages = query({
+  args: { sessionId: v.id("chatSessions") },
+  returns: v.array(
+    v.object({
+      _id: v.id("chatMessages"),
+      _creationTime: v.number(),
+      sessionId: v.id("chatSessions"),
+      projectId: v.id("projects"),
+      userId: v.optional(v.id("users")),
+      role: v.union(
+        v.literal("user"),
+        v.literal("assistant"),
+        v.literal("system")
+      ),
+      content: v.string(),
+      model: v.optional(v.string()),
+      tokensUsed: v.optional(v.number()),
+      cost: v.optional(v.number()),
+      isError: v.optional(v.boolean()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("chatMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+  },
+});
+
+export const addMessage = mutation({
+  args: {
+    sessionId: v.id("chatSessions"),
+    projectId: v.id("projects"),
+    role: v.union(
+      v.literal("user"),
+      v.literal("assistant"),
+      v.literal("system")
+    ),
+    content: v.string(),
+    model: v.optional(v.string()),
+    tokensUsed: v.optional(v.number()),
+    cost: v.optional(v.number()),
+    isError: v.optional(v.boolean()),
+    userId: v.optional(v.id("users")),
+  },
+  returns: v.id("chatMessages"),
+  handler: async (ctx, args) => {
+    // Update session totals if we have cost info
+    if (args.tokensUsed || args.cost) {
+      const session = await ctx.db.get(args.sessionId);
+      if (session) {
+        await ctx.db.patch(args.sessionId, {
+          totalTokensUsed:
+            session.totalTokensUsed + (args.tokensUsed ?? 0),
+          totalCost: session.totalCost + (args.cost ?? 0),
+        });
+      }
+    }
+    return await ctx.db.insert("chatMessages", {
+      sessionId: args.sessionId,
+      projectId: args.projectId,
+      role: args.role,
+      content: args.content,
+      model: args.model,
+      tokensUsed: args.tokensUsed,
+      cost: args.cost,
+      isError: args.isError,
+      userId: args.userId,
+    });
+  },
+});
+
+export const sendMessage = action({
+  args: {
+    sessionId: v.id("chatSessions"),
+    projectId: v.id("projects"),
+    content: v.string(),
+    model: v.string(),
+    fileContext: v.optional(v.string()), // current file content for context
+    userId: v.id("users"),
+  },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    // Save user message
+    await ctx.runMutation(api.chat.addMessage, {
+      sessionId: args.sessionId,
+      projectId: args.projectId,
+      role: "user",
+      content: args.content,
+      userId: args.userId,
+    });
+
+    // Build prompt with file context
+    const systemPrompt = `You are CodeForge AI, an expert coding assistant. You help users write, debug, and improve code. 
+When providing code, use markdown code blocks with the appropriate language tag.
+If the user shares file context, reference it in your response.
+Be concise but thorough. If you suggest code changes, show the complete updated code.`;
+
+    const messages = [];
+    messages.push({ role: "system", content: systemPrompt });
+
+    if (args.fileContext) {
+      messages.push({
+        role: "user",
+        content: `Current file context:\n\`\`\`\n${args.fileContext}\n\`\`\``,
+      });
+    }
+    messages.push({ role: "user", content: args.content });
+
+    // Try models with fallback
+    const modelOrder = [args.model, "deepseek-v3.2", "grok-4.1-fast", "gpt-5-mini"].filter(
+      (m, i, arr) => arr.indexOf(m) === i
+    );
+
+    let lastError = "";
+    for (const model of modelOrder) {
+      try {
+        const result = await callViktorAI(
+          args.content,
+          args.fileContext,
+          model
+        );
+        const inputEst = estimateCost(args.content + (args.fileContext ?? ""), model, false);
+        const outputEst = estimateCost(result, model, true);
+        const totalTokens = inputEst.tokens + outputEst.tokens;
+        const totalCost = inputEst.cost + outputEst.cost;
+
+        const modelConfig = MODELS[model];
+        const modelLabel = modelConfig?.name ?? model;
+
+        // Save AI response
+        await ctx.runMutation(api.chat.addMessage, {
+          sessionId: args.sessionId,
+          projectId: args.projectId,
+          role: "assistant",
+          content: result,
+          model: modelLabel,
+          tokensUsed: totalTokens,
+          cost: totalCost,
+        });
+
+        return result;
+      } catch (e: unknown) {
+        lastError = e instanceof Error ? e.message : String(e);
+        console.log(`Model ${model} failed: ${lastError}, trying next...`);
+        continue;
+      }
+    }
+
+    // All models failed
+    const errorMsg = `All models failed. Last error: ${lastError}`;
+    await ctx.runMutation(api.chat.addMessage, {
+      sessionId: args.sessionId,
+      projectId: args.projectId,
+      role: "assistant",
+      content: errorMsg,
+      isError: true,
+    });
+    return errorMsg;
+  },
+});
+
+async function callViktorAI(
+  userMessage: string,
+  fileContext: string | undefined,
+  _model: string
+): Promise<string> {
+  const prompt = fileContext
+    ? `I'm working on this code:\n\`\`\`\n${fileContext}\n\`\`\`\n\n${userMessage}`
+    : userMessage;
+
+  const response = await fetch(
+    `${VIKTOR_API_URL}/api/viktor-spaces/tools/call`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_name: PROJECT_NAME,
+        project_secret: PROJECT_SECRET,
+        role: "quick_ai_search",
+        arguments: { search_question: prompt },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+  }
+
+  const json = await response.json();
+  if (!json.success) {
+    throw new Error(json.error ?? "AI call failed");
+  }
+  return json.result.search_response;
+}

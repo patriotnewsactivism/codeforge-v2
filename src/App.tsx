@@ -12,12 +12,13 @@ import {
   LoginPage,
   SettingsPage,
   SignupPage,
+  IDEPage,
 } from "./pages";
 
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="system" switchable>
+      <ThemeProvider defaultTheme="dark" switchable={false}>
         <Toaster />
         <Routes>
           <Route element={<PublicLayout />}>
@@ -33,6 +34,8 @@ function App() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
+            {/* IDE page - full screen, no sidebar */}
+            <Route path="/project/:projectId" element={<IDEPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
