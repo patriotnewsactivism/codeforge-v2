@@ -16,6 +16,12 @@ import { CollaborationBar } from "@/components/ide/CollaborationBar";
 import { SuggestionsPanel } from "@/components/ide/SuggestionsPanel";
 import { BuildProgress } from "@/components/ide/BuildProgress";
 import { AgentPanel } from "@/components/ide/AgentPanel";
+import { SessionSidebar } from "@/components/ide/SessionSidebar";
+import { PanelErrorBoundary } from "@/components/ide/PanelErrorBoundary";
+import {
+  FileTreeSkeleton,
+  EditorSkeleton,
+} from "@/components/ide/PanelSkeleton";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { toast } from "sonner";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
@@ -26,6 +32,8 @@ import {
   MessageSquareOff,
   Lightbulb,
   Zap,
+  History,
+  Download,
 } from "lucide-react";
 
 type RightPanel = "chat" | "suggestions" | "agents";
@@ -65,6 +73,13 @@ export function IDEPage() {
   const [rightPanel, setRightPanel] = useState<RightPanel>("chat");
   const [showRightPanel, setShowRightPanel] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [showSessionSidebar, setShowSessionSidebar] = useState(false);
+
+  const createSession = useMutation(api.chat.createSession);
+  const projectBundle = useQuery(
+    api.export.getProjectBundle,
+    projectId ? { projectId: projectId as Id<"projects"> } : "skip"
+  );
 
   // Initialize chat session
   useEffect(() => {
@@ -246,6 +261,45 @@ export function IDEPage() {
     [projectId, runBuildLoop]
   );
 
+  // Handle creating a new chat session
+  const handleNewSession = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const newId = await createSession({
+        projectId: projectId as Id<"projects">,
+        title: `Chat ${new Date().toLocaleTimeString()}`,
+      });
+      setSessionId(newId);
+    } catch {
+      toast.error("Failed to create session");
+    }
+  }, [projectId, createSession]);
+
+  // Handle export as zip
+  const handleExport = useCallback(() => {
+    if (!projectBundle) return;
+    // Create a simple JSON bundle download (can be converted to zip client-side with JSZip)
+    const blob = new Blob([JSON.stringify(projectBundle, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${projectBundle.name}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Project exported");
+  }, [projectBundle]);
+
+  // Collect open file contexts for multi-file AI chat
+  const openFileContexts = openFilePaths
+    .map((path) => {
+      const file = files?.find((f) => f.path === path);
+      if (!file || file.isDirectory) return null;
+      return { path: file.path, content: getFileContent(file.path) };
+    })
+    .filter((f): f is { path: string; content: string } => f !== null);
+
   // Build file list with buffers applied for preview
   const previewFiles =
     files?.map((f) => ({
@@ -284,14 +338,20 @@ export function IDEPage() {
         <ResizablePanelGroup direction="horizontal">
           {/* File Tree */}
           <ResizablePanel defaultSize={15} minSize={10} maxSize={25}>
-            <FileTree
-              files={files ?? []}
-              activeFilePath={activeFilePath}
-              onFileSelect={handleFileSelect}
-              onCreateFile={handleCreateFile}
-              onDeleteFile={handleDeleteFile}
-              collaborators={collaborators}
-            />
+            <PanelErrorBoundary panelName="File Tree">
+              {files === undefined ? (
+                <FileTreeSkeleton />
+              ) : (
+                <FileTree
+                  files={files}
+                  activeFilePath={activeFilePath}
+                  onFileSelect={handleFileSelect}
+                  onCreateFile={handleCreateFile}
+                  onDeleteFile={handleDeleteFile}
+                  collaborators={collaborators}
+                />
+              )}
+            </PanelErrorBoundary>
           </ResizablePanel>
 
           <ResizableHandle />
@@ -310,18 +370,24 @@ export function IDEPage() {
                     unsavedFiles={unsavedFiles}
                   />
                   <div className="flex-1">
-                    <CodeEditor
-                      file={
-                        activeFile
-                          ? {
-                              ...activeFile,
-                              content: getFileContent(activeFile.path),
-                            }
-                          : null
-                      }
-                      onChange={handleContentChange}
-                      onSave={handleSave}
-                    />
+                    <PanelErrorBoundary panelName="Code Editor">
+                      {files === undefined ? (
+                        <EditorSkeleton />
+                      ) : (
+                        <CodeEditor
+                          file={
+                            activeFile
+                              ? {
+                                  ...activeFile,
+                                  content: getFileContent(activeFile.path),
+                                }
+                              : null
+                          }
+                          onChange={handleContentChange}
+                          onSave={handleSave}
+                        />
+                      )}
+                    </PanelErrorBoundary>
                   </div>
                 </div>
               </ResizablePanel>
@@ -331,11 +397,13 @@ export function IDEPage() {
                   <ResizableHandle />
                   {/* Live Preview + Console */}
                   <ResizablePanel defaultSize={45} minSize={20}>
-                    <LivePreview
-                      files={previewFiles}
-                      autoRefresh={autoRefresh}
-                      onToggleAutoRefresh={() => setAutoRefresh(!autoRefresh)}
-                    />
+                    <PanelErrorBoundary panelName="Live Preview">
+                      <LivePreview
+                        files={previewFiles}
+                        autoRefresh={autoRefresh}
+                        onToggleAutoRefresh={() => setAutoRefresh(!autoRefresh)}
+                      />
+                    </PanelErrorBoundary>
                   </ResizablePanel>
                 </>
               )}
@@ -389,30 +457,50 @@ export function IDEPage() {
                   </div>
 
                   {/* Panel content */}
-                  <div className="flex-1 overflow-hidden">
-                    {rightPanel === "chat" && (
-                      <ChatPanel
-                        projectId={projectId as Id<"projects">}
-                        sessionId={sessionId}
-                        currentFileContent={
-                          activeFile
-                            ? getFileContent(activeFile.path)
-                            : undefined
-                        }
-                        currentFileName={activeFile?.name}
-                      />
+                  <div className="flex-1 overflow-hidden flex">
+                    {/* Session sidebar (togglable) */}
+                    {rightPanel === "chat" && showSessionSidebar && (
+                      <div className="w-44 border-r border-border shrink-0">
+                        <SessionSidebar
+                          projectId={projectId as Id<"projects">}
+                          activeSessionId={sessionId}
+                          onSelectSession={(id) => setSessionId(id)}
+                          onNewSession={handleNewSession}
+                        />
+                      </div>
                     )}
-                    {rightPanel === "suggestions" && (
-                      <SuggestionsPanel
-                        projectId={projectId as Id<"projects">}
-                        onImplement={handleImplementSuggestion}
-                      />
-                    )}
-                    {rightPanel === "agents" && (
-                      <AgentPanel
-                        projectId={projectId as Id<"projects">}
-                      />
-                    )}
+                    <div className="flex-1 overflow-hidden">
+                      {rightPanel === "chat" && (
+                        <PanelErrorBoundary panelName="AI Chat">
+                          <ChatPanel
+                            projectId={projectId as Id<"projects">}
+                            sessionId={sessionId}
+                            currentFileContent={
+                              activeFile
+                                ? getFileContent(activeFile.path)
+                                : undefined
+                            }
+                            currentFileName={activeFile?.name}
+                            openFiles={openFileContexts}
+                          />
+                        </PanelErrorBoundary>
+                      )}
+                      {rightPanel === "suggestions" && (
+                        <PanelErrorBoundary panelName="Suggestions">
+                          <SuggestionsPanel
+                            projectId={projectId as Id<"projects">}
+                            onImplement={handleImplementSuggestion}
+                          />
+                        </PanelErrorBoundary>
+                      )}
+                      {rightPanel === "agents" && (
+                        <PanelErrorBoundary panelName="Multi-Agent">
+                          <AgentPanel
+                            projectId={projectId as Id<"projects">}
+                          />
+                        </PanelErrorBoundary>
+                      )}
+                    </div>
                   </div>
                 </div>
               </ResizablePanel>
@@ -455,6 +543,22 @@ export function IDEPage() {
               <MessageSquare className="h-3 w-3" />
             )}
             Panel
+          </button>
+          <button
+            type="button"
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[oklch(0.16_0.02_260)] transition-colors ${showSessionSidebar ? "text-primary" : ""}`}
+            onClick={() => setShowSessionSidebar(!showSessionSidebar)}
+          >
+            <History className="h-3 w-3" />
+            Sessions
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-[oklch(0.16_0.02_260)] transition-colors"
+            onClick={handleExport}
+          >
+            <Download className="h-3 w-3" />
+            Export
           </button>
           <span>CodeForge</span>
         </div>

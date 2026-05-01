@@ -16,6 +16,7 @@ import {
   Palette,
   Settings2,
   TrendingUp,
+  Undo2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ export function SuggestionsPanel({ projectId, onImplement }: SuggestionsPanelPro
   const suggestions = useQuery(api.suggestions.listByProject, { projectId });
   const generateSuggestions = useAction(api.suggestions.generateSuggestions);
   const updateStatus = useMutation(api.suggestions.updateStatus);
+  const undoSuggestion = useMutation(api.changeHistory.undoSuggestion);
 
   const pendingSuggestions =
     suggestions?.filter((s) => s.status === "pending") ?? [];
@@ -70,6 +72,14 @@ export function SuggestionsPanel({ projectId, onImplement }: SuggestionsPanelPro
 
   const handleDismiss = (suggestionId: Id<"suggestions">) => {
     updateStatus({ suggestionId, status: "dismissed" });
+  };
+
+  const handleUndo = async (suggestionId: Id<"suggestions">) => {
+    try {
+      await undoSuggestion({ suggestionId: suggestionId });
+    } catch (e) {
+      console.error("Failed to undo suggestion:", e);
+    }
   };
 
   return (
@@ -174,6 +184,7 @@ export function SuggestionsPanel({ projectId, onImplement }: SuggestionsPanelPro
                   setExpandedId(expandedId === s._id ? null : s._id)
                 }
                 isDone
+                onUndo={() => handleUndo(s._id as Id<"suggestions">)}
               />
             ))}
           </>
@@ -196,6 +207,7 @@ interface SuggestionCardProps {
   onToggle: () => void;
   onImplement?: () => void;
   onDismiss?: () => void;
+  onUndo?: () => void;
   isImplementing?: boolean;
   isDone?: boolean;
 }
@@ -206,6 +218,7 @@ function SuggestionCard({
   onToggle,
   onImplement,
   onDismiss,
+  onUndo,
   isImplementing,
   isDone,
 }: SuggestionCardProps) {
@@ -296,6 +309,22 @@ function SuggestionCard({
                   <X className="h-3 w-3" />
                 </Button>
               )}
+            </div>
+          )}
+          {isDone && onUndo && (
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1 flex-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUndo();
+                }}
+              >
+                <Undo2 className="h-3 w-3" />
+                Undo Changes
+              </Button>
             </div>
           )}
         </div>

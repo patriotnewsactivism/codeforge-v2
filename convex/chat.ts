@@ -44,6 +44,8 @@ function estimateCost(
   return { tokens, cost };
 }
 
+// ─── Session Management ────────────────────────────────────────
+
 export const getOrCreateSession = mutation({
   args: { projectId: v.id("projects"), model: v.optional(v.string()) },
   returns: v.id("chatSessions"),
@@ -51,12 +53,12 @@ export const getOrCreateSession = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    // Find existing session for this project/user
+    // Find existing active (non-archived) session
     const existing = await ctx.db
       .query("chatSessions")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
-    const userSession = existing.find((s) => s.userId === userId);
+    const userSession = existing.find((s) => s.userId === userId && !s.isArchived);
     if (userSession) return userSession._id;
 
     return await ctx.db.insert("chatSessions", {
@@ -65,25 +67,97 @@ export const getOrCreateSession = mutation({
       model: args.model ?? "deepseek-v3.2",
       totalTokensUsed: 0,
       totalCost: 0,
+      createdAt: Date.now(),
     });
+  },
+});
+
+export const createSession = mutation({
+  args: { projectId: v.id("projects"), title: v.optional(v.string()), model: v.optional(v.string()) },
+  returns: v.id("chatSessions"),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    return await ctx.db.insert("chatSessions", {
+      projectId: args.projectId,
+      userId,
+      title: args.title ?? "New Chat",
+      model: args.model ?? "deepseek-v3.2",
+      totalTokensUsed: 0,
+      totalCost: 0,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+export const listSessions = query({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const sessions = await ctx.db
+      .query("chatSessions")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    return sessions
+      .filter((s) => s.userId === userId && !s.isArchived)
+      .sort((a, b) => (b.createdAt ?? b._creationTime) - (a.createdAt ?? a._creationTime));
+  },
+});
+
+export const renameSession = mutation({
+  args: { sessionId: v.id("chatSessions"), title: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.userId !== userId) throw new Error("Not your session");
+    await ctx.db.patch(args.sessionId, { title: args.title });
+    return null;
+  },
+});
+
+export const deleteSession = mutation({
+  args: { sessionId: v.id("chatSessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.userId !== userId) throw new Error("Not your session");
+
+    // Delete all messages in this session
+    const messages = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+    for (const msg of messages) {
+      await ctx.db.delete(msg._id);
+    }
+    await ctx.db.delete(args.sessionId);
+    return null;
+  },
+});
+
+export const archiveSession = mutation({
+  args: { sessionId: v.id("chatSessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.userId !== userId) throw new Error("Not your session");
+    await ctx.db.patch(args.sessionId, { isArchived: true });
+    return null;
   },
 });
 
 export const getSession = query({
   args: { sessionId: v.id("chatSessions") },
-  returns: v.union(
-    v.object({
-      _id: v.id("chatSessions"),
-      _creationTime: v.number(),
-      projectId: v.id("projects"),
-      userId: v.id("users"),
-      title: v.optional(v.string()),
-      model: v.string(),
-      totalTokensUsed: v.number(),
-      totalCost: v.number(),
-    }),
-    v.null()
-  ),
   handler: async (ctx, args) => {
     return await ctx.db.get(args.sessionId);
   },
@@ -100,27 +174,10 @@ export const updateModel = mutation({
   },
 });
 
+// ─── Messages ──────────────────────────────────────────────────
+
 export const listMessages = query({
   args: { sessionId: v.id("chatSessions") },
-  returns: v.array(
-    v.object({
-      _id: v.id("chatMessages"),
-      _creationTime: v.number(),
-      sessionId: v.id("chatSessions"),
-      projectId: v.id("projects"),
-      userId: v.optional(v.id("users")),
-      role: v.union(
-        v.literal("user"),
-        v.literal("assistant"),
-        v.literal("system")
-      ),
-      content: v.string(),
-      model: v.optional(v.string()),
-      tokensUsed: v.optional(v.number()),
-      cost: v.optional(v.number()),
-      isError: v.optional(v.boolean()),
-    })
-  ),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("chatMessages")
@@ -144,6 +201,10 @@ export const addMessage = mutation({
     cost: v.optional(v.number()),
     isError: v.optional(v.boolean()),
     userId: v.optional(v.id("users")),
+    fileContexts: v.optional(v.array(v.object({
+      path: v.string(),
+      content: v.string(),
+    }))),
   },
   returns: v.id("chatMessages"),
   handler: async (ctx, args) => {
@@ -168,9 +229,12 @@ export const addMessage = mutation({
       cost: args.cost,
       isError: args.isError,
       userId: args.userId,
+      fileContexts: args.fileContexts,
     });
   },
 });
+
+// ─── AI Chat Action ────────────────────────────────────────────
 
 export const sendMessage = action({
   args: {
@@ -178,36 +242,34 @@ export const sendMessage = action({
     projectId: v.id("projects"),
     content: v.string(),
     model: v.string(),
-    fileContext: v.optional(v.string()), // current file content for context
+    fileContext: v.optional(v.string()), // single file context (backwards compat)
+    fileContexts: v.optional(v.array(v.object({
+      path: v.string(),
+      content: v.string(),
+    }))), // multi-file context
     userId: v.id("users"),
   },
   returns: v.string(),
   handler: async (ctx, args) => {
-    // Save user message
+    // Build combined file context from multi-file or single file
+    let combinedContext = "";
+    if (args.fileContexts && args.fileContexts.length > 0) {
+      combinedContext = args.fileContexts
+        .map((f) => `--- ${f.path} ---\n${f.content}`)
+        .join("\n\n");
+    } else if (args.fileContext) {
+      combinedContext = args.fileContext;
+    }
+
+    // Save user message with multi-file context
     await ctx.runMutation(api.chat.addMessage, {
       sessionId: args.sessionId,
       projectId: args.projectId,
       role: "user",
       content: args.content,
       userId: args.userId,
+      fileContexts: args.fileContexts,
     });
-
-    // Build prompt with file context
-    const systemPrompt = `You are CodeForge AI, an expert coding assistant. You help users write, debug, and improve code. 
-When providing code, use markdown code blocks with the appropriate language tag.
-If the user shares file context, reference it in your response.
-Be concise but thorough. If you suggest code changes, show the complete updated code.`;
-
-    const messages = [];
-    messages.push({ role: "system", content: systemPrompt });
-
-    if (args.fileContext) {
-      messages.push({
-        role: "user",
-        content: `Current file context:\n\`\`\`\n${args.fileContext}\n\`\`\``,
-      });
-    }
-    messages.push({ role: "user", content: args.content });
 
     // Try models with fallback
     const modelOrder = [args.model, "deepseek-v3.2", "grok-4.1-fast", "gpt-5-mini"].filter(
@@ -219,10 +281,11 @@ Be concise but thorough. If you suggest code changes, show the complete updated 
       try {
         const result = await callViktorAI(
           args.content,
-          args.fileContext,
+          combinedContext || undefined,
           model
         );
-        const inputEst = estimateCost(args.content + (args.fileContext ?? ""), model, false);
+        const inputText = args.content + (combinedContext || "");
+        const inputEst = estimateCost(inputText, model, false);
         const outputEst = estimateCost(result, model, true);
         const totalTokens = inputEst.tokens + outputEst.tokens;
         const totalCost = inputEst.cost + outputEst.cost;

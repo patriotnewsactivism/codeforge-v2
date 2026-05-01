@@ -36,11 +36,17 @@ const MODELS = [
   },
 ];
 
+interface FileContext {
+  path: string;
+  content: string;
+}
+
 interface ChatPanelProps {
   projectId: Id<"projects">;
   sessionId: Id<"chatSessions"> | null;
   currentFileContent?: string;
   currentFileName?: string;
+  openFiles?: FileContext[]; // all open editor tabs for multi-file context
 }
 
 export function ChatPanel({
@@ -48,6 +54,7 @@ export function ChatPanel({
   sessionId,
   currentFileContent,
   currentFileName,
+  openFiles,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -88,12 +95,20 @@ export function ChatPanel({
         ? cleanMsg
         : cleanMsg;
 
+      // Send with multi-file context if available, fallback to single file
+      const fileContexts = openFiles && openFiles.length > 0
+        ? openFiles
+        : currentFileContent && currentFileName
+          ? [{ path: currentFileName, content: currentFileContent }]
+          : undefined;
+
       await sendMessage({
         sessionId,
         projectId,
         content: contextMsg,
         model: currentModel,
         fileContext: currentFileContent,
+        fileContexts,
         userId: userId as Id<"users">,
       });
     } catch (error) {

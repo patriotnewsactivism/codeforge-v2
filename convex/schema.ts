@@ -11,7 +11,6 @@ const schema = defineSchema({
     description: v.optional(v.string()),
     ownerId: v.id("users"),
     githubRepo: v.optional(v.string()),
-    githubToken: v.optional(v.string()),
     language: v.optional(v.string()),
     lastOpenedAt: v.number(),
   })
@@ -39,6 +38,8 @@ const schema = defineSchema({
     model: v.string(),
     totalTokensUsed: v.number(),
     totalCost: v.number(),
+    createdAt: v.optional(v.number()),
+    isArchived: v.optional(v.boolean()),
   })
     .index("by_project", ["projectId"])
     .index("by_user", ["userId"]),
@@ -54,6 +55,11 @@ const schema = defineSchema({
     tokensUsed: v.optional(v.number()),
     cost: v.optional(v.number()),
     isError: v.optional(v.boolean()),
+    // Multi-file context: array of { path, content } for richer AI context
+    fileContexts: v.optional(v.array(v.object({
+      path: v.string(),
+      content: v.string(),
+    }))),
     // For multi-agent mode: which agent produced this message
     agentId: v.optional(v.string()),
     agentRole: v.optional(v.string()),
@@ -103,6 +109,21 @@ const schema = defineSchema({
   })
     .index("by_project", ["projectId"])
     .index("by_project_and_status", ["projectId", "status"]),
+
+  // Change history: tracks file changes for undo/rollback
+  changeHistory: defineTable({
+    projectId: v.id("projects"),
+    suggestionId: v.optional(v.id("suggestions")),
+    buildStepId: v.optional(v.id("buildSteps")),
+    filePath: v.string(),
+    previousContent: v.string(),
+    newContent: v.string(),
+    action: v.union(v.literal("create"), v.literal("edit"), v.literal("delete")),
+    timestamp: v.number(),
+    undone: v.optional(v.boolean()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_suggestion", ["suggestionId"]),
 
   // Build loop: tracks autonomous build steps
   buildSessions: defineTable({
