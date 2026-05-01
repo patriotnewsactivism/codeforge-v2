@@ -4,13 +4,10 @@ node_modules/
 # Build output
 dist/
 
-# Environment variables
+# Environment
 .env
 .env.local
-.env.*.local
-
-# Convex generated files
-convex/_generated/
+.env.production
 
 # IDE
 .vscode/
@@ -18,16 +15,13 @@ convex/_generated/
 *.swp
 *.swo
 
-# OS files
+# OS
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-npm-debug.log*
-bun.lockb
+# Convex generated (regenerated on deploy)
+convex/_generated/
 
-# Temp/test output
+# Temp
+*.log
 tmp/
-test-results/
-playwright-report/
