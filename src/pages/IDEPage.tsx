@@ -17,6 +17,7 @@ import { SuggestionsPanel } from "@/components/ide/SuggestionsPanel";
 import { BuildProgress } from "@/components/ide/BuildProgress";
 import { AgentPanel } from "@/components/ide/AgentPanel";
 import { MemoryTab } from "@/components/ide/MemoryTab";
+import { AgentThoughtStream } from "@/components/ide/AgentThoughtStream";
 import { SessionSidebar } from "@/components/ide/SessionSidebar";
 import { PanelErrorBoundary } from "@/components/ide/PanelErrorBoundary";
 import {
@@ -36,9 +37,10 @@ import {
   History,
   Download,
   Brain,
+  Cpu,
 } from "lucide-react";
 
-type RightPanel = "chat" | "suggestions" | "agents" | "memory";
+type RightPanel = "chat" | "suggestions" | "agents" | "memory" | "thoughts";
 
 export function IDEPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -468,6 +470,18 @@ export function IDEPage() {
                       <Brain className="h-3 w-3" />
                       Memory
                     </button>
+                    <button
+                      type="button"
+                      className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                        rightPanel === "thoughts"
+                          ? "text-cyan-400 border-b-2 border-cyan-400"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      onClick={() => setRightPanel("thoughts")}
+                    >
+                      <Cpu className="h-3 w-3" />
+                      Thoughts
+                    </button>
                   </div>
 
                   {/* Panel content */}
@@ -517,6 +531,11 @@ export function IDEPage() {
                   {rightPanel === "memory" && projectId && (
                     <PanelErrorBoundary>
                       <MemoryTab projectId={projectId as Id<"projects">} />
+                    </PanelErrorBoundary>
+                  )}
+                  {rightPanel === "thoughts" && projectId && (
+                    <PanelErrorBoundary>
+                      <AgentThoughtStream projectId={projectId as Id<"projects">} />
                     </PanelErrorBoundary>
                   )}
                     </div>
