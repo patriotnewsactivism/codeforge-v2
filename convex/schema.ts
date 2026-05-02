@@ -104,6 +104,8 @@ const schema = defineSchema({
     ),
     implementationPrompt: v.string(),
     generatedAt: v.number(),
+    impactScore: v.optional(v.number()),
+    autoApproved: v.optional(v.boolean()),
   })
     .index("by_project", ["projectId"])
     .index("by_project_and_status", ["projectId", "status"]),
@@ -333,6 +335,16 @@ const schema = defineSchema({
   })
     .index("by_project", ["projectId"])
     .index("by_build_session", ["buildSessionId"]),
+
+  // Per-project settings: autonomous mode, soul/identity, auto-build config
+  projectSettings: defineTable({
+    projectId: v.id("projects"),
+    autonomousMode: v.boolean(),
+    autoIntervalMinutes: v.number(),
+    lastAutoRunAt: v.optional(v.number()),
+    projectSoul: v.optional(v.string()),  // core identity — agents never violate this
+  }).index("by_project", ["projectId"]),
+
 
 });
 
