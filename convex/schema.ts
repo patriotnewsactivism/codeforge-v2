@@ -252,6 +252,59 @@ const schema = defineSchema({
     .index("by_project", ["projectId"])
     .index("by_build_session", ["buildSessionId"])
     .index("by_project_and_time", ["projectId", "timestamp"]),
+
+  // ─── GIT INTEGRATION ────────────────────────────────────────────────────────
+
+  // Commits made by agents (or manual pushes) to GitHub
+  gitCommits: defineTable({
+    projectId: v.id("projects"),
+    sha: v.string(),
+    message: v.string(),
+    branch: v.string(),
+    filesChanged: v.array(v.string()),
+    agentId: v.optional(v.string()),
+    buildSessionId: v.optional(v.id("buildSessions")),
+    timestamp: v.number(),
+    pushedAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_branch", ["projectId", "branch"]),
+
+  // Git branches tracked per project
+  gitBranches: defineTable({
+    projectId: v.id("projects"),
+    name: v.string(),
+    isActive: v.boolean(),
+    headSha: v.optional(v.string()),
+    prUrl: v.optional(v.string()),
+    prNumber: v.optional(v.number()),
+    status: v.union(
+      v.literal("open"),
+      v.literal("merged"),
+      v.literal("closed"),
+      v.literal("local")
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_name", ["projectId", "name"]),
+
+  // ─── CODEBASE RAG INDEX ──────────────────────────────────────────────────────
+
+  // TF-IDF index of every file — enables semantic search across the codebase
+  codebaseIndex: defineTable({
+    projectId: v.id("projects"),
+    fileId: v.id("files"),
+    path: v.string(),
+    language: v.string(),
+    termFrequency: v.string(),   // JSON-serialized Record<string, number>
+    tags: v.array(v.string()),   // function names, imports, class names
+    tokenCount: v.number(),
+    indexedAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_path", ["projectId", "path"]),
+
 });
 
 export default schema;
