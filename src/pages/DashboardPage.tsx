@@ -77,10 +77,10 @@ export function DashboardPage() {
   );
 
   return (
-    <div className="min-h-[calc(100vh-64px)] p-6">
+    <div className="min-h-[calc(100vh-64px)] p-3 sm:p-6">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 sm:mb-8">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Code2 className="h-7 w-7 text-primary" />
@@ -92,7 +92,7 @@ export function DashboardPage() {
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
+              <Button className="gap-2 w-full sm:w-auto">
                 <Plus className="h-4 w-4" />
                 New Project
               </Button>
@@ -153,7 +153,7 @@ export function DashboardPage() {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {sortedProjects.map((project) => (
               <Card
                 key={project._id}
