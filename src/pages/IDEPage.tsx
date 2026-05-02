@@ -18,6 +18,7 @@ import { BuildProgress } from "@/components/ide/BuildProgress";
 import { AgentPanel } from "@/components/ide/AgentPanel";
 import { MemoryTab } from "@/components/ide/MemoryTab";
 import { AgentThoughtStream } from "@/components/ide/AgentThoughtStream";
+import { AgentActivityPanel } from "@/components/ide/AgentActivityPanel";
 import { GitPanel } from "@/components/ide/GitPanel";
 import { SessionSidebar } from "@/components/ide/SessionSidebar";
 import { PanelErrorBoundary } from "@/components/ide/PanelErrorBoundary";
@@ -349,7 +350,7 @@ export function IDEPage() {
     { id: "suggestions", label: "Ideas", icon: <Lightbulb className="h-3.5 w-3.5" />, color: "text-amber-400 border-amber-400" },
     { id: "agents", label: "Agents", icon: <Zap className="h-3.5 w-3.5" />, color: "text-amber-400 border-amber-400" },
     { id: "memory", label: "Memory", icon: <Brain className="h-3.5 w-3.5" />, color: "text-violet-400 border-violet-400" },
-    { id: "thoughts", label: "Thoughts", icon: <Cpu className="h-3.5 w-3.5" />, color: "text-cyan-400 border-cyan-400" },
+    { id: "thoughts", label: "Activity", icon: <Cpu className="h-3.5 w-3.5" />, color: "text-cyan-400 border-cyan-400" },
     { id: "git", label: "Git", icon: <Github className="h-3.5 w-3.5" />, color: "text-orange-400 border-orange-400" },
   ];
 
@@ -408,8 +409,8 @@ export function IDEPage() {
           </PanelErrorBoundary>
         )}
         {rightPanel === "thoughts" && (
-          <PanelErrorBoundary panelName="Thoughts">
-            <AgentThoughtStream projectId={projectId as Id<"projects">} />
+          <PanelErrorBoundary panelName="Agent Activity">
+            <AgentActivityPanel projectId={projectId as Id<"projects">} />
           </PanelErrorBoundary>
         )}
         {rightPanel === "git" && (
