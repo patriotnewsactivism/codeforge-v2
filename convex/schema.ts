@@ -346,6 +346,30 @@ const schema = defineSchema({
   }).index("by_project", ["projectId"]),
 
 
+  // ─── V2 ENGINE: TOOL CALL STREAM ────────────────────────────────────────────
+  // Live stream of every tool call made by agents — subscribed in real-time by frontend
+  toolCalls: defineTable({
+    projectId: v.id("projects"),
+    missionId: v.string(),          // groups all calls from one runMission invocation
+    agentId: v.string(),
+    agentName: v.string(),
+    tool: v.string(),               // tool name: create_file, edit_file, etc.
+    args: v.string(),               // JSON-serialized args
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("done"),
+      v.literal("error")
+    ),
+    result: v.optional(v.string()),
+    error: v.optional(v.string()),
+    timestamp: v.number(),
+    finishedAt: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_mission", ["missionId"]),
+
+
 });
 
 export default schema;
