@@ -305,6 +305,35 @@ const schema = defineSchema({
     .index("by_project", ["projectId"])
     .index("by_project_and_path", ["projectId", "path"]),
 
+
+  // ─── STREAMING THOUGHT PROCESS ──────────────────────────────────────────────
+
+  // Real-time stream of agent thinking — emitted token by token, 
+  // subscribed live in the frontend via Convex's real-time queries
+  agentThoughts: defineTable({
+    projectId: v.id("projects"),
+    buildSessionId: v.optional(v.id("buildSessions")),
+    agentId: v.string(),
+    agentName: v.string(),
+    type: v.union(
+      v.literal("plan"),
+      v.literal("analyze"),
+      v.literal("code"),
+      v.literal("debug"),
+      v.literal("review"),
+      v.literal("memory"),
+      v.literal("search"),
+      v.literal("commit"),
+      v.literal("broadcast"),
+      v.literal("done")
+    ),
+    content: v.string(),
+    isStreaming: v.optional(v.boolean()),
+    timestamp: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_build_session", ["buildSessionId"]),
+
 });
 
 export default schema;
