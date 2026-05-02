@@ -185,3 +185,38 @@
 [data-panel-group-direction="vertical"] > [data-resize-handle][data-resize-handle-active] {
   background: oklch(0.75 0.18 190);
 }
+
+/* ─── MOBILE UTILITIES ──────────────────────────────────────────────────────── */
+
+/* Hide scrollbars but keep scroll functionality */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Use dynamic viewport height on mobile (fixes iOS Safari 100vh bug) */
+@supports (height: 100dvh) {
+  .h-\[100dvh\] {
+    height: 100dvh;
+  }
+}
+
+/* Prevent double-tap zoom on touch buttons */
+button, [role="button"] {
+  touch-action: manipulation;
+}
+
+/* Ensure code editors don't cause horizontal scroll on mobile */
+.monaco-editor, .monaco-editor-background {
+  min-width: 0 !important;
+}
+
+/* Bottom safe area padding for iOS notch phones */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
