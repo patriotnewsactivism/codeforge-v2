@@ -10,22 +10,20 @@ const PROJECT_NAME = process.env.VIKTOR_SPACES_PROJECT_NAME!;
 const PROJECT_SECRET = process.env.VIKTOR_SPACES_PROJECT_SECRET!;
 
 async function callAI(prompt: string): Promise<string> {
-  const res = await fetch(`${VIKTOR_API_URL}/api/v1/actions/run`, {
+  const res = await fetch(`${VIKTOR_API_URL}/api/viktor-spaces/tools/call`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-project-name": PROJECT_NAME,
-      "x-project-secret": PROJECT_SECRET,
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      action: "complete",
-      model: "deepseek-v3.2",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 2000,
+      project_name: PROJECT_NAME,
+      project_secret: PROJECT_SECRET,
+      role: "quick_ai_search",
+      arguments: { search_question: prompt },
     }),
   });
-  const data = await res.json();
-  return data.result ?? data.content ?? "";
+  if (!res.ok) throw new Error(`AI API error: HTTP ${res.status}`);
+  const json = await res.json() as { success: boolean; error?: string; result?: { search_response: string } };
+  if (!json.success) throw new Error(json.error ?? "AI call failed");
+  return json.result?.search_response ?? "";
 }
 
 // ─── QUERIES ─────────────────────────────────────────────────────────────────
