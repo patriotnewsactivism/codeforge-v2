@@ -535,6 +535,68 @@ Return ONLY valid JSON (no markdown):
 
     const successCount = results.filter((r) => r.status === "done").length;
     const totalCount = results.length;
+
+    // 7. Auto-push to GitHub if project has a configured repo
+    if (successCount > 0) {
+      try {
+        const project = await ctx.runQuery(api.projects.get, { projectId: args.projectId });
+        if (project?.githubRepo) {
+          await ctx.runMutation(api.agentThoughts.emit, {
+            projectId: args.projectId,
+            agentId: "planner-agent",
+            agentName: "Planner",
+            type: "commit",
+            content: `Auto-pushing ${results.flatMap(r => r.filesChanged ?? []).length} changed files to ${project.githubRepo}...`,
+            isStreaming: true,
+          });
+
+          const changedFiles = [...new Set(results.flatMap((r) => r.filesChanged ?? []))];
+          const branchName = `agent/${args.prompt.slice(0, 40).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+          const commitMsg = `feat(agent): ${args.prompt.slice(0, 72)}`;
+
+          const pushResult = await ctx.runAction(api.git.pushToGitHub, {
+            projectId: args.projectId,
+            repoFullName: project.githubRepo,
+            branchName,
+            commitMessage: commitMsg,
+            createPR: true,
+            prTitle: args.prompt.slice(0, 100),
+            prBody: [
+              "## CodeForge Agent Run",
+              "",
+              `**Task:** ${args.prompt}`,
+              `**Complexity:** ${plan.complexity}`,
+              `**Agents:** ${plan.agents.length} (${plan.agents.map((a: {agentId: string}) => a.agentId).join(", ")})`,
+              `**Result:** ${successCount}/${totalCount} agents succeeded`,
+              "",
+              "### Files Changed",
+              changedFiles.map((f) => `- \`${f}\``).join("\n"),
+            ].join("\n"),
+          });
+
+          await ctx.runMutation(api.agentThoughts.emit, {
+            projectId: args.projectId,
+            agentId: "planner-agent",
+            agentName: "Planner",
+            type: "commit",
+            content: pushResult.success
+              ? `✓ Pushed to ${branchName}${pushResult.prUrl ? " · PR opened" : ""}`
+              : `⚠ Git push skipped: ${pushResult.error}`,
+          });
+        }
+      } catch {
+        // Auto-push failure is non-fatal
+      }
+    }
+
+    await ctx.runMutation(api.agentThoughts.emit, {
+      projectId: args.projectId,
+      agentId: "planner-agent",
+      agentName: "Planner",
+      type: "done",
+      content: `All done — ${successCount}/${totalCount} agents completed`,
+    });
+
     const summary = results
       .map((r) => `${r.agentName}: ${r.result ?? r.status}`)
       .join("\n");
