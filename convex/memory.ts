@@ -408,7 +408,7 @@ Rules:
         category: category as "pattern" | "anti_pattern" | "preference" | "architecture" | "dependency" | "bugfix" | "convention" | "tool" | "insight",
         content: mem.content,
         importance: Math.max(0.1, Math.min(1.0, mem.importance ?? 0.5)),
-        triggerTaskId: args.triggerTaskId,
+        sourceTaskId: args.sourceTaskId,
         sourceRetroId: retroId,
       });
       memoryIds.push(memId);
