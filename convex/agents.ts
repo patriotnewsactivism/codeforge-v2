@@ -228,6 +228,14 @@ export const runMultiAgent = action({
         ? `Memory loaded — ${memoryContext.split("\n").length} entries including past patterns, preferences, and anti-patterns`
         : "No prior memory — starting fresh");
 
+
+    // ── 1b. LOAD PROJECT SOUL ─────────────────────────────────────────────────
+    const projectSettings = await ctx.runQuery(api.suggestions.getAutonomousMode, { projectId });
+    const projectSoul = projectSettings?.projectSoul ?? "";
+    const soulSection = projectSoul
+      ? `\n\nPROJECT SOUL — THE CORE IDENTITY (NEVER VIOLATE THIS):\n${projectSoul}\n\nEVERY change you make MUST be additive and consistent with this soul. The QA agent will reject anything that contradicts it.`
+      : "";
+
     // ── 2. LOAD ALL FILES ─────────────────────────────────────────────────────
     const files = await ctx.runQuery(api.files.listByProject, { projectId });
     const codeFiles = files.filter((f) => !f.isDirectory);
@@ -261,7 +269,7 @@ export const runMultiAgent = action({
 
     const planPrompt = `You are CodeForge's Master Planner. You orchestrate an autonomous multi-agent coding system.
 
-USER REQUEST: "${args.prompt}"
+USER REQUEST: "${args.prompt}"${soulSection}
 
 ${memoryContext ? `LEARNED CONTEXT FROM MEMORY:\n${memoryContext}\n` : ""}
 
@@ -381,7 +389,7 @@ Return ONLY valid JSON (no markdown fences):
         : "";
 
       const agentPrompt = `You are ${agentDef.name}, a specialist AI agent in the CodeForge autonomous coding system.
-Specialty: ${agentDef.specialty}
+Specialty: ${agentDef.specialty}${soulSection}
 
 ${memoryContext ? `PERSISTENT MEMORY (what this project has learned over time):\n${memoryContext}\n` : ""}
 
@@ -402,7 +410,7 @@ INSTRUCTIONS:
 3. Be thorough — check edge cases, handle errors, follow existing code style
 4. If you are mobile-agent: ensure ALL touch targets ≥44px, no horizontal scroll, all panels work on 375px width
 5. If you are reviewer-agent: review the actual file contents above for real issues and fix them
-6. If you are qa-agent: verify every agent's changes are consistent, catch regressions, check that mobile/desktop both work
+6. If you are qa-agent: verify every agent's changes are consistent, catch regressions, check that mobile/desktop both work. ALSO verify that NO changes violate the Project Soul — if they do, flag it clearly in your summary and reject the change in your broadcast
 7. Save key learnings in your broadcast so memory can be updated
 
 Return ONLY valid JSON (no markdown fences):
