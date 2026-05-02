@@ -43,7 +43,7 @@ export function AgentPanel({ projectId }: AgentPanelProps) {
   const tasks = useQuery(api.agents.listTasks, { projectId });
   const thoughts = useQuery(api.agentThoughts.listRecent, { projectId, limit: 100 });
   const autonomousSettings = useQuery(api.suggestions.getAutonomousMode, { projectId });
-  const runMultiAgent = useAction(api.agents.runMultiAgent);
+  const runMultiAgent = useAction(api.engine.runMission);
   const runAutonomousCycle = useAction(api.suggestions.runAutonomousCycle);
   const setAutonomousMode = useMutation(api.suggestions.setAutonomousMode);
 
@@ -68,7 +68,7 @@ export function AgentPanel({ projectId }: AgentPanelProps) {
     setLastResult(null);
     setTab("run");
     try {
-      const result = await runMultiAgent({ projectId, prompt: prompt.trim() });
+      const result = await runMission({ projectId, prompt: prompt.trim() });
       setLastResult(result);
       setPrompt("");
     } catch (e) {
