@@ -9,8 +9,33 @@ const VIKTOR_API_URL = process.env.VIKTOR_SPACES_API_URL!;
 const PROJECT_NAME = process.env.VIKTOR_SPACES_PROJECT_NAME!;
 const PROJECT_SECRET = process.env.VIKTOR_SPACES_PROJECT_SECRET!;
 
-// Agent definitions
+async function callAI(prompt: string, model = "deepseek-v3.2"): Promise<string> {
+  const res = await fetch(`${VIKTOR_API_URL}/api/v1/actions/run`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-project-name": PROJECT_NAME,
+      "x-project-secret": PROJECT_SECRET,
+    },
+    body: JSON.stringify({
+      action: "complete",
+      model,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 4000,
+    }),
+  });
+  const data = await res.json();
+  return data.result ?? data.content ?? "";
+}
+
+// Fixed agent roster — planner decides which agents to activate per task
 const AGENT_TYPES = [
+  {
+    id: "planner-agent",
+    name: "Planner",
+    icon: "🗺️",
+    specialty: "Decomposing tasks, assigning work to specialists, coordinating the overall approach",
+  },
   {
     id: "ui-agent",
     name: "UI Agent",
@@ -35,7 +60,21 @@ const AGENT_TYPES = [
     icon: "✨",
     specialty: "Adding new features, integrations, and functionality enhancements",
   },
+  {
+    id: "test-agent",
+    name: "Test Agent",
+    icon: "🧪",
+    specialty: "Writing tests, validating logic, checking edge cases and error paths",
+  },
+  {
+    id: "reviewer-agent",
+    name: "Reviewer",
+    icon: "🔎",
+    specialty: "Code review, security checks, performance analysis, and best practice enforcement",
+  },
 ];
+
+// ─── QUERIES ─────────────────────────────────────────────────────────────────
 
 export const listTasks = query({
   args: { projectId: v.id("projects") },
@@ -65,9 +104,12 @@ export const listTasks = query({
     return await ctx.db
       .query("agentTasks")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
+      .order("desc")
+      .take(50);
   },
 });
+
+// ─── MUTATIONS ────────────────────────────────────────────────────────────────
 
 export const createTask = mutation({
   args: {
@@ -100,190 +142,295 @@ export const updateTask = mutation({
     result: v.optional(v.string()),
     filesChanged: v.optional(v.array(v.string())),
   },
-  returns: v.null(),
   handler: async (ctx, args) => {
-    const update: Record<string, unknown> = { status: args.status };
-    if (args.result !== undefined) update.result = args.result;
-    if (args.filesChanged !== undefined) update.filesChanged = args.filesChanged;
+    const { taskId, ...updates } = args;
+    const patch: Record<string, unknown> = { ...updates };
     if (args.status === "done" || args.status === "error") {
-      update.finishedAt = Date.now();
+      patch.finishedAt = Date.now();
     }
-    await ctx.db.patch(args.taskId, update);
-    return null;
+    await ctx.db.patch(taskId, patch);
   },
 });
 
-// Spawn multiple agents to work on a task in parallel
+// ─── MAIN ACTION: MULTI-AGENT RUN WITH MEMORY ────────────────────────────────
+
 export const runMultiAgent = action({
   args: {
     projectId: v.id("projects"),
     prompt: v.string(),
   },
   returns: v.string(),
-  handler: async (ctx, args) => {
-    // Get project files
+  handler: async (ctx, args): Promise<string> => {
+    // 1. Load persistent memory for this project
+    const memoryContext = await ctx.runAction(api.memory.getMemoriesForPrompt, {
+      projectId: args.projectId,
+      topN: 15,
+    });
+
+    // 2. Get project files
     const files = await ctx.runQuery(api.files.listByProject, {
       projectId: args.projectId,
     });
+    const fileList = files.filter((f) => !f.isDirectory).map((f) => f.path).join(", ");
     const fileContext = files
       .filter((f) => !f.isDirectory)
       .map((f) => `--- ${f.path} ---\n${f.content}`)
       .join("\n\n");
 
-    // Ask planner AI to decide which agents to deploy
-    const planPrompt = `You are CodeForge AI orchestrator. A user wants: "${args.prompt}"
+    // 3. Planner decides which agents to deploy and what complexity is needed
+    const planPrompt = `You are CodeForge's Planner Agent. A user wants: "${args.prompt}"
 
-Their project has these files:
-${files.filter((f) => !f.isDirectory).map((f) => f.path).join(", ")}
+${memoryContext}
 
-Available agents:
-${AGENT_TYPES.map((a) => `- ${a.id} (${a.name}): ${a.specialty}`).join("\n")}
+Project files: ${fileList}
 
-Decide which agents should work on this task and what each should do.
-Return ONLY a JSON array (no markdown):
-[
-  { "agentId": "ui-agent", "task": "specific task for this agent" },
-  { "agentId": "logic-agent", "task": "specific task for this agent" }
-]
+Available specialist agents:
+${AGENT_TYPES.filter((a) => a.id !== "planner-agent").map((a) => `- ${a.id} (${a.name}): ${a.specialty}`).join("\n")}
 
-Use 2-4 agents. Each agent should work on different files to avoid conflicts.`;
+Analyze the complexity:
+- SIMPLE (1-2 agents): small, focused change
+- MODERATE (2-3 agents): multiple concerns, clear boundaries  
+- COMPLEX (3-5 agents): major feature, needs testing + review
+
+Return ONLY valid JSON (no markdown):
+{
+  "complexity": "simple|moderate|complex",
+  "reasoning": "one sentence why",
+  "agents": [
+    { "agentId": "ui-agent", "task": "specific, detailed task description" }
+  ]
+}
+
+Each agent task must be distinct — no two agents should touch the same files.`;
 
     const planResult = await callAI(planPrompt);
-    const planMatch = planResult.match(/\[[\s\S]*\]/);
-    if (!planMatch) throw new Error("Failed to plan agent tasks");
+    const planMatch = planResult.match(/\{[\s\S]*\}/);
+    if (!planMatch) throw new Error("Planner failed to produce a valid plan");
 
-    const agentPlan = JSON.parse(planMatch[0]) as Array<{
+    const plan = JSON.parse(planMatch[0]) as {
+      complexity: string;
+      reasoning: string;
+      agents: Array<{ agentId: string; task: string }>;
+    };
+
+    // 4. Create task records in DB (so UI can show them immediately)
+    const taskRecords: Array<{
+      taskId: Id<"agentTasks">;
       agentId: string;
+      agentName: string;
+      agentIcon: string;
       task: string;
-    }>;
+    }> = [];
 
-    // Create task records
-    const taskIds: Array<{ taskId: Id<"agentTasks">; agentId: string; task: string }> = [];
-    for (const plan of agentPlan) {
-      const agentDef = AGENT_TYPES.find((a) => a.id === plan.agentId) ?? AGENT_TYPES[0];
+    for (const planned of plan.agents) {
+      const agentDef = AGENT_TYPES.find((a) => a.id === planned.agentId) ?? AGENT_TYPES[1];
       const taskId = await ctx.runMutation(api.agents.createTask, {
         projectId: args.projectId,
         agentId: agentDef.id,
         agentName: agentDef.name,
         agentIcon: agentDef.icon,
-        task: plan.task,
+        task: planned.task,
       });
-      taskIds.push({ taskId, agentId: agentDef.id, task: plan.task });
+      taskRecords.push({
+        taskId,
+        agentId: agentDef.id,
+        agentName: agentDef.name,
+        agentIcon: agentDef.icon,
+        task: planned.task,
+      });
     }
 
-    // Run agents sequentially (Convex actions can't do true parallel within one action,
-    // but we mark them as running in the DB so the UI shows them working)
-    const results: string[] = [];
-    for (const t of taskIds) {
-      const agentDef = AGENT_TYPES.find((a) => a.id === t.agentId) ?? AGENT_TYPES[0];
+    // 5. Run each agent sequentially with memory context + inter-agent comms
+    const results: Array<{
+      agentId: string;
+      agentName: string;
+      task: string;
+      status: string;
+      result?: string;
+      filesChanged?: string[];
+    }> = [];
+
+    // Collect messages from previous agents to feed forward (agent-to-agent comms)
+    const agentBroadcasts: string[] = [];
+
+    for (const t of taskRecords) {
       await ctx.runMutation(api.agents.updateTask, {
         taskId: t.taskId,
         status: "running",
       });
 
-      try {
-        const agentPrompt = `You are ${agentDef.name}, an AI agent specializing in ${agentDef.specialty}.
+      const agentDef = AGENT_TYPES.find((a) => a.id === t.agentId) ?? AGENT_TYPES[1];
 
-Project files:
+      // Broadcast: announce this agent is starting
+      await ctx.runMutation(api.memory.postAgentMessage, {
+        projectId: args.projectId,
+        fromAgentId: t.agentId,
+        fromAgentName: t.agentName,
+        fromAgentIcon: t.agentIcon,
+        messageType: "context",
+        content: `Starting task: ${t.task}`,
+      });
+
+      const priorBroadcastContext = agentBroadcasts.length > 0
+        ? `\n\nMESSAGES FROM OTHER AGENTS:\n${agentBroadcasts.join("\n")}`
+        : "";
+
+      const agentPrompt = `You are ${agentDef.name}, a specialist AI agent in CodeForge.
+Specialty: ${agentDef.specialty}
+
+${memoryContext}
+
+USER'S ORIGINAL REQUEST: "${args.prompt}"
+YOUR SPECIFIC TASK: ${t.task}
+PLAN COMPLEXITY: ${plan.complexity} — ${plan.reasoning}
+
+PROJECT FILES:
 ${fileContext}
+${priorBroadcastContext}
 
-Your task: ${t.task}
+Instructions:
+1. Focus ONLY on your specific task. Don't duplicate work another agent is doing.
+2. Return a JSON object with your changes and a broadcast message for other agents.
+3. Be precise — write complete file contents, not diffs.
 
-If you need to modify files, return a JSON object:
+Return ONLY valid JSON (no markdown):
 {
   "changes": [
-    { "path": "filename.ext", "action": "create" | "edit", "content": "full file content" }
+    { "path": "relative/path/file.ext", "action": "create|edit", "content": "complete file content here" }
   ],
-  "summary": "What you did"
-}
+  "summary": "What you accomplished",
+  "broadcast": {
+    "messageType": "finding|warning|context|resolved",
+    "content": "message to other agents about what you found or did (be specific about files/patterns)"
+  },
+  "filesChanged": ["list", "of", "paths"]
+}`;
 
-If no file changes needed, return: { "changes": [], "summary": "explanation" }
-Return ONLY JSON, no markdown.`;
-
-        const result = await callAI(agentPrompt);
-        const jsonMatch = result.match(/\{[\s\S]*\}/);
+      try {
+        const agentResult = await callAI(agentPrompt);
+        const jsonMatch = agentResult.match(/\{[\s\S]*\}/);
 
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]) as {
-            changes: Array<{ path: string; action: string; content: string }>;
-            summary: string;
+            changes?: Array<{ path: string; action: string; content: string }>;
+            summary?: string;
+            broadcast?: { messageType: string; content: string };
+            filesChanged?: string[];
           };
 
-          const changedFiles: string[] = [];
-          for (const change of parsed.changes) {
-            const existingFile = files.find((f) => f.path === change.path);
-            const cleanContent = change.content
-              .replace(/^```[\w]*\n?/, "")
-              .replace(/\n?```$/, "")
-              .trim();
+          // Apply file changes
+          const changedPaths: string[] = [];
+          for (const change of (parsed.changes ?? [])) {
+            const existing = await ctx.runQuery(api.files.getByPath, {
+              projectId: args.projectId,
+              path: change.path,
+            });
 
-            if (existingFile && change.action === "edit") {
-              await ctx.runMutation(api.files.updateContent, {
-                fileId: existingFile._id,
-                content: cleanContent,
+            if (existing) {
+              await ctx.runMutation(api.files.update, {
+                fileId: existing._id,
+                content: change.content,
               });
             } else if (change.action === "create") {
-              const name = change.path.split("/").pop() ?? change.path;
+              const parts = change.path.split("/");
               await ctx.runMutation(api.files.create, {
                 projectId: args.projectId,
                 path: change.path,
-                name,
+                name: parts[parts.length - 1],
+                content: change.content,
                 isDirectory: false,
+                parentPath: parts.slice(0, -1).join("/") || undefined,
               });
-              const updatedFiles = await ctx.runQuery(api.files.listByProject, {
-                projectId: args.projectId,
-              });
-              const newFile = updatedFiles.find((f) => f.path === change.path);
-              if (newFile) {
-                await ctx.runMutation(api.files.updateContent, {
-                  fileId: newFile._id,
-                  content: cleanContent,
-                });
-              }
             }
-            changedFiles.push(change.path);
+            changedPaths.push(change.path);
+          }
+
+          // Post broadcast message to the agent message bus
+          if (parsed.broadcast) {
+            const validTypes = ["warning", "context", "request", "finding", "blocker", "resolved"];
+            const msgType = validTypes.includes(parsed.broadcast.messageType)
+              ? parsed.broadcast.messageType
+              : "finding";
+
+            await ctx.runMutation(api.memory.postAgentMessage, {
+              projectId: args.projectId,
+              fromAgentId: t.agentId,
+              fromAgentName: t.agentName,
+              fromAgentIcon: t.agentIcon,
+              messageType: msgType as "warning" | "context" | "request" | "finding" | "blocker" | "resolved",
+              content: parsed.broadcast.content,
+              relatedFiles: changedPaths,
+            });
+
+            // Add to the rolling broadcast context for subsequent agents
+            agentBroadcasts.push(`[${t.agentName}] ${parsed.broadcast.content}`);
           }
 
           await ctx.runMutation(api.agents.updateTask, {
             taskId: t.taskId,
             status: "done",
-            result: parsed.summary,
-            filesChanged: changedFiles,
+            result: parsed.summary ?? "Completed",
+            filesChanged: changedPaths,
           });
-          results.push(`${agentDef.icon} ${agentDef.name}: ${parsed.summary}`);
+
+          results.push({
+            agentId: t.agentId,
+            agentName: t.agentName,
+            task: t.task,
+            status: "done",
+            result: parsed.summary,
+            filesChanged: changedPaths,
+          });
+        } else {
+          throw new Error("Agent returned non-JSON output");
         }
-      } catch (e) {
-        const errMsg = e instanceof Error ? e.message : String(e);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+
+        await ctx.runMutation(api.memory.postAgentMessage, {
+          projectId: args.projectId,
+          fromAgentId: t.agentId,
+          fromAgentName: t.agentName,
+          fromAgentIcon: t.agentIcon,
+          messageType: "blocker",
+          content: `Failed: ${errorMsg}`,
+        });
+
         await ctx.runMutation(api.agents.updateTask, {
           taskId: t.taskId,
           status: "error",
-          result: errMsg,
+          result: errorMsg,
         });
-        results.push(`${agentDef.icon} ${agentDef.name}: Error - ${errMsg}`);
+
+        results.push({
+          agentId: t.agentId,
+          agentName: t.agentName,
+          task: t.task,
+          status: "error",
+          result: errorMsg,
+        });
       }
     }
 
-    return results.join("\n");
+    // 6. Run retrospective automatically after all agents complete
+    try {
+      await ctx.runAction(api.memory.runRetrospective, {
+        projectId: args.projectId,
+        triggerTaskId: taskRecords[0]?.taskId,
+        agentResults: results,
+        originalPrompt: args.prompt,
+      });
+    } catch (e) {
+      // Retrospective failure should never crash the main task
+      console.error("Retrospective failed:", e);
+    }
+
+    const successCount = results.filter((r) => r.status === "done").length;
+    const totalCount = results.length;
+    const summary = results
+      .map((r) => `${r.agentName}: ${r.result ?? r.status}`)
+      .join("\n");
+
+    return `${successCount}/${totalCount} agents completed (${plan.complexity} task)\n\n${summary}`;
   },
 });
-
-async function callAI(prompt: string): Promise<string> {
-  const response = await fetch(
-    `${VIKTOR_API_URL}/api/viktor-spaces/tools/call`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        project_name: PROJECT_NAME,
-        project_secret: PROJECT_SECRET,
-        role: "quick_ai_search",
-        arguments: { search_question: prompt },
-      }),
-    }
-  );
-
-  if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-  const json = await response.json();
-  if (!json.success) throw new Error(json.error ?? "AI call failed");
-  return json.result.search_response;
-}
