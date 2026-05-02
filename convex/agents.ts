@@ -9,7 +9,13 @@ const VIKTOR_API_URL = process.env.VIKTOR_SPACES_API_URL!;
 const PROJECT_NAME = process.env.VIKTOR_SPACES_PROJECT_NAME!;
 const PROJECT_SECRET = process.env.VIKTOR_SPACES_PROJECT_SECRET!;
 
-async function callAI(prompt: string, model = "deepseek-v3.2"): Promise<string> {
+// ─── AI CALL ─────────────────────────────────────────────────────────────────
+
+async function callAI(
+  prompt: string,
+  model = "deepseek-v3.2",
+  maxTokens = 6000
+): Promise<string> {
   const res = await fetch(`${VIKTOR_API_URL}/api/v1/actions/run`, {
     method: "POST",
     headers: {
@@ -21,14 +27,15 @@ async function callAI(prompt: string, model = "deepseek-v3.2"): Promise<string> 
       action: "complete",
       model,
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 4000,
+      max_tokens: maxTokens,
     }),
   });
-  const data = await res.json();
+  const data = await res.json() as { result?: string; content?: string };
   return data.result ?? data.content ?? "";
 }
 
-// Fixed agent roster — planner decides which agents to activate per task
+// ─── AGENT ROSTER ────────────────────────────────────────────────────────────
+
 const AGENT_TYPES = [
   {
     id: "planner-agent",
@@ -40,13 +47,19 @@ const AGENT_TYPES = [
     id: "ui-agent",
     name: "UI Agent",
     icon: "🎨",
-    specialty: "HTML structure, CSS styling, layout, responsive design, and visual polish",
+    specialty: "HTML structure, CSS styling, layout, responsive design, animations, and visual polish",
+  },
+  {
+    id: "mobile-agent",
+    name: "Mobile Agent",
+    icon: "📱",
+    specialty: "Mobile-first responsive design, touch interactions, viewport handling, bottom nav patterns",
   },
   {
     id: "logic-agent",
     name: "Logic Agent",
     icon: "⚙️",
-    specialty: "JavaScript logic, event handling, state management, and application behavior",
+    specialty: "JavaScript/TypeScript logic, event handling, state management, and application behavior",
   },
   {
     id: "debug-agent",
@@ -72,7 +85,36 @@ const AGENT_TYPES = [
     icon: "🔎",
     specialty: "Code review, security checks, performance analysis, and best practice enforcement",
   },
+  {
+    id: "qa-agent",
+    name: "QA Agent",
+    icon: "✅",
+    specialty: "Quality assurance — verifies that all agents completed their tasks correctly, catches regressions, checks mobile/desktop breakpoints",
+  },
 ];
+
+// ─── HELPER: emit thought ────────────────────────────────────────────────────
+
+type ThoughtType = "plan" | "analyze" | "code" | "debug" | "review" | "memory" | "search" | "commit" | "broadcast" | "done";
+
+async function think(
+  ctx: { runMutation: Function },
+  projectId: Id<"projects">,
+  agentId: string,
+  agentName: string,
+  type: ThoughtType,
+  content: string,
+  isStreaming = false
+) {
+  await ctx.runMutation(api.agentThoughts.emit, {
+    projectId,
+    agentId,
+    agentName,
+    type,
+    content,
+    isStreaming,
+  });
+}
 
 // ─── QUERIES ─────────────────────────────────────────────────────────────────
 
@@ -142,17 +184,20 @@ export const updateTask = mutation({
     result: v.optional(v.string()),
     filesChanged: v.optional(v.array(v.string())),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
-    const { taskId, ...updates } = args;
-    const patch: Record<string, unknown> = { ...updates };
+    const patch: Record<string, unknown> = { status: args.status };
+    if (args.result !== undefined) patch.result = args.result;
+    if (args.filesChanged !== undefined) patch.filesChanged = args.filesChanged;
     if (args.status === "done" || args.status === "error") {
       patch.finishedAt = Date.now();
     }
-    await ctx.db.patch(taskId, patch);
+    await ctx.db.patch(args.taskId, patch);
+    return null;
   },
 });
 
-// ─── MAIN ACTION: MULTI-AGENT RUN WITH MEMORY ────────────────────────────────
+// ─── MAIN: AUTONOMOUS MULTI-AGENT ACTION ─────────────────────────────────────
 
 export const runMultiAgent = action({
   args: {
@@ -161,118 +206,94 @@ export const runMultiAgent = action({
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
-    // 0. Clear old thoughts for this project (fresh stream per task)
-    await ctx.runMutation(api.agentThoughts.clearForProject, {
-      projectId: args.projectId,
-    });
+    const projectId = args.projectId;
 
-    // Emit: planner starting
-    await ctx.runMutation(api.agentThoughts.emit, {
-      projectId: args.projectId,
-      agentId: "planner-agent",
-      agentName: "Planner",
-      type: "plan",
-      content: `Received task: "${args.prompt}"`,
-      isStreaming: true,
-    });
+    // Clear old thoughts
+    await ctx.runMutation(api.agentThoughts.clearForProject, { projectId });
 
-    // 1. Load persistent memory for this project
-    await ctx.runMutation(api.agentThoughts.emit, {
-      projectId: args.projectId,
-      agentId: "planner-agent",
-      agentName: "Planner",
-      type: "memory",
-      content: "Loading memory bank...",
-      isStreaming: true,
-    });
+    await think(ctx, projectId, "planner-agent", "Planner", "plan",
+      `Task received: "${args.prompt}"`, true);
+
+    // ── 1. LOAD MEMORY ────────────────────────────────────────────────────────
+    await think(ctx, projectId, "planner-agent", "Planner", "memory",
+      "Loading persistent memory bank...", true);
+
     const memoryContext = await ctx.runAction(api.memory.getMemoriesForPrompt, {
-      projectId: args.projectId,
-      topN: 15,
-    });
-    await ctx.runMutation(api.agentThoughts.emit, {
-      projectId: args.projectId,
-      agentId: "planner-agent",
-      agentName: "Planner",
-      type: "memory",
-      content: memoryContext
-        ? `Loaded ${memoryContext.split("\n").length} memory entries`
-        : "No prior memories — starting fresh",
+      projectId,
+      topN: 20,
     });
 
-    // 2. Get project files
-    const files = await ctx.runQuery(api.files.listByProject, {
-      projectId: args.projectId,
-    });
+    await think(ctx, projectId, "planner-agent", "Planner", "memory",
+      memoryContext
+        ? `Memory loaded — ${memoryContext.split("\n").length} entries including past patterns, preferences, and anti-patterns`
+        : "No prior memory — starting fresh");
 
-    // 2b. RAG: index project and get relevant context for this task
-    await ctx.runMutation(api.agentThoughts.emit, {
-      projectId: args.projectId,
-      agentId: "planner-agent",
-      agentName: "Planner",
-      type: "search",
-      content: `Indexing ${files.filter(f => !f.isDirectory).length} files for semantic search...`,
-      isStreaming: true,
-    });
+    // ── 2. LOAD ALL FILES ─────────────────────────────────────────────────────
+    const files = await ctx.runQuery(api.files.listByProject, { projectId });
+    const codeFiles = files.filter((f) => !f.isDirectory);
+
+    await think(ctx, projectId, "planner-agent", "Planner", "search",
+      `Indexing ${codeFiles.length} files for semantic search...`, true);
+
+    // RAG index + relevant context
+    let ragContext = "";
     try {
-      await ctx.runAction(api.rag.indexProject, { projectId: args.projectId });
-      const ragContext = await ctx.runAction(api.rag.getContextForPrompt, {
-        projectId: args.projectId,
+      await ctx.runAction(api.rag.indexProject, { projectId });
+      ragContext = await ctx.runAction(api.rag.getContextForPrompt, {
+        projectId,
         query: args.prompt,
       });
       if (ragContext) {
         const matchCount = (ragContext.match(/---/g) ?? []).length / 2;
-        await ctx.runMutation(api.agentThoughts.emit, {
-          projectId: args.projectId,
-          agentId: "planner-agent",
-          agentName: "Planner",
-          type: "search",
-          content: `Found ${matchCount} relevant files via semantic search`,
-        });
+        await think(ctx, projectId, "planner-agent", "Planner", "search",
+          `Semantic search complete — ${matchCount} highly relevant files identified`);
       }
-    } catch {
-      // RAG failure is non-fatal
-    }
-    const fileList = files.filter((f) => !f.isDirectory).map((f) => f.path).join(", ");
-    const fileContext = files
-      .filter((f) => !f.isDirectory)
+    } catch { /* non-fatal */ }
+
+    const fileList = codeFiles.map((f) => f.path).join(", ");
+    const fileContext = codeFiles
       .map((f) => `--- ${f.path} ---\n${f.content}`)
       .join("\n\n");
 
-    // 3. Planner decides which agents to deploy and what complexity is needed
-    const planPrompt = `You are CodeForge's Planner Agent. A user wants: "${args.prompt}"
+    // ── 3. PLANNER PHASE ──────────────────────────────────────────────────────
+    await think(ctx, projectId, "planner-agent", "Planner", "plan",
+      "Running deep task analysis and decomposing into specialized subtasks...", true);
 
-${memoryContext}
+    const planPrompt = `You are CodeForge's Master Planner. You orchestrate an autonomous multi-agent coding system.
 
-Project files: ${fileList}
+USER REQUEST: "${args.prompt}"
 
-Available specialist agents:
-${AGENT_TYPES.filter((a) => a.id !== "planner-agent").map((a) => `- ${a.id} (${a.name}): ${a.specialty}`).join("\n")}
+${memoryContext ? `LEARNED CONTEXT FROM MEMORY:\n${memoryContext}\n` : ""}
 
-Analyze the complexity:
-- SIMPLE (1-2 agents): small, focused change
-- MODERATE (2-3 agents): multiple concerns, clear boundaries  
-- COMPLEX (3-5 agents): major feature, needs testing + review
+PROJECT FILES: ${fileList}
 
-Return ONLY valid JSON (no markdown):
+AVAILABLE SPECIALIST AGENTS:
+${AGENT_TYPES.filter(a => a.id !== "planner-agent").map(a => `- ${a.id} (${a.name}): ${a.specialty}`).join("\n")}
+
+RULES:
+- Always include reviewer-agent for ANY complex task (3+ agents)
+- Always include qa-agent as the FINAL agent to verify everything is correct
+- Always include mobile-agent if the task touches any UI/CSS/layout files
+- For simple tasks: 2-3 agents max
+- For complex tasks: up to 6 agents (including reviewer + qa)
+- Make each task description extremely detailed and specific
+- Agents run SEQUENTIALLY — each can see what previous agents did
+
+COMPLEXITY LEVELS:
+- simple: single concern, 1-2 agents
+- moderate: 2-4 agents, clear domain boundaries
+- complex: 4-6 agents, major feature or architectural change
+
+Return ONLY valid JSON (no markdown fences):
 {
   "complexity": "simple|moderate|complex",
-  "reasoning": "one sentence why",
+  "reasoning": "detailed explanation of the approach",
   "agents": [
-    { "agentId": "ui-agent", "task": "specific, detailed task description" }
+    { "agentId": "ui-agent", "task": "Very specific, detailed task description with exact files to touch" }
   ]
-}
+}`;
 
-Each agent task must be distinct — no two agents should touch the same files.`;
-
-    await ctx.runMutation(api.agentThoughts.emit, {
-      projectId: args.projectId,
-      agentId: "planner-agent",
-      agentName: "Planner",
-      type: "plan",
-      content: "Analyzing task and selecting specialist agents...",
-      isStreaming: true,
-    });
-    const planResult = await callAI(planPrompt);
+    const planResult = await callAI(planPrompt, "deepseek-v3.2", 3000);
     const planMatch = planResult.match(/\{[\s\S]*\}/);
     if (!planMatch) throw new Error("Planner failed to produce a valid plan");
 
@@ -282,27 +303,23 @@ Each agent task must be distinct — no two agents should touch the same files.`
       agents: Array<{ agentId: string; task: string }>;
     };
 
-    await ctx.runMutation(api.agentThoughts.emit, {
-      projectId: args.projectId,
-      agentId: "planner-agent",
-      agentName: "Planner",
-      type: "plan",
-      content: `Plan: ${plan.complexity} task — deploying ${plan.agents.length} agents: ${plan.agents.map((a: {agentId: string}) => a.agentId).join(", ")}`,
-    });
+    await think(ctx, projectId, "planner-agent", "Planner", "plan",
+      `Plan (${plan.complexity}): ${plan.reasoning}\nAgents: ${plan.agents.map(a => a.agentId).join(" → ")}`);
 
-    // 4. Create task records in DB (so UI can show them immediately)
-    const taskRecords: Array<{
+    // ── 4. CREATE TASK RECORDS ────────────────────────────────────────────────
+    type TaskRecord = {
       taskId: Id<"agentTasks">;
       agentId: string;
       agentName: string;
       agentIcon: string;
       task: string;
-    }> = [];
+    };
+    const taskRecords: TaskRecord[] = [];
 
     for (const planned of plan.agents) {
-      const agentDef = AGENT_TYPES.find((a) => a.id === planned.agentId) ?? AGENT_TYPES[1];
+      const agentDef = AGENT_TYPES.find(a => a.id === planned.agentId) ?? AGENT_TYPES[1]!;
       const taskId = await ctx.runMutation(api.agents.createTask, {
-        projectId: args.projectId,
+        projectId,
         agentId: agentDef.id,
         agentName: agentDef.name,
         agentIcon: agentDef.icon,
@@ -317,108 +334,117 @@ Each agent task must be distinct — no two agents should touch the same files.`
       });
     }
 
-    // 5. Run each agent sequentially with memory context + inter-agent comms
-    const results: Array<{
+    // ── 5. EXECUTE AGENTS SEQUENTIALLY ───────────────────────────────────────
+    type AgentResult = {
       agentId: string;
       agentName: string;
       task: string;
       status: string;
       result?: string;
       filesChanged?: string[];
-    }> = [];
-
-    // Collect messages from previous agents to feed forward (agent-to-agent comms)
+      broadcast?: string;
+    };
+    const results: AgentResult[] = [];
     const agentBroadcasts: string[] = [];
 
+    // Track all file changes across agents for QA
+    const allChangedFiles = new Set<string>();
+
     for (const t of taskRecords) {
+      const agentDef = AGENT_TYPES.find(a => a.id === t.agentId) ?? AGENT_TYPES[1]!;
+
       await ctx.runMutation(api.agents.updateTask, {
         taskId: t.taskId,
         status: "running",
       });
 
-      const agentDef = AGENT_TYPES.find((a) => a.id === t.agentId) ?? AGENT_TYPES[1];
-
-      // Broadcast: announce this agent is starting
       await ctx.runMutation(api.memory.postAgentMessage, {
-        projectId: args.projectId,
+        projectId,
         fromAgentId: t.agentId,
         fromAgentName: t.agentName,
         fromAgentIcon: t.agentIcon,
         messageType: "context",
-        content: `Starting task: ${t.task}`,
-      });
-      await ctx.runMutation(api.agentThoughts.emit, {
-        projectId: args.projectId,
-        agentId: t.agentId,
-        agentName: t.agentName,
-        type: "analyze",
-        content: `Task: ${t.task}`,
-        isStreaming: true,
+        content: `Starting: ${t.task}`,
       });
 
-      const priorBroadcastContext = agentBroadcasts.length > 0
-        ? `\n\nMESSAGES FROM OTHER AGENTS:\n${agentBroadcasts.join("\n")}`
+      await think(ctx, projectId, t.agentId, t.agentName, "analyze",
+        t.task, true);
+
+      const priorContext = agentBroadcasts.length > 0
+        ? `\n\nMESSAGES FROM AGENTS BEFORE YOU:\n${agentBroadcasts.join("\n")}`
         : "";
 
-      const agentPrompt = `You are ${agentDef.name}, a specialist AI agent in CodeForge.
+      // For QA agent — give it the full change summary
+      const isQA = t.agentId === "qa-agent";
+      const qaContext = isQA
+        ? `\n\nWHAT ALL AGENTS DID:\n${results.map(r => `[${r.agentName}] ${r.result ?? "no result"} — files: ${(r.filesChanged ?? []).join(", ")}`).join("\n")}`
+        : "";
+
+      const agentPrompt = `You are ${agentDef.name}, a specialist AI agent in the CodeForge autonomous coding system.
 Specialty: ${agentDef.specialty}
 
-${memoryContext}
+${memoryContext ? `PERSISTENT MEMORY (what this project has learned over time):\n${memoryContext}\n` : ""}
 
-USER'S ORIGINAL REQUEST: "${args.prompt}"
+ORIGINAL USER REQUEST: "${args.prompt}"
 YOUR SPECIFIC TASK: ${t.task}
-PLAN COMPLEXITY: ${plan.complexity} — ${plan.reasoning}
+PLAN: ${plan.complexity} — ${plan.reasoning}
+${priorContext}
+${qaContext}
 
-PROJECT FILES:
+${ragContext ? `MOST RELEVANT FILES (via semantic search):\n${ragContext}\n` : ""}
+
+ALL PROJECT FILES:
 ${fileContext}
-${priorBroadcastContext}
 
-Instructions:
-1. Focus ONLY on your specific task. Don't duplicate work another agent is doing.
-2. Return a JSON object with your changes and a broadcast message for other agents.
-3. Be precise — write complete file contents, not diffs.
+INSTRUCTIONS:
+1. Focus on YOUR specific task only — don't redo what others did
+2. Write COMPLETE file contents — never partial diffs or placeholders
+3. Be thorough — check edge cases, handle errors, follow existing code style
+4. If you are mobile-agent: ensure ALL touch targets ≥44px, no horizontal scroll, all panels work on 375px width
+5. If you are reviewer-agent: review the actual file contents above for real issues and fix them
+6. If you are qa-agent: verify every agent's changes are consistent, catch regressions, check that mobile/desktop both work
+7. Save key learnings in your broadcast so memory can be updated
 
-Return ONLY valid JSON (no markdown):
+Return ONLY valid JSON (no markdown fences):
 {
   "changes": [
-    { "path": "relative/path/file.ext", "action": "create|edit", "content": "complete file content here" }
+    { "path": "src/path/file.tsx", "action": "edit", "content": "COMPLETE file content here" }
   ],
-  "summary": "What you accomplished",
+  "summary": "Detailed description of what you did and why",
   "broadcast": {
     "messageType": "finding|warning|context|resolved",
-    "content": "message to other agents about what you found or did (be specific about files/patterns)"
+    "content": "Specific message to other agents or for memory — mention patterns, gotchas, or decisions made"
   },
-  "filesChanged": ["list", "of", "paths"]
+  "learnings": [
+    "Key pattern or insight worth remembering for future tasks"
+  ],
+  "filesChanged": ["src/path/file.tsx"]
 }`;
 
       try {
-        const agentResult = await callAI(agentPrompt);
+        await think(ctx, projectId, t.agentId, t.agentName, "code",
+          "Working...", true);
+
+        const agentResult = await callAI(agentPrompt, "deepseek-v3.2", 8000);
         const jsonMatch = agentResult.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("Non-JSON output from agent");
 
-        if (jsonMatch) {
-          await ctx.runMutation(api.agentThoughts.emit, {
-            projectId: args.projectId,
-            agentId: t.agentId,
-            agentName: t.agentName,
-            type: "code",
-            content: "Applying file changes...",
-            isStreaming: true,
-          });
-          const parsed = JSON.parse(jsonMatch[0]) as {
-            changes?: Array<{ path: string; action: string; content: string }>;
-            summary?: string;
-            broadcast?: { messageType: string; content: string };
-            filesChanged?: string[];
-          };
+        const parsed = JSON.parse(jsonMatch[0]) as {
+          changes?: Array<{ path: string; action: string; content: string }>;
+          summary?: string;
+          broadcast?: { messageType: string; content: string };
+          learnings?: string[];
+          filesChanged?: string[];
+        };
 
-          // Apply file changes
-          const changedPaths: string[] = [];
-          for (const change of (parsed.changes ?? [])) {
+        // Apply file changes
+        const changedPaths: string[] = [];
+        for (const change of (parsed.changes ?? [])) {
+          try {
             const existing = await ctx.runQuery(api.files.getByPath, {
-              projectId: args.projectId,
+              projectId,
               path: change.path,
             });
-
             if (existing) {
               await ctx.runMutation(api.files.update, {
                 fileId: existing._id,
@@ -427,81 +453,92 @@ Return ONLY valid JSON (no markdown):
             } else if (change.action === "create") {
               const parts = change.path.split("/");
               await ctx.runMutation(api.files.create, {
-                projectId: args.projectId,
+                projectId,
                 path: change.path,
-                name: parts[parts.length - 1],
+                name: parts[parts.length - 1]!,
                 content: change.content,
                 isDirectory: false,
                 parentPath: parts.slice(0, -1).join("/") || undefined,
               });
             }
             changedPaths.push(change.path);
+            allChangedFiles.add(change.path);
+          } catch (fileErr) {
+            await think(ctx, projectId, t.agentId, t.agentName, "debug",
+              `Warning: could not write ${change.path} — ${String(fileErr)}`);
           }
-
-          // Post broadcast message to the agent message bus
-          if (parsed.broadcast) {
-            const validTypes = ["warning", "context", "request", "finding", "blocker", "resolved"];
-            const msgType = validTypes.includes(parsed.broadcast.messageType)
-              ? parsed.broadcast.messageType
-              : "finding";
-
-            await ctx.runMutation(api.memory.postAgentMessage, {
-              projectId: args.projectId,
-              fromAgentId: t.agentId,
-              fromAgentName: t.agentName,
-              fromAgentIcon: t.agentIcon,
-              messageType: msgType as "warning" | "context" | "request" | "finding" | "blocker" | "resolved",
-              content: parsed.broadcast.content,
-              relatedFiles: changedPaths,
-            });
-
-            // Add to the rolling broadcast context for subsequent agents
-            agentBroadcasts.push(`[${t.agentName}] ${parsed.broadcast.content}`);
-          }
-
-          await ctx.runMutation(api.agentThoughts.emit, {
-            projectId: args.projectId,
-            agentId: t.agentId,
-            agentName: t.agentName,
-            type: "done",
-            content: `${parsed.summary ?? "Completed"} — changed: ${changedPaths.join(", ") || "no files"}`,
-          });
-          await ctx.runMutation(api.agents.updateTask, {
-            taskId: t.taskId,
-            status: "done",
-            result: parsed.summary ?? "Completed",
-            filesChanged: changedPaths,
-          });
-
-          results.push({
-            agentId: t.agentId,
-            agentName: t.agentName,
-            task: t.task,
-            status: "done",
-            result: parsed.summary,
-            filesChanged: changedPaths,
-          });
-        } else {
-          throw new Error("Agent returned non-JSON output");
         }
+
+        // Broadcast to other agents
+        if (parsed.broadcast) {
+          const validTypes = ["warning", "context", "request", "finding", "blocker", "resolved"];
+          const msgType = validTypes.includes(parsed.broadcast.messageType)
+            ? parsed.broadcast.messageType as "warning" | "context" | "request" | "finding" | "blocker" | "resolved"
+            : "finding";
+
+          await ctx.runMutation(api.memory.postAgentMessage, {
+            projectId,
+            fromAgentId: t.agentId,
+            fromAgentName: t.agentName,
+            fromAgentIcon: t.agentIcon,
+            messageType: msgType,
+            content: parsed.broadcast.content,
+            relatedFiles: changedPaths,
+          });
+          agentBroadcasts.push(`[${t.agentName}] ${parsed.broadcast.content}`);
+        }
+
+        // Store learnings as memories
+        for (const learning of (parsed.learnings ?? [])) {
+          try {
+            await ctx.runMutation(api.memory.addMemory, {
+              projectId,
+              category: "insight",
+              content: learning,
+              importance: 6,
+              sourceAgentId: t.agentId,
+              tags: ["auto-learned", t.agentId],
+            });
+          } catch { /* non-fatal */ }
+        }
+
+        await think(ctx, projectId, t.agentId, t.agentName, "done",
+          `${parsed.summary ?? "Done"} — ${changedPaths.length} file(s) changed: ${changedPaths.join(", ") || "none"}`);
+
+        await ctx.runMutation(api.agents.updateTask, {
+          taskId: t.taskId,
+          status: "done",
+          result: parsed.summary ?? "Completed",
+          filesChanged: changedPaths,
+        });
+
+        results.push({
+          agentId: t.agentId,
+          agentName: t.agentName,
+          task: t.task,
+          status: "done",
+          result: parsed.summary,
+          filesChanged: changedPaths,
+          broadcast: parsed.broadcast?.content,
+        });
+
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
-
         await ctx.runMutation(api.memory.postAgentMessage, {
-          projectId: args.projectId,
+          projectId,
           fromAgentId: t.agentId,
           fromAgentName: t.agentName,
           fromAgentIcon: t.agentIcon,
           messageType: "blocker",
           content: `Failed: ${errorMsg}`,
         });
-
         await ctx.runMutation(api.agents.updateTask, {
           taskId: t.taskId,
           status: "error",
           result: errorMsg,
         });
-
+        await think(ctx, projectId, t.agentId, t.agentName, "debug",
+          `Error: ${errorMsg}`);
         results.push({
           agentId: t.agentId,
           agentName: t.agentName,
@@ -512,95 +549,64 @@ Return ONLY valid JSON (no markdown):
       }
     }
 
-    // 6. Run retrospective automatically after all agents complete
-    await ctx.runMutation(api.agentThoughts.emit, {
-      projectId: args.projectId,
-      agentId: "retrospective-agent",
-      agentName: "Retrospective",
-      type: "review",
-      content: "Analyzing completed run — extracting learnings for memory...",
-      isStreaming: true,
-    });
+    // ── 6. RETROSPECTIVE ──────────────────────────────────────────────────────
+    await think(ctx, projectId, "retrospective-agent", "Retrospective", "review",
+      "Run complete — extracting learnings and updating memory...", true);
+
     try {
       await ctx.runAction(api.memory.runRetrospective, {
-        projectId: args.projectId,
+        projectId,
         triggerTaskId: taskRecords[0]?.taskId,
         agentResults: results,
         originalPrompt: args.prompt,
       });
+      await think(ctx, projectId, "retrospective-agent", "Retrospective", "memory",
+        "Memory updated with patterns and insights from this run");
     } catch (e) {
-      // Retrospective failure should never crash the main task
       console.error("Retrospective failed:", e);
     }
 
-    const successCount = results.filter((r) => r.status === "done").length;
+    // ── 7. AUTO-PUSH TO GITHUB ────────────────────────────────────────────────
+    const successCount = results.filter(r => r.status === "done").length;
     const totalCount = results.length;
 
-    // 7. Auto-push to GitHub if project has a configured repo
     if (successCount > 0) {
       try {
-        const project = await ctx.runQuery(api.projects.get, { projectId: args.projectId });
+        const project = await ctx.runQuery(api.projects.get, { projectId });
         if (project?.githubRepo) {
-          await ctx.runMutation(api.agentThoughts.emit, {
-            projectId: args.projectId,
-            agentId: "planner-agent",
-            agentName: "Planner",
-            type: "commit",
-            content: `Auto-pushing ${results.flatMap(r => r.filesChanged ?? []).length} changed files to ${project.githubRepo}...`,
-            isStreaming: true,
-          });
+          await think(ctx, projectId, "planner-agent", "Planner", "commit",
+            `Auto-pushing to ${project.githubRepo}...`, true);
 
-          const changedFiles = [...new Set(results.flatMap((r) => r.filesChanged ?? []))];
           const branchName = `agent/${args.prompt.slice(0, 40).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
-          const commitMsg = `feat(agent): ${args.prompt.slice(0, 72)}`;
-
           const pushResult = await ctx.runAction(api.git.pushToGitHub, {
-            projectId: args.projectId,
+            projectId,
             repoFullName: project.githubRepo,
             branchName,
-            commitMessage: commitMsg,
+            commitMessage: `feat(agent): ${args.prompt.slice(0, 72)}`,
             createPR: true,
             prTitle: args.prompt.slice(0, 100),
             prBody: [
-              "## CodeForge Agent Run",
+              "## CodeForge Autonomous Agent Run",
               "",
               `**Task:** ${args.prompt}`,
-              `**Complexity:** ${plan.complexity}`,
-              `**Agents:** ${plan.agents.length} (${plan.agents.map((a: {agentId: string}) => a.agentId).join(", ")})`,
-              `**Result:** ${successCount}/${totalCount} agents succeeded`,
-              "",
-              "### Files Changed",
-              changedFiles.map((f) => `- \`${f}\``).join("\n"),
+              `**Agents:** ${results.map(r => r.agentName).join(", ")}`,
+              `**Files changed:** ${[...allChangedFiles].join(", ")}`,
             ].join("\n"),
           });
 
-          await ctx.runMutation(api.agentThoughts.emit, {
-            projectId: args.projectId,
-            agentId: "planner-agent",
-            agentName: "Planner",
-            type: "commit",
-            content: pushResult.success
-              ? `✓ Pushed to ${branchName}${pushResult.prUrl ? " · PR opened" : ""}`
-              : `⚠ Git push skipped: ${pushResult.error}`,
-          });
+          await think(ctx, projectId, "planner-agent", "Planner", "commit",
+            pushResult.success
+              ? `✓ Pushed to branch \`${branchName}\`${pushResult.prUrl ? ` — PR opened` : ""}`
+              : `⚠ Push skipped: ${pushResult.error}`);
         }
-      } catch {
-        // Auto-push failure is non-fatal
-      }
+      } catch { /* non-fatal */ }
     }
 
-    await ctx.runMutation(api.agentThoughts.emit, {
-      projectId: args.projectId,
-      agentId: "planner-agent",
-      agentName: "Planner",
-      type: "done",
-      content: `All done — ${successCount}/${totalCount} agents completed`,
-    });
+    await think(ctx, projectId, "planner-agent", "Planner", "done",
+      `Complete — ${successCount}/${totalCount} agents succeeded · ${allChangedFiles.size} files changed`);
 
-    const summary = results
-      .map((r) => `${r.agentName}: ${r.result ?? r.status}`)
+    return results
+      .map(r => `${r.agentName} (${r.status}): ${r.result ?? "no result"}`)
       .join("\n");
-
-    return `${successCount}/${totalCount} agents completed (${plan.complexity} task)\n\n${summary}`;
   },
 });
