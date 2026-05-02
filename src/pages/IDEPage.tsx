@@ -26,7 +26,6 @@ import {
   EditorSkeleton,
 } from "@/components/ide/PanelSkeleton";
 import { useAuthToken } from "@/hooks/useAuthToken";
-import { useQuery as useConvexQuery } from "convex/react";
 import { toast } from "sonner";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import {
