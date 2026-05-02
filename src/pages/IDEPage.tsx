@@ -16,6 +16,7 @@ import { CollaborationBar } from "@/components/ide/CollaborationBar";
 import { SuggestionsPanel } from "@/components/ide/SuggestionsPanel";
 import { BuildProgress } from "@/components/ide/BuildProgress";
 import { AgentPanel } from "@/components/ide/AgentPanel";
+import { MemoryTab } from "@/components/ide/MemoryTab";
 import { SessionSidebar } from "@/components/ide/SessionSidebar";
 import { PanelErrorBoundary } from "@/components/ide/PanelErrorBoundary";
 import {
@@ -34,9 +35,10 @@ import {
   Zap,
   History,
   Download,
+  Brain,
 } from "lucide-react";
 
-type RightPanel = "chat" | "suggestions" | "agents";
+type RightPanel = "chat" | "suggestions" | "agents" | "memory";
 
 export function IDEPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -454,6 +456,18 @@ export function IDEPage() {
                       <Zap className="h-3 w-3" />
                       Agents
                     </button>
+                    <button
+                      type="button"
+                      className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                        rightPanel === "memory"
+                          ? "text-violet-400 border-b-2 border-violet-400"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      onClick={() => setRightPanel("memory")}
+                    >
+                      <Brain className="h-3 w-3" />
+                      Memory
+                    </button>
                   </div>
 
                   {/* Panel content */}
@@ -500,6 +514,11 @@ export function IDEPage() {
                           />
                         </PanelErrorBoundary>
                       )}
+                  {rightPanel === "memory" && projectId && (
+                    <PanelErrorBoundary>
+                      <MemoryTab projectId={projectId as Id<"projects">} />
+                    </PanelErrorBoundary>
+                  )}
                     </div>
                   </div>
                 </div>
