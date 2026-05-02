@@ -18,6 +18,7 @@ import { BuildProgress } from "@/components/ide/BuildProgress";
 import { AgentPanel } from "@/components/ide/AgentPanel";
 import { MemoryTab } from "@/components/ide/MemoryTab";
 import { AgentThoughtStream } from "@/components/ide/AgentThoughtStream";
+import { GitPanel } from "@/components/ide/GitPanel";
 import { SessionSidebar } from "@/components/ide/SessionSidebar";
 import { PanelErrorBoundary } from "@/components/ide/PanelErrorBoundary";
 import {
@@ -38,9 +39,10 @@ import {
   Download,
   Brain,
   Cpu,
+  Github,
 } from "lucide-react";
 
-type RightPanel = "chat" | "suggestions" | "agents" | "memory" | "thoughts";
+type RightPanel = "chat" | "suggestions" | "agents" | "memory" | "thoughts" | "git";
 
 export function IDEPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -482,6 +484,18 @@ export function IDEPage() {
                       <Cpu className="h-3 w-3" />
                       Thoughts
                     </button>
+                    <button
+                      type="button"
+                      className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                        rightPanel === "git"
+                          ? "text-orange-400 border-b-2 border-orange-400"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      onClick={() => setRightPanel("git")}
+                    >
+                      <Github className="h-3 w-3" />
+                      Git
+                    </button>
                   </div>
 
                   {/* Panel content */}
@@ -536,6 +550,11 @@ export function IDEPage() {
                   {rightPanel === "thoughts" && projectId && (
                     <PanelErrorBoundary>
                       <AgentThoughtStream projectId={projectId as Id<"projects">} />
+                    </PanelErrorBoundary>
+                  )}
+                  {rightPanel === "git" && projectId && (
+                    <PanelErrorBoundary>
+                      <GitPanel projectId={projectId as Id<"projects">} />
                     </PanelErrorBoundary>
                   )}
                     </div>
