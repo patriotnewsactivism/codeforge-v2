@@ -134,6 +134,22 @@ export const remove = mutation({
   },
 });
 
+// Alias used by agents and git importer
+export const update = mutation({
+  args: {
+    fileId: v.id("files"),
+    content: v.string(),
+    language: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const patch: Record<string, unknown> = { content: args.content };
+    if (args.language) patch.language = args.language;
+    await ctx.db.patch(args.fileId, patch);
+    return null;
+  },
+});
+
 function detectLanguage(filename: string): string {
   const ext = filename.split(".").pop()?.toLowerCase();
   const langMap: Record<string, string> = {
