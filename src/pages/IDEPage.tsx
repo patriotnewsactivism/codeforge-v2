@@ -26,6 +26,7 @@ import {
   EditorSkeleton,
 } from "@/components/ide/PanelSkeleton";
 import { useAuthToken } from "@/hooks/useAuthToken";
+import { useQuery as useConvexQuery } from "convex/react";
 import { toast } from "sonner";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import {
@@ -86,6 +87,8 @@ export function IDEPage() {
   const getOrCreateSession = useMutation(api.chat.getOrCreateSession);
   const heartbeat = useMutation(api.collaboration.heartbeat);
   const runBuildLoop = useAction(api.buildLoop.runBuildLoop);
+  const generateSuggestions = useAction(api.suggestions.generateSuggestions);
+  const runAutonomousCycle = useAction(api.suggestions.runAutonomousCycle);
 
   const [openFilePaths, setOpenFilePaths] = useState<string[]>([]);
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
@@ -138,6 +141,28 @@ export function IDEPage() {
       }
     }
   }, [files, openFilePaths.length]);
+
+  // Auto-generate suggestions on first load, and run autonomous cycle if enabled
+  useEffect(() => {
+    if (!projectId || files === undefined || files.length === 0) return;
+    // Fire-and-forget: generate suggestions in background
+    generateSuggestions({ projectId: projectId as Id<"projects"> }).catch(() => {});
+  }, [projectId, files?.length]);
+
+  // Autonomous mode: run a build cycle every autoIntervalMinutes
+  const autonomousSettings = useQuery(
+    api.suggestions.getAutonomousMode,
+    projectId ? { projectId: projectId as Id<"projects"> } : "skip"
+  );
+  useEffect(() => {
+    if (!projectId || !autonomousSettings?.autonomousMode) return;
+    const intervalMs = (autonomousSettings.autoIntervalMinutes ?? 15) * 60 * 1000;
+    const timer = setInterval(() => {
+      runAutonomousCycle({ projectId: projectId as Id<"projects"> }).catch(() => {});
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [projectId, autonomousSettings?.autonomousMode, autonomousSettings?.autoIntervalMinutes]);
+
 
   const activeFile = files?.find((f) => f.path === activeFilePath) ?? null;
 
