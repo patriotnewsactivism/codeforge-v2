@@ -161,16 +161,77 @@ export const runMultiAgent = action({
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
+    // 0. Clear old thoughts for this project (fresh stream per task)
+    await ctx.runMutation(api.agentThoughts.clearForProject, {
+      projectId: args.projectId,
+    });
+
+    // Emit: planner starting
+    await ctx.runMutation(api.agentThoughts.emit, {
+      projectId: args.projectId,
+      agentId: "planner-agent",
+      agentName: "Planner",
+      type: "plan",
+      content: `Received task: "${args.prompt}"`,
+      isStreaming: true,
+    });
+
     // 1. Load persistent memory for this project
+    await ctx.runMutation(api.agentThoughts.emit, {
+      projectId: args.projectId,
+      agentId: "planner-agent",
+      agentName: "Planner",
+      type: "memory",
+      content: "Loading memory bank...",
+      isStreaming: true,
+    });
     const memoryContext = await ctx.runAction(api.memory.getMemoriesForPrompt, {
       projectId: args.projectId,
       topN: 15,
+    });
+    await ctx.runMutation(api.agentThoughts.emit, {
+      projectId: args.projectId,
+      agentId: "planner-agent",
+      agentName: "Planner",
+      type: "memory",
+      content: memoryContext
+        ? `Loaded ${memoryContext.split("\n").length} memory entries`
+        : "No prior memories — starting fresh",
     });
 
     // 2. Get project files
     const files = await ctx.runQuery(api.files.listByProject, {
       projectId: args.projectId,
     });
+
+    // 2b. RAG: index project and get relevant context for this task
+    await ctx.runMutation(api.agentThoughts.emit, {
+      projectId: args.projectId,
+      agentId: "planner-agent",
+      agentName: "Planner",
+      type: "search",
+      content: `Indexing ${files.filter(f => !f.isDirectory).length} files for semantic search...`,
+      isStreaming: true,
+    });
+    try {
+      await ctx.runAction(api.rag.indexProject, { projectId: args.projectId });
+      const ragContext = await ctx.runAction(api.rag.getContextForPrompt, {
+        projectId: args.projectId,
+        query: args.prompt,
+      });
+      if (ragContext) {
+        const matchCount = (ragContext.match(/---/g) ?? []).length / 2;
+        await ctx.runMutation(api.agentThoughts.emit, {
+          projectId: args.projectId,
+          agentId: "planner-agent",
+          agentName: "Planner",
+          type: "search",
+          content: `Found ${matchCount} relevant files via semantic search`,
+        });
+      }
+    } catch {
+      // RAG failure is non-fatal
+    }
     const fileList = files.filter((f) => !f.isDirectory).map((f) => f.path).join(", ");
     const fileContext = files
       .filter((f) => !f.isDirectory)
@@ -203,6 +264,14 @@ Return ONLY valid JSON (no markdown):
 
 Each agent task must be distinct — no two agents should touch the same files.`;
 
+    await ctx.runMutation(api.agentThoughts.emit, {
+      projectId: args.projectId,
+      agentId: "planner-agent",
+      agentName: "Planner",
+      type: "plan",
+      content: "Analyzing task and selecting specialist agents...",
+      isStreaming: true,
+    });
     const planResult = await callAI(planPrompt);
     const planMatch = planResult.match(/\{[\s\S]*\}/);
     if (!planMatch) throw new Error("Planner failed to produce a valid plan");
@@ -212,6 +281,14 @@ Each agent task must be distinct — no two agents should touch the same files.`
       reasoning: string;
       agents: Array<{ agentId: string; task: string }>;
     };
+
+    await ctx.runMutation(api.agentThoughts.emit, {
+      projectId: args.projectId,
+      agentId: "planner-agent",
+      agentName: "Planner",
+      type: "plan",
+      content: `Plan: ${plan.complexity} task — deploying ${plan.agents.length} agents: ${plan.agents.map((a: {agentId: string}) => a.agentId).join(", ")}`,
+    });
 
     // 4. Create task records in DB (so UI can show them immediately)
     const taskRecords: Array<{
@@ -270,6 +347,14 @@ Each agent task must be distinct — no two agents should touch the same files.`
         messageType: "context",
         content: `Starting task: ${t.task}`,
       });
+      await ctx.runMutation(api.agentThoughts.emit, {
+        projectId: args.projectId,
+        agentId: t.agentId,
+        agentName: t.agentName,
+        type: "analyze",
+        content: `Task: ${t.task}`,
+        isStreaming: true,
+      });
 
       const priorBroadcastContext = agentBroadcasts.length > 0
         ? `\n\nMESSAGES FROM OTHER AGENTS:\n${agentBroadcasts.join("\n")}`
@@ -311,6 +396,14 @@ Return ONLY valid JSON (no markdown):
         const jsonMatch = agentResult.match(/\{[\s\S]*\}/);
 
         if (jsonMatch) {
+          await ctx.runMutation(api.agentThoughts.emit, {
+            projectId: args.projectId,
+            agentId: t.agentId,
+            agentName: t.agentName,
+            type: "code",
+            content: "Applying file changes...",
+            isStreaming: true,
+          });
           const parsed = JSON.parse(jsonMatch[0]) as {
             changes?: Array<{ path: string; action: string; content: string }>;
             summary?: string;
@@ -366,6 +459,13 @@ Return ONLY valid JSON (no markdown):
             agentBroadcasts.push(`[${t.agentName}] ${parsed.broadcast.content}`);
           }
 
+          await ctx.runMutation(api.agentThoughts.emit, {
+            projectId: args.projectId,
+            agentId: t.agentId,
+            agentName: t.agentName,
+            type: "done",
+            content: `${parsed.summary ?? "Completed"} — changed: ${changedPaths.join(", ") || "no files"}`,
+          });
           await ctx.runMutation(api.agents.updateTask, {
             taskId: t.taskId,
             status: "done",
@@ -413,6 +513,14 @@ Return ONLY valid JSON (no markdown):
     }
 
     // 6. Run retrospective automatically after all agents complete
+    await ctx.runMutation(api.agentThoughts.emit, {
+      projectId: args.projectId,
+      agentId: "retrospective-agent",
+      agentName: "Retrospective",
+      type: "review",
+      content: "Analyzing completed run — extracting learnings for memory...",
+      isStreaming: true,
+    });
     try {
       await ctx.runAction(api.memory.runRetrospective, {
         projectId: args.projectId,
