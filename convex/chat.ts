@@ -242,26 +242,23 @@ export const sendMessage = action({
     projectId: v.id("projects"),
     content: v.string(),
     model: v.string(),
-    fileContext: v.optional(v.string()), // single file context (backwards compat)
+    fileContext: v.optional(v.string()),
     fileContexts: v.optional(v.array(v.object({
       path: v.string(),
       content: v.string(),
-    }))), // multi-file context
+    }))),
     userId: v.id("users"),
   },
   returns: v.string(),
   handler: async (ctx, args) => {
-    // Build combined file context from multi-file or single file
     let combinedContext = "";
     if (args.fileContexts && args.fileContexts.length > 0) {
-      combinedContext = args.fileContexts
-        .map((f) => `--- ${f.path} ---\n${f.content}`)
-        .join("\n\n");
+      combinedContext = args.fileContexts.map(f => `--- ${f.path} ---\n${f.content}`).join("\n\n");
     } else if (args.fileContext) {
       combinedContext = args.fileContext;
     }
 
-    // Save user message with multi-file context
+    // Save user message
     await ctx.runMutation(api.chat.addMessage, {
       sessionId: args.sessionId,
       projectId: args.projectId,
@@ -271,90 +268,71 @@ export const sendMessage = action({
       fileContexts: args.fileContexts,
     });
 
-    // Try models with fallback
-    const modelOrder = [args.model, "deepseek-v3.2", "grok-4.1-fast", "gpt-5-mini"].filter(
-      (m, i, arr) => arr.indexOf(m) === i
-    );
+    // ── SMART ROUTING ──────────────────────────────────────────────────────────
+    // Code-action keywords → dispatch to engine.runMission (full agent loop)
+    // Questions/explanations → direct AI response (fast, cheap)
+    const isCodeRequest = /\b(build|create|add|make|implement|fix|refactor|update|write|generate|change|edit|delete|remove|style|design|migrate|rename|move|replace|convert|upgrade|optimize|improve|debug|deploy)\b/i.test(args.content);
 
-    let lastError = "";
-    for (const model of modelOrder) {
-      try {
-        const result = await callViktorAI(
-          args.content,
-          combinedContext || undefined,
-          model
-        );
-        const inputText = args.content + (combinedContext || "");
-        const inputEst = estimateCost(inputText, model, false);
-        const outputEst = estimateCost(result, model, true);
-        const totalTokens = inputEst.tokens + outputEst.tokens;
-        const totalCost = inputEst.cost + outputEst.cost;
-
-        const modelConfig = MODELS[model];
-        const modelLabel = modelConfig?.name ?? model;
-
-        // Save AI response
-        await ctx.runMutation(api.chat.addMessage, {
-          sessionId: args.sessionId,
-          projectId: args.projectId,
-          role: "assistant",
-          content: result,
-          model: modelLabel,
-          tokensUsed: totalTokens,
-          cost: totalCost,
-        });
-
-        return result;
-      } catch (e: unknown) {
-        lastError = e instanceof Error ? e.message : String(e);
-        console.log(`Model ${model} failed: ${lastError}, trying next...`);
-        continue;
+    // ── PATH A: Direct AI (questions, explanations, reviews) ──────────────────
+    if (!isCodeRequest) {
+      const modelOrder = [args.model, "deepseek-v3.2"].filter((m, i, arr) => arr.indexOf(m) === i);
+      for (const model of modelOrder) {
+        try {
+          const result = await callViktorAI(args.content, combinedContext || undefined, model);
+          const inputEst = estimateCost(args.content + combinedContext, model, false);
+          const outputEst = estimateCost(result, model, true);
+          await ctx.runMutation(api.chat.addMessage, {
+            sessionId: args.sessionId,
+            projectId: args.projectId,
+            role: "assistant",
+            content: result,
+            model: MODELS[model]?.name ?? model,
+            tokensUsed: inputEst.tokens + outputEst.tokens,
+            cost: inputEst.cost + outputEst.cost,
+          });
+          return result;
+        } catch (e) {
+          console.log(`Direct AI model ${model} failed:`, e);
+          continue;
+        }
       }
     }
 
-    // All models failed
-    const errorMsg = `All models failed. Last error: ${lastError}`;
+    // ── PATH B: Engine mission (code changes) ─────────────────────────────────
+    // Notify chat that agents are spawning
     await ctx.runMutation(api.chat.addMessage, {
       sessionId: args.sessionId,
       projectId: args.projectId,
       role: "assistant",
-      content: errorMsg,
-      isError: true,
+      content: "🤖 Launching agent swarm... Watch the Agents panel for live progress.",
     });
-    return errorMsg;
+
+    try {
+      const result = await ctx.runAction(api.engine.runMission, {
+        projectId: args.projectId,
+        prompt: args.content,
+        sessionId: args.sessionId,
+      });
+
+      // Update that last message with the real result
+      await ctx.runMutation(api.chat.addMessage, {
+        sessionId: args.sessionId,
+        projectId: args.projectId,
+        role: "assistant",
+        content: `✅ Done!\n\n${result}`,
+      });
+
+      return result;
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      await ctx.runMutation(api.chat.addMessage, {
+        sessionId: args.sessionId,
+        projectId: args.projectId,
+        role: "assistant",
+        content: `❌ Mission failed: ${errMsg}`,
+        isError: true,
+      });
+      return errMsg;
+    }
   },
 });
-
-async function callViktorAI(
-  userMessage: string,
-  fileContext: string | undefined,
-  _model: string
-): Promise<string> {
-  const prompt = fileContext
-    ? `I'm working on this code:\n\`\`\`\n${fileContext}\n\`\`\`\n\n${userMessage}`
-    : userMessage;
-
-  const response = await fetch(
-    `${VIKTOR_API_URL}/api/viktor-spaces/tools/call`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        project_name: PROJECT_NAME,
-        project_secret: PROJECT_SECRET,
-        role: "quick_ai_search",
-        arguments: { search_question: prompt },
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-  }
-
-  const json = await response.json();
-  if (!json.success) {
-    throw new Error(json.error ?? "AI call failed");
-  }
-  return json.result.search_response;
-}
