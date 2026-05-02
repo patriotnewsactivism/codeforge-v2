@@ -55,12 +55,10 @@ const schema = defineSchema({
     tokensUsed: v.optional(v.number()),
     cost: v.optional(v.number()),
     isError: v.optional(v.boolean()),
-    // Multi-file context: array of { path, content } for richer AI context
     fileContexts: v.optional(v.array(v.object({
       path: v.string(),
       content: v.string(),
     }))),
-    // For multi-agent mode: which agent produced this message
     agentId: v.optional(v.string()),
     agentRole: v.optional(v.string()),
   }).index("by_session", ["sessionId"]),
@@ -85,8 +83,8 @@ const schema = defineSchema({
     invitedBy: v.id("users"),
     inviteCode: v.string(),
     expiresAt: v.number(),
-    isPublic: v.optional(v.boolean()), // public collab session links
-    sessionName: v.optional(v.string()), // friendly name for the session
+    isPublic: v.optional(v.boolean()),
+    sessionName: v.optional(v.string()),
   })
     .index("by_code", ["inviteCode"])
     .index("by_project", ["projectId"]),
@@ -96,7 +94,7 @@ const schema = defineSchema({
     projectId: v.id("projects"),
     title: v.string(),
     description: v.string(),
-    category: v.string(), // "ui", "functionality", "performance", "ux", "security"
+    category: v.string(),
     priority: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
     status: v.union(
       v.literal("pending"),
@@ -104,7 +102,7 @@ const schema = defineSchema({
       v.literal("done"),
       v.literal("dismissed")
     ),
-    implementationPrompt: v.string(), // what to tell the AI to implement it
+    implementationPrompt: v.string(),
     generatedAt: v.number(),
   })
     .index("by_project", ["projectId"])
@@ -147,7 +145,7 @@ const schema = defineSchema({
     buildSessionId: v.id("buildSessions"),
     projectId: v.id("projects"),
     stepNumber: v.number(),
-    action: v.string(), // "create_file", "edit_file", "fix_error", "add_feature"
+    action: v.string(),
     description: v.string(),
     filesChanged: v.array(v.string()),
     status: v.union(v.literal("running"), v.literal("done"), v.literal("error")),
@@ -161,9 +159,9 @@ const schema = defineSchema({
   agentTasks: defineTable({
     projectId: v.id("projects"),
     buildSessionId: v.optional(v.id("buildSessions")),
-    agentId: v.string(), // "ui-agent", "backend-agent", "test-agent", etc.
+    agentId: v.string(),
     agentName: v.string(),
-    agentIcon: v.string(), // emoji
+    agentIcon: v.string(),
     task: v.string(),
     status: v.union(
       v.literal("queued"),
@@ -178,6 +176,82 @@ const schema = defineSchema({
   })
     .index("by_project", ["projectId"])
     .index("by_build_session", ["buildSessionId"]),
+
+  // ─── AGENT MEMORY SYSTEM ────────────────────────────────────────────────────
+
+  // Persistent memories that accumulate across every agent task
+  agentMemories: defineTable({
+    projectId: v.id("projects"),
+    category: v.union(
+      v.literal("pattern"),       // recurring code patterns that work well
+      v.literal("anti_pattern"),  // things that consistently break
+      v.literal("preference"),    // user style/architecture preferences
+      v.literal("architecture"),  // high-level structural decisions
+      v.literal("dependency"),    // library/tool choices and gotchas
+      v.literal("bugfix"),        // specific bugs and their fixes
+      v.literal("convention"),    // naming, formatting, file structure
+      v.literal("tool"),          // effective tool/API usage patterns
+      v.literal("insight")        // general observations about the codebase
+    ),
+    content: v.string(),          // the actual memory text injected into prompts
+    importance: v.number(),       // 0.0–1.0, used to rank which memories to inject
+    usageCount: v.number(),       // how many times this memory has been used
+    lastUsedAt: v.number(),       // for decay calculation
+    sourceTaskId: v.optional(v.id("agentTasks")),       // which task created this
+    sourceRetroId: v.optional(v.id("taskRetrospectives")), // which retro created this
+    decayFactor: v.number(),      // 0.0–1.0, multiplied into importance over time
+    embedding: v.optional(v.string()), // future: vector embedding for semantic search
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_category", ["projectId", "category"])
+    .index("by_project_and_importance", ["projectId", "importance"]),
+
+  // ─── SELF-IMPROVEMENT: RETROSPECTIVES ───────────────────────────────────────
+
+  // After every completed agent run, a Retrospective agent analyzes what happened
+  taskRetrospectives: defineTable({
+    projectId: v.id("projects"),
+    triggerTaskId: v.optional(v.id("agentTasks")),   // which task triggered this retro
+    buildSessionId: v.optional(v.id("buildSessions")),
+    qualityScore: v.number(),     // 1–10, how well did the agents perform?
+    whatWorked: v.array(v.string()),
+    whatFailed: v.array(v.string()),
+    improvements: v.array(v.string()),  // concrete changes for future prompts
+    memoriesCreated: v.array(v.id("agentMemories")), // memories extracted from this retro
+    rawAnalysis: v.string(),      // full retrospective text from the AI
+    agentsInvolved: v.array(v.string()),  // which agent IDs were analyzed
+    timestamp: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_time", ["projectId", "timestamp"]),
+
+  // ─── AGENT-TO-AGENT COMMUNICATION ───────────────────────────────────────────
+
+  // Real-time message bus between agents during a task
+  agentMessages: defineTable({
+    projectId: v.id("projects"),
+    buildSessionId: v.optional(v.id("buildSessions")),
+    fromAgentId: v.string(),      // "ui-agent", "planner", "retrospective-agent", etc.
+    fromAgentName: v.string(),
+    fromAgentIcon: v.string(),
+    toAgentId: v.optional(v.string()),  // null = broadcast to all agents
+    toAgentName: v.optional(v.string()),
+    messageType: v.union(
+      v.literal("warning"),    // "watch out for X"
+      v.literal("context"),    // "here's info you'll need"
+      v.literal("request"),    // "can you handle X?"
+      v.literal("finding"),    // "I discovered Y"
+      v.literal("blocker"),    // "I'm stuck on Z"
+      v.literal("resolved")    // "blocker Z is now fixed"
+    ),
+    content: v.string(),
+    relatedFiles: v.optional(v.array(v.string())),
+    timestamp: v.number(),
+    acknowledged: v.optional(v.boolean()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_build_session", ["buildSessionId"])
+    .index("by_project_and_time", ["projectId", "timestamp"]),
 });
 
 export default schema;
