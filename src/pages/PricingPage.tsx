@@ -119,12 +119,11 @@ export function PricingPage() {
     }
     setLoading(planKey);
     try {
-      const url = await createCheckout({
-        planKey,
-        userId: userPlan?.userId as any,
-        userEmail: undefined,
+      const result = await createCheckout({
+        plan: planKey,
+        userId: userPlan?.userId as string | undefined,
       });
-      window.location.href = url;
+      window.location.href = result.url;
     } catch (e) {
       console.error("Checkout error:", e);
       alert("Couldn't start checkout. Please try again.");
