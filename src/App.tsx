@@ -14,6 +14,8 @@ import {
   SignupPage,
   IDEPage,
 } from "./pages";
+import { PricingPage } from "./pages/PricingPage";
+import { CheckoutSuccess } from "./pages/CheckoutSuccess";
 
 function App() {
   return (
@@ -39,6 +41,10 @@ function App() {
             {/* IDE page - full screen, no sidebar */}
             <Route path="/project/:projectId" element={<IDEPage />} />
           </Route>
+
+          {/* Public pricing page */}
+          <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/checkout/success" element={<CheckoutSuccess />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
