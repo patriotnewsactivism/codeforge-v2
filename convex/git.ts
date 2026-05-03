@@ -346,8 +346,10 @@ export const importFromGitHub = action({
       const treeData = await treeRes.json() as { tree: Array<{ path: string; type: string; url: string; size?: number }> };
 
       const CODE_EXTENSIONS = [
-        ".ts", ".tsx", ".js", ".jsx", ".css", ".html", ".json",
-        ".md", ".py", ".go", ".rs", ".toml", ".yaml", ".yml", ".sh", ".env.example",
+        ".ts", ".tsx", ".js", ".jsx", ".css", ".scss", ".html", ".json",
+        ".md", ".mdx", ".py", ".go", ".rs", ".toml", ".yaml", ".yml", ".sh",
+        ".env.example", ".prisma", ".graphql", ".sql", ".swift", ".kt", ".rb",
+        ".php", ".c", ".cpp", ".h", ".vue", ".svelte", ".astro",
       ];
 
       const codeFiles = treeData.tree.filter(
@@ -359,7 +361,7 @@ export const importFromGitHub = action({
       );
 
       let imported = 0;
-      for (const file of codeFiles.slice(0, 100)) {
+      for (const file of codeFiles.slice(0, 250)) {
         const contentRes = await fetch(file.url, { headers: ghHeaders });
         const contentData = await contentRes.json() as { content: string; encoding: string };
         let content = "";
@@ -378,7 +380,7 @@ export const importFromGitHub = action({
         });
 
         if (existing) {
-          await ctx.runMutation(api.files.update, { fileId: existing._id, content });
+          await ctx.runMutation(api.files.updateContent, { fileId: existing._id, content });
         } else {
           await ctx.runMutation(api.files.create, {
             projectId: args.projectId,
@@ -390,6 +392,16 @@ export const importFromGitHub = action({
           });
         }
         imported++;
+      }
+
+      // Store the github repo reference on the project
+      try {
+        await ctx.runMutation(api.projects.setGithubRepo, {
+          projectId: args.projectId,
+          githubRepo: args.repoFullName,
+        });
+      } catch (_) {
+        // non-fatal — project was created successfully
       }
 
       return { success: true, filesImported: imported };
