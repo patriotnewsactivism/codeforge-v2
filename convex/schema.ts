@@ -370,6 +370,20 @@ const schema = defineSchema({
     .index("by_mission", ["missionId"]),
 
 
+  // ─── STRIPE SUBSCRIPTIONS ────────────────────────────────────────────────────
+  subscriptions: defineTable({
+    userId: v.id("users"),
+    planKey: v.string(),                          // "free" | "weekly" | "monthly" | "lifetime"
+    stripeCustomerId: v.optional(v.string()),
+    stripeSubscriptionId: v.optional(v.string()),
+    currentPeriodEnd: v.optional(v.number()),     // Unix ms
+    status: v.string(),                           // "active" | "past_due" | "cancelled"
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_stripe_customer", ["stripeCustomerId"]),
+
+
 });
 
 export default schema;
