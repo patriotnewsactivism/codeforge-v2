@@ -91,8 +91,12 @@ export function DashboardPage() {
     setImportMsg("Creating project...");
 
     try {
-      // Create project first
-      const projectId = await createProject({ name, description: `Imported from ${repoFullName}` });
+      // Create project first — store githubRepo so re-sync works
+      const projectId = await createProject({
+        name,
+        description: `Imported from github.com/${repoFullName}`,
+        githubRepo: repoFullName,
+      });
 
       setImportMsg(`Fetching files from ${repoFullName}...`);
 
@@ -330,7 +334,7 @@ export function DashboardPage() {
               </div>
               <div className="rounded-md bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-300 space-y-1">
                 <p className="font-semibold">What gets imported:</p>
-                <p>All code files up to 100KB — .ts, .tsx, .js, .jsx, .css, .html, .json, .md, .py and more. Max 100 files. node_modules excluded.</p>
+                <p>Code files up to 100KB each — TypeScript, JavaScript, Python, Go, Rust, CSS, HTML, JSON, Markdown, and 20+ more extensions. Up to 250 files. Excludes node_modules and .git.</p>
               </div>
             </div>
           )}
@@ -361,9 +365,10 @@ export function DashboardPage() {
               <div className="rounded-md bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-300">
                 <p className="font-semibold mb-1">Common causes:</p>
                 <ul className="list-disc list-inside space-y-0.5">
-                  <li>Private repo without a GitHub token configured</li>
-                  <li>Repo doesn't exist or URL is wrong</li>
-                  <li>Rate limit hit — try again in a minute</li>
+                  <li>Private repo — add a GitHub token in project settings</li>
+                  <li>Repo doesn't exist or the URL is wrong</li>
+                  <li>GitHub API rate limit hit — try again in a few minutes</li>
+                  <li>Repo has no code files matching supported extensions</li>
                 </ul>
               </div>
             </div>
