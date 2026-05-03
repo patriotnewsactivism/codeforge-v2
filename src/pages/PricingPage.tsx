@@ -93,6 +93,21 @@ const PLANS = [
 export function PricingPage() {
   const { isAuthenticated } = useConvexAuth();
   const navigate = useNavigate();
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const createCheckout = useAction(api.stripe.createCheckoutSession);
+
+  const handleCheckout = async (plan: "weekly" | "monthly" | "lifetime") => {
+    setCheckoutLoading(plan);
+    setCheckoutError(null);
+    try {
+      const { url } = await createCheckout({ plan });
+      window.location.href = url;
+    } catch (e) {
+      setCheckoutError(e instanceof Error ? e.message : "Checkout failed. Please try again.");
+      setCheckoutLoading(null);
+    }
+  };
   const userPlan = useQuery(api.stripe.getUserPlan);
   const createCheckout = useAction(api.stripe.createCheckoutSession);
   const [loading, setLoading] = useState<string | null>(null);
