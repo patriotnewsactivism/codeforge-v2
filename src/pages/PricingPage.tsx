@@ -70,7 +70,7 @@ const PLANS = [
   {
     key: "lifetime" as const,
     name: "Lifetime Founder",
-    price: "$299",
+    price: "$420",
     period: "one-time",
     icon: <Crown className="h-5 w-5" />,
     color: "border-amber-500/60",
