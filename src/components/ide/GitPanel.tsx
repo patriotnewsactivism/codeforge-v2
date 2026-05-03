@@ -27,6 +27,7 @@ export function GitPanel({ projectId }: GitPanelProps) {
   const commits = useQuery(api.git.listCommits, { projectId });
   const branches = useQuery(api.git.listBranches, { projectId });
   const activeBranch = useQuery(api.git.getActiveBranch, { projectId });
+  const project = useQuery(api.projects.get, { projectId });
 
   const pushToGitHub = useAction(api.git.pushToGitHub);
   const importFromGitHub = useAction(api.git.importFromGitHub);
@@ -83,16 +84,17 @@ export function GitPanel({ projectId }: GitPanelProps) {
     }
   };
 
-  const handleImport = async () => {
-    if (!importRepo) {
-      toast.error("Repo name is required (e.g. owner/repo)");
+  const handleImport = async (repoOverride?: string) => {
+    const repoToImport = repoOverride ?? importRepo;
+    if (!repoToImport) {
+      toast.error("Enter a repo — e.g. owner/repo or a GitHub URL");
       return;
     }
     setImporting(true);
     try {
       const result = await importFromGitHub({
         projectId,
-        repoFullName: importRepo,
+        repoFullName: repoToImport,
         branch: importBranch || undefined,
       });
       if (result.success) {
@@ -390,6 +392,25 @@ export function GitPanel({ projectId }: GitPanelProps) {
         {/* ── IMPORT ── */}
         {activeTab === "import" && (
           <div className="p-3 space-y-3">
+            {/* Re-sync shortcut — shown when project has a linked repo */}
+            {project?.githubRepo && (
+              <div className="rounded border border-violet-500/30 bg-violet-500/10 p-3 space-y-2">
+                <p className="text-[11px] font-semibold text-violet-300 flex items-center gap-1.5">
+                  <Github className="h-3.5 w-3.5" />
+                  Linked Repo
+                </p>
+                <p className="text-[10px] text-muted-foreground font-mono">{project.githubRepo}</p>
+                <button
+                  type="button"
+                  onClick={() => handleImport(project.githubRepo!)}
+                  disabled={importing}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-[11px] font-medium rounded transition-colors"
+                >
+                  {importing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                  {importing ? "Syncing..." : "Re-sync from GitHub"}
+                </button>
+              </div>
+            )}
             <p className="text-[11px] text-muted-foreground">
               Import files from any GitHub repository into this project.
               Public repos work without a token. Private repos need{" "}
