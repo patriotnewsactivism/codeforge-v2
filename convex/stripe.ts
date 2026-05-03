@@ -203,7 +203,7 @@ export const getSubByCustomerId = query({
 
 export const upsertSubscription = mutation({
   args: {
-    userId: v.string(),
+    userId: v.id("users"),
     planKey: v.string(),
     stripeCustomerId: v.string(),
     stripeSubscriptionId: v.optional(v.string()),
@@ -233,7 +233,6 @@ export const upsertSubscription = mutation({
         stripeSubscriptionId: args.stripeSubscriptionId,
         currentPeriodEnd: args.currentPeriodEnd,
         status: args.status,
-        createdAt: Date.now(),
         updatedAt: Date.now(),
       });
     }
