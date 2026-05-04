@@ -16,6 +16,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { UsageMeter } from "./UsageMeter";
 
 const MODELS = [
+  { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", shortName: "DS V4", icon: "⚡", color: "text-emerald-400" },
   { id: "deepseek-v3.2", name: "DeepSeek V3.2", shortName: "DS V3", icon: "🧠", color: "text-green-400" },
   { id: "grok-4.1-fast", name: "Grok 4.1 Fast", shortName: "Grok", icon: "⚡", color: "text-blue-400" },
   { id: "gpt-5-mini", name: "GPT-5 Mini", shortName: "GPT-5", icon: "🤖", color: "text-purple-400" },
@@ -66,7 +67,7 @@ export function ChatPanel({
   const updateModel = useMutation(api.chat.updateModel);
   const userId = useAuthToken();
 
-  const currentModel = session?.model ?? "deepseek-v3.2";
+  const currentModel = session?.model ?? "deepseek-v4-flash";
   const currentModelConfig = MODELS.find(m => m.id === currentModel) ?? MODELS[0]!;
 
   useEffect(() => {

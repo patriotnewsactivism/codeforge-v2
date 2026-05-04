@@ -13,7 +13,7 @@ const PROJECT_SECRET = process.env.VIKTOR_SPACES_PROJECT_SECRET!;
 
 async function callAI(
   prompt: string,
-  _model = "deepseek-v3.2",   // model param kept for API compat but Viktor uses quick_ai_search role
+  _model = "deepseek-v4-flash",   // model param kept for API compat but Viktor uses quick_ai_search role
   _maxTokens = 6000
 ): Promise<string> {
   const res = await fetch(`${VIKTOR_API_URL}/api/viktor-spaces/tools/call`, {
@@ -299,7 +299,7 @@ Return ONLY valid JSON (no markdown fences):
   ]
 }`;
 
-    const planResult = await callAI(planPrompt, "deepseek-v3.2", 3000);
+    const planResult = await callAI(planPrompt, "deepseek-v4-flash", 3000);
     const planMatch = planResult.match(/\{[\s\S]*\}/);
     if (!planMatch) throw new Error("Planner failed to produce a valid plan");
 
@@ -431,7 +431,7 @@ Return ONLY valid JSON (no markdown fences):
         await think(ctx, projectId, t.agentId, t.agentName, "code",
           "Working...", true);
 
-        const agentResult = await callAI(agentPrompt, "deepseek-v3.2", 8000);
+        const agentResult = await callAI(agentPrompt, "deepseek-v4-flash", 8000);
         const jsonMatch = agentResult.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error("Non-JSON output from agent");
 

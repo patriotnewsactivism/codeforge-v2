@@ -14,6 +14,11 @@ const MODELS: Record<
   string,
   { name: string; inputCostPer1M: number; outputCostPer1M: number }
 > = {
+  "deepseek-v4-flash": {
+    name: "DeepSeek V4 Flash",
+    inputCostPer1M: 0.14,
+    outputCostPer1M: 0.28,
+  },
   "deepseek-v3.2": {
     name: "DeepSeek V3.2",
     inputCostPer1M: 0.27,
@@ -38,7 +43,7 @@ function estimateCost(
   isOutput: boolean
 ): { tokens: number; cost: number } {
   const tokens = Math.ceil(text.length / 4);
-  const config = MODELS[model] ?? MODELS["deepseek-v3.2"];
+  const config = MODELS[model] ?? MODELS["deepseek-v4-flash"];
   const costPer1M = isOutput ? config.outputCostPer1M : config.inputCostPer1M;
   const cost = (tokens / 1_000_000) * costPer1M;
   return { tokens, cost };
@@ -91,7 +96,7 @@ export const getOrCreateSession = mutation({
     return await ctx.db.insert("chatSessions", {
       projectId: args.projectId,
       userId,
-      model: args.model ?? "deepseek-v3.2",
+      model: args.model ?? "deepseek-v4-flash",
       totalTokensUsed: 0,
       totalCost: 0,
       createdAt: Date.now(),
@@ -110,7 +115,7 @@ export const createSession = mutation({
       projectId: args.projectId,
       userId,
       title: args.title ?? "New Chat",
-      model: args.model ?? "deepseek-v3.2",
+      model: args.model ?? "deepseek-v4-flash",
       totalTokensUsed: 0,
       totalCost: 0,
       createdAt: Date.now(),
@@ -313,7 +318,7 @@ export const sendMessage = action({
 
     // ── PATH A: Direct AI (questions, explanations, reviews) ──────────────────
     if (!isCodeRequest) {
-      const modelOrder = [args.model, "deepseek-v3.2"].filter((m, i, arr) => arr.indexOf(m) === i);
+      const modelOrder = [args.model, "deepseek-v4-flash"].filter((m, i, arr) => arr.indexOf(m) === i);
       for (const model of modelOrder) {
         try {
           const result = await callViktorAI(args.content, combinedContext || undefined, model);

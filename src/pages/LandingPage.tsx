@@ -20,7 +20,7 @@ const FEATURES = [
     icon: Bot,
     title: "Multi-Model AI",
     description:
-      "DeepSeek V3.2, Grok 4.1 Fast, GPT-5 Mini — switch models per-message. Automatic fallback if one fails.",
+      "DeepSeek V4 Flash, Grok 4.1 Fast, GPT-5 Mini — switch models per-message. Automatic fallback if one fails.",
     color: "text-green-400",
     bgColor: "bg-green-400/10",
   },
