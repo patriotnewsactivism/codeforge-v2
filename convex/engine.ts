@@ -136,6 +136,15 @@ async function callAI(prompt: string): Promise<string> {
 
 // ─── TOOL EXECUTION ──────────────────────────────────────────────────────────
 
+interface PlanLimits {
+  maxSpawnDepth: number;
+  maxSpawnsPerMission: number;
+  maxConcurrentAgents: number;
+  hardCapUsdMonthly: number;
+  cappedOut: boolean;
+  plan: string;
+}
+
 async function executeTool(
   ctx: any,
   projectId: Id<"projects">,
@@ -144,7 +153,8 @@ async function executeTool(
   agentName: string,
   call: ToolCall,
   spawnDepth: number,
-  spawnCount: { value: number }
+  spawnCount: { value: number },
+  planLimits?: PlanLimits
 ): Promise<ToolResult> {
   const toolCallId = await ctx.runMutation(api.engine.createToolCall, {
     projectId,
@@ -239,14 +249,14 @@ async function executeTool(
       }
 
       case "spawn_agent": {
-        const MAX_DEPTH = 4;
-        const MAX_SPAWNS = 25;
-        if (spawnDepth >= MAX_DEPTH) {
-          output = `Spawn depth limit (${MAX_DEPTH}) reached`;
+        const maxDepth = planLimits?.maxSpawnDepth ?? 3;
+        const maxSpawns = planLimits?.maxSpawnsPerMission ?? 25;
+        if (spawnDepth >= maxDepth) {
+          output = `⚠️ Spawn depth limit (${maxDepth}) reached — upgrade for deeper agent cascades`;
           break;
         }
-        if (spawnCount.value >= MAX_SPAWNS) {
-          output = `Spawn limit (${MAX_SPAWNS}) reached`;
+        if (spawnCount.value >= maxSpawns) {
+          output = `⚠️ Mission spawn limit (${maxSpawns}) reached — upgrade for more agents per mission`;
           break;
         }
         spawnCount.value++;
@@ -261,7 +271,7 @@ async function executeTool(
         });
         const childResult = await runAgentLoop(
           ctx, projectId, missionId, role, role,
-          task, spawnDepth + 1, spawnCount
+          task, spawnDepth + 1, spawnCount, planLimits
         );
         output = `Agent ${role} completed: ${childResult.slice(0, 300)}`;
         break;
@@ -319,7 +329,8 @@ async function runAgentLoop(
   agentName: string,
   task: string,
   depth: number,
-  spawnCount: { value: number }
+  spawnCount: { value: number },
+  planLimits?: PlanLimits
 ): Promise<string> {
 
   // Load context
@@ -488,6 +499,27 @@ export const runMission = action({
   handler: async (ctx, args) => {
     const missionId = `mission-${Date.now()}`;
 
+    // ── Fetch user's plan limits + check usage gate ────────────────────────
+    let planLimits: PlanLimits = {
+      maxSpawnDepth: 3, maxSpawnsPerMission: 25,
+      maxConcurrentAgents: 5, hardCapUsdMonthly: 6, cappedOut: false, plan: "free",
+    };
+    try {
+      const project = await ctx.runQuery(api.projects.get, { projectId: args.projectId });
+      if (project?.ownerId) {
+        const pl = await ctx.runAction(api.limits.getUserPlanLimits, { userId: String(project.ownerId) });
+        planLimits = pl as PlanLimits;
+        if (planLimits.cappedOut) {
+          return "⛔ Monthly compute cap reached. Upgrade or wait for your cap to reset next month.";
+        }
+        // Track mission usage
+        await ctx.runMutation(api.limits.trackUsage, {
+          userId: String(project.ownerId),
+          action: "start_mission",
+        });
+      }
+    } catch { /* non-fatal — default free limits apply */ }
+
     // Clear old thoughts
     await ctx.runMutation(api.agentThoughts.clearForProject, { projectId: args.projectId });
     await ctx.runMutation(api.engine.clearToolCalls, { projectId: args.projectId });
@@ -584,7 +616,7 @@ Respond ONLY with valid JSON:
 
       const result = await runAgentLoop(
         ctx, args.projectId, missionId, agent.id,
-        `${agent.icon} ${agent.name}`, agent.task, 0, spawnCount
+        `${agent.icon} ${agent.name}`, agent.task, 0, spawnCount, planLimits
       );
       results.push(`[${agent.name}] ${result}`);
     }
