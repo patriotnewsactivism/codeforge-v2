@@ -44,6 +44,33 @@ function estimateCost(
   return { tokens, cost };
 }
 
+
+// ─── AI CALL HELPER ───────────────────────────────────────────────────────────
+async function callViktorAI(
+  userMessage: string,
+  context?: string,
+  _model?: string   // kept for API compat — Viktor uses quick_ai_search role
+): Promise<string> {
+  const prompt = context
+    ? `CONTEXT:\n${context.slice(0, 4000)}\n\nUSER: ${userMessage}`
+    : userMessage;
+
+  const res = await fetch(`${VIKTOR_API_URL}/api/viktor-spaces/tools/call`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      project_name: PROJECT_NAME,
+      project_secret: PROJECT_SECRET,
+      role: "quick_ai_search",
+      arguments: { search_question: prompt },
+    }),
+  });
+  if (!res.ok) throw new Error(`Viktor API ${res.status}: ${await res.text()}`);
+  const json = await res.json() as { success: boolean; error?: string; result?: { search_response: string } };
+  if (!json.success) throw new Error(json.error ?? "AI call failed");
+  return json.result?.search_response ?? "";
+}
+
 // ─── Session Management ────────────────────────────────────────
 
 export const getOrCreateSession = mutation({
