@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { UsageMeter } from "./UsageMeter";
 
 const MODELS = [
   { id: "deepseek-v3.2", name: "DeepSeek V3.2", shortName: "DS V3", icon: "🧠", color: "text-green-400" },
@@ -178,6 +179,11 @@ export function ChatPanel({
           </span>
         </div>
       )}
+
+      {/* Usage meter — shows remaining requests/missions with upgrade CTA */}
+      <div className="relative flex items-center justify-end px-3 py-1.5 border-b border-border/40 shrink-0 bg-[oklch(0.095_0.02_260)]">
+        <UsageMeter />
+      </div>
 
       {/* Messages — scrollable, no overflow-x */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 space-y-3 min-w-0">
