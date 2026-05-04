@@ -258,6 +258,17 @@ export const sendMessage = action({
       combinedContext = args.fileContext;
     }
 
+    // ── Usage gate ─────────────────────────────────────────────────────────
+    try {
+      const gate = await ctx.runQuery(api.limits.checkCanRun, { action: "ai_request" });
+      if (!gate.allowed) {
+        const hint = (gate as any).upgradeHint ?? "";
+        throw new Error(`\u{1F6AB} ${gate.reason}${hint ? " " + hint : ""}`);
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith("\u{1F6AB}")) throw e;
+    }
+
     // Save user message
     await ctx.runMutation(api.chat.addMessage, {
       sessionId: args.sessionId,
