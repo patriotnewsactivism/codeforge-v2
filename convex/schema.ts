@@ -384,6 +384,33 @@ const schema = defineSchema({
     .index("by_stripe_customer", ["stripeCustomerId"]),
 
 
+
+  // ─── USAGE TRACKING ──────────────────────────────────────────────────────────
+
+  // Per-user daily usage counters — reset each day
+  userUsage: defineTable({
+    userId: v.string(),
+    date: v.string(),                    // "YYYY-MM-DD"
+    aiRequests: v.number(),              // chat messages sent to AI
+    missions: v.number(),               // agent missions started
+    agentsSpawned: v.number(),           // total agent spawns across all missions
+    computeCostUsd: v.number(),          // running $ cost this period
+    periodStart: v.number(),             // epoch ms of period start (daily reset)
+  })
+    .index("by_user_date", ["userId", "date"])
+    .index("by_user", ["userId"]),
+
+  // Per-user monthly spend accumulator (for hard cost cap)
+  userSpend: defineTable({
+    userId: v.string(),
+    periodKey: v.string(),              // "YYYY-MM" for monthly, "YYYY-WNN" for weekly
+    totalCostUsd: v.number(),
+    capUsd: v.number(),                 // hard cap for this period
+    cappedAt: v.optional(v.number()),   // epoch ms when cap was hit
+    plan: v.string(),
+  })
+    .index("by_user_period", ["userId", "periodKey"]),
+
 });
 
 export default schema;
