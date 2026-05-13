@@ -182,3 +182,55 @@ function detectLanguage(filename: string): string {
   };
   return langMap[ext ?? ""] ?? "plaintext";
 }
+
+// ─── Bulk insert (used by GitHub import) ────────────────────────
+export const bulkInsert = mutation({
+  args: {
+    projectId: v.id("projects"),
+    files: v.array(v.object({
+      path: v.string(),
+      name: v.string(),
+      type: v.union(v.literal("file"), v.literal("folder")),
+      content: v.optional(v.string()),
+      language: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, { projectId, files }) => {
+    const { getAuthUserId } = await import("@convex-dev/auth/server");
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    let count = 0;
+    for (const f of files) {
+      const existing = await ctx.db
+        .query("files")
+        .withIndex("by_project_and_path", (q) =>
+          q.eq("projectId", projectId).eq("path", f.path)
+        )
+        .first();
+
+      const isDirectory = f.type === "folder";
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          content: f.content ?? "",
+          language: f.language,
+        });
+      } else {
+        await ctx.db.insert("files", {
+          projectId,
+          path: f.path,
+          name: f.name,
+          content: f.content ?? "",
+          language: f.language,
+          isDirectory,
+          parentPath: f.path.includes("/")
+            ? f.path.split("/").slice(0, -1).join("/")
+            : undefined,
+        });
+      }
+      count++;
+    }
+    return { inserted: count };
+  },
+});

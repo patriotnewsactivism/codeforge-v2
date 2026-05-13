@@ -411,6 +411,58 @@ const schema = defineSchema({
   })
     .index("by_user_period", ["userId", "periodKey"]),
 
+
+  // ─── Sessions (chat session lifecycle) ──────────────────────────
+  sessions: defineTable({
+    userId: v.id("users"),
+    projectId: v.optional(v.id("projects")),
+    name: v.string(),
+    model: v.string(),
+    totalInputTokens: v.optional(v.number()),
+    totalOutputTokens: v.optional(v.number()),
+    totalCost: v.optional(v.number()),
+    isActive: v.boolean(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_active", ["userId", "isActive"])
+    .index("by_project", ["projectId"]),
+
+  // ─── GitHub Settings (migrated from v1) ─────────────────────────
+  githubSettings: defineTable({
+    userId: v.id("users"),
+    token: v.string(),
+    username: v.optional(v.string()),
+    avatarUrl: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
+
+  // ─── Cost Entries — Per-call cost log ────────────────────────────
+  costEntries: defineTable({
+    userId: v.id("users"),
+    buildSessionId: v.optional(v.id("buildSessions")),
+    model: v.string(),
+    inputTokens: v.number(),
+    outputTokens: v.number(),
+    cost: v.number(),
+    operation: v.string(),
+  }).index("by_user", ["userId"]),
+
+  // ─── Shareable Project Previews ──────────────────────────────────
+  projectShares: defineTable({
+    projectId: v.id("projects"),
+    token: v.string(),
+    expiry: v.string(),
+    expiresAt: v.optional(v.number()),
+    hasPassword: v.boolean(),
+    passwordHash: v.optional(v.string()),
+    isActive: v.boolean(),
+    viewCount: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_token", ["token"]),
+
+
 });
 
 export default schema;

@@ -22,6 +22,9 @@ import { AgentActivityPanel } from "@/components/ide/AgentActivityPanel";
 import { GitPanel } from "@/components/ide/GitPanel";
 import { SessionSidebar } from "@/components/ide/SessionSidebar";
 import { PanelErrorBoundary } from "@/components/ide/PanelErrorBoundary";
+import { CostBar } from "@/components/ide/CostBar";
+import { ImportRepoDialog } from "@/components/ide/ImportRepoDialog";
+import { GitHubConnectDialog } from "@/components/ide/GitHubConnectDialog";
 import {
   FileTreeSkeleton,
   EditorSkeleton,
@@ -97,6 +100,8 @@ export function IDEPage() {
   const [sessionId, setSessionId] = useState<Id<"chatSessions"> | null>(null);
   const [showPreview, setShowPreview] = useState(true);
   const [rightPanel, setRightPanel] = useState<RightPanel>("chat");
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showGitHubConnect, setShowGitHubConnect] = useState(false);
   const [showRightPanel, setShowRightPanel] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [showSessionSidebar, setShowSessionSidebar] = useState(false);
@@ -579,6 +584,7 @@ export function IDEPage() {
         projectName={project.name}
       />
       <BuildProgress projectId={projectId as Id<"projects">} />
+      <CostBar projectId={projectId as Id<"projects">} />
 
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal">
@@ -658,5 +664,21 @@ export function IDEPage() {
         </ResizablePanelGroup>
       </div>
     </div>
+
+    {/* GitHub Dialogs */}
+    {showImportDialog && (
+      <ImportRepoDialog
+        onClose={() => setShowImportDialog(false)}
+        onImported={(pid) => {
+          setShowImportDialog(false);
+        }}
+      />
+    )}
+    {showGitHubConnect && (
+      <GitHubConnectDialog
+        onClose={() => setShowGitHubConnect(false)}
+        onConnected={() => setShowGitHubConnect(false)}
+      />
+    )}
   );
 }
