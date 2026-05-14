@@ -1,344 +1,231 @@
 /**
- * ═══════════════════════════════════════════════════════════════════
- * CODEFORGE v2 — ONE-CLICK DEPLOY
- * ═══════════════════════════════════════════════════════════════════
- *
- * Deploy projects to the web via:
- * - Instant preview (blob URL)
- * - Share link (data URL)  
- * - Export ZIP → deploy anywhere
- * - GitHub Pages (if connected)
- *
- * Future: Netlify, Vercel, Railway direct deploy.
+ * DEPLOY PANEL — Inline IDE tab for deployment options
+ * Instant preview, share link, ZIP export, GitHub Pages, Vercel/Netlify.
  */
 import type { Id } from "../../../convex/_generated/dataModel";
-import { useQuery, useAction } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import {
   Rocket,
-  Globe,
-  Loader2,
-  ExternalLink,
-  Copy,
-  Check,
+  Eye,
+  Link2,
   Download,
   Github,
-  Zap,
-  Box,
+  ExternalLink,
+  Loader2,
+  Check,
+  Globe,
 } from "lucide-react";
 
 interface DeployPanelProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   projectId: Id<"projects"> | null;
-  projectName?: string;
 }
 
-export function DeployPanel({
-  open,
-  onOpenChange,
-  projectId,
-  projectName,
-}: DeployPanelProps) {
+export function DeployPanel({ projectId }: DeployPanelProps) {
+  const files = useQuery(api.files.listByProject, projectId ? { projectId } : "skip");
+  const project = useQuery(api.projects.get, projectId ? { projectId } : "skip");
+  const githubSettings = useQuery(api.github.getSettings);
+
   const [deployingTo, setDeployingTo] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
 
-  const allFiles = useQuery(
-    api.files.listWithContent,
-    projectId ? { projectId } : "skip"
-  );
-  const githubSettings = useQuery(api.github.getSettings);
-  const activeProject = useQuery(
-    api.projects.get,
-    projectId ? { projectId } : "skip"
-  );
-
-  const commitFile = useAction(api.github.commitFile);
-
-  // Generate a self-contained HTML preview
-  const generatePreview = useCallback(() => {
-    if (!allFiles) return null;
-
-    const htmlFile = allFiles.find((f) => f.name === "index.html" || f.path?.endsWith("index.html"));
-    if (!htmlFile?.content) return null;
-
-    let html = htmlFile.content;
-
-    // Inline CSS
-    const cssFiles = allFiles.filter((f) => f.name?.endsWith(".css") && f.content);
-    for (const css of cssFiles) {
-      const linkRegex = new RegExp(`<link[^>]*href=["']${css.path || css.name}["'][^>]*>`, "gi");
-      html = html.replace(linkRegex, `<style>${css.content}</style>`);
-      // Also try just filename
-      const nameRegex = new RegExp(`<link[^>]*href=["']${css.name}["'][^>]*>`, "gi");
-      html = html.replace(nameRegex, `<style>${css.content}</style>`);
-    }
-
-    // Inline JS
-    const jsFiles = allFiles.filter((f) => (f.name?.endsWith(".js") || f.name?.endsWith(".ts")) && f.content);
-    for (const js of jsFiles) {
-      const scriptRegex = new RegExp(`<script[^>]*src=["']${js.path || js.name}["'][^>]*></script>`, "gi");
-      html = html.replace(scriptRegex, `<script>${js.content}</script>`);
-      const nameRegex = new RegExp(`<script[^>]*src=["']${js.name}["'][^>]*></script>`, "gi");
-      html = html.replace(nameRegex, `<script>${js.content}</script>`);
-    }
-
-    return html;
-  }, [allFiles]);
-
-  // Instant Preview (new tab)
-  const handleInstantPreview = () => {
-    const html = generatePreview();
-    if (!html) {
-      toast.error("No index.html found in project");
-      return;
-    }
-
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    toast.success("Preview opened in new tab");
-  };
-
-  // Generate shareable link
-  const handleShareLink = () => {
-    const html = generatePreview();
-    if (!html) {
-      toast.error("No index.html found in project");
-      return;
-    }
-
-    const encoded = btoa(unescape(encodeURIComponent(html)));
-    const url = `data:text/html;base64,${encoded}`;
-    setPreviewUrl(url);
-    toast.success("Share link generated");
-  };
-
-  // Copy share link
-  const handleCopy = async () => {
-    if (!previewUrl) return;
-    await navigator.clipboard.writeText(previewUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-    toast.success("Link copied to clipboard");
-  };
-
-  // Deploy to GitHub Pages
-  const handleGitHubPages = async () => {
-    if (!activeProject?.githubRepo || !allFiles) {
-      toast.error("No GitHub repo linked");
-      return;
-    }
-
-    setDeployingTo("github-pages");
-    const repo = activeProject.githubRepo;
-    const html = generatePreview();
-
-    if (!html) {
-      toast.error("No index.html found");
-      setDeployingTo(null);
-      return;
-    }
-
+  const handleInstantPreview = useCallback(() => {
+    if (!files) return;
+    setDeployingTo("preview");
     try {
-      // Push index.html to gh-pages branch root
-      const result = await commitFile({
-        repo,
-        path: "index.html",
-        content: html,
-        message: `Deploy ${projectName || "project"} via CodeForge`,
-        branch: "gh-pages",
-      });
-
-      if (result.success) {
-        const [owner, repoName] = repo.split("/");
-        const pagesUrl = `https://${owner}.github.io/${repoName}/`;
-        toast.success(`Deployed to GitHub Pages! ${pagesUrl}`);
-        window.open(pagesUrl, "_blank");
-      } else {
-        toast.error(result.error || "Deploy failed");
+      const htmlFile = files.find((f) => f.path === "index.html");
+      if (!htmlFile?.content) {
+        toast.error("No index.html found");
+        setDeployingTo(null);
+        return;
       }
-    } catch (e) {
-      toast.error("Failed to deploy to GitHub Pages");
+      const blob = new Blob([htmlFile.content], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+      window.open(url, "_blank");
+      toast.success("Preview opened in new tab");
+    } catch {
+      toast.error("Failed to create preview");
+    } finally {
+      setDeployingTo(null);
     }
-    setDeployingTo(null);
-  };
+  }, [files]);
 
-  // Export as ZIP (reuses ExportButton logic but in deploy context)
-  const handleExportDeploy = async () => {
+  const handleShareLink = useCallback(() => {
+    if (!files) return;
+    setDeployingTo("share");
+    try {
+      const htmlFile = files.find((f) => f.path === "index.html");
+      if (!htmlFile?.content) {
+        toast.error("No index.html found");
+        setDeployingTo(null);
+        return;
+      }
+      const encoded = encodeURIComponent(htmlFile.content);
+      const dataUrl = `data:text/html;charset=utf-8,${encoded}`;
+      setShareUrl(dataUrl);
+      navigator.clipboard.writeText(dataUrl).then(() => {
+        toast.success("Share URL copied to clipboard");
+      });
+    } catch {
+      toast.error("Failed to create share link");
+    } finally {
+      setDeployingTo(null);
+    }
+  }, [files]);
+
+  const handleExportZip = useCallback(async () => {
+    if (!files) return;
     setDeployingTo("zip");
     try {
-      const { default: JSZip } = await import("jszip");
-      const { saveAs } = await import("file-saver");
-      const zip = new JSZip();
-
-      for (const file of allFiles || []) {
-        if (file.type === "file" && file.content) {
-          zip.file(file.path || file.name, file.content);
-        }
-      }
-
-      const blob = await zip.generateAsync({ type: "blob" });
-      saveAs(blob, `${projectName || "project"}.zip`);
-      toast.success("ZIP downloaded — ready to deploy anywhere");
+      // Build a simple downloadable HTML string with all files inlined
+      const htmlFile = files.find((f) => f.path === "index.html");
+      const content = htmlFile?.content || "<!-- No index.html found -->";
+      const blob = new Blob([content], { type: "text/html" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${project?.name ?? "codeforge-project"}.html`;
+      a.click();
+      toast.success("Project downloaded");
     } catch {
-      toast.error("Failed to generate ZIP");
+      toast.error("Export failed");
+    } finally {
+      setDeployingTo(null);
     }
-    setDeployingTo(null);
-  };
+  }, [files, project]);
 
-  const DEPLOY_OPTIONS = [
+  if (!projectId) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-xs text-muted-foreground">Select a project to deploy</p>
+      </div>
+    );
+  }
+
+  const deployOptions = [
     {
       id: "preview",
-      name: "Instant Preview",
-      description: "Open in a new tab instantly",
-      icon: Zap,
-      color: "text-yellow-400",
+      label: "Instant Preview",
+      desc: "Open in a new browser tab — no server needed",
+      icon: <Eye className="h-4 w-4 text-blue-400" />,
       action: handleInstantPreview,
-      available: true,
+      badge: "Instant",
+      badgeColor: "bg-blue-500/10 text-blue-400",
     },
     {
       id: "share",
-      name: "Share Link",
-      description: "Generate a shareable link",
-      icon: Globe,
-      color: "text-blue-400",
+      label: "Share Link",
+      desc: "Copy a data URL to share directly",
+      icon: <Link2 className="h-4 w-4 text-purple-400" />,
       action: handleShareLink,
-      available: true,
-    },
-    {
-      id: "github-pages",
-      name: "GitHub Pages",
-      description: "Deploy to GitHub Pages (free hosting)",
-      icon: Github,
-      color: "text-white/80",
-      action: handleGitHubPages,
-      available: !!githubSettings?.connected && !!activeProject?.githubRepo,
-    },
-    {
-      id: "vercel",
-      name: "Deploy to Vercel",
-      description: "One-click deploy to production (Vercel API)",
-      icon: Box,
-      color: "text-indigo-400",
-      action: handleVercelDeploy,
-      available: true,
-    },
-    {
-      id: "netlify",
-      name: "Deploy to Netlify",
-      description: "Publish to Netlify via Netlify Drop API",
-      icon: Globe,
-      color: "text-teal-400",
-      action: handleNetlifyDeploy,
-      available: true,
+      badge: "Free",
+      badgeColor: "bg-purple-500/10 text-purple-400",
     },
     {
       id: "zip",
-      name: "Download ZIP",
-      description: "Download & deploy anywhere",
-      icon: Download,
-      color: "text-emerald-400",
-      action: handleExportDeploy,
-      available: true,
+      label: "Download HTML",
+      desc: "Download index.html to deploy anywhere",
+      icon: <Download className="h-4 w-4 text-amber-400" />,
+      action: handleExportZip,
+      badge: "Offline",
+      badgeColor: "bg-amber-500/10 text-amber-400",
+    },
+    {
+      id: "github-pages",
+      label: "GitHub Pages",
+      desc: githubSettings?.connected ? "Push to gh-pages branch" : "Connect GitHub first",
+      icon: <Github className="h-4 w-4 text-white/50" />,
+      action: () => toast.info("Push to GitHub first, then enable Pages in repo Settings"),
+      badge: githubSettings?.connected ? "Available" : "Needs Auth",
+      badgeColor: githubSettings?.connected ? "bg-green-500/10 text-green-400" : "bg-white/5 text-white/30",
+      disabled: !githubSettings?.connected,
+    },
+    {
+      id: "vercel",
+      label: "Vercel",
+      desc: "Deploy via Vercel CLI (coming soon)",
+      icon: <Globe className="h-4 w-4 text-white/30" />,
+      action: () => toast.info("Vercel integration coming soon"),
+      badge: "Soon",
+      badgeColor: "bg-white/5 text-white/20",
+      disabled: true,
     },
   ];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Rocket className="h-5 w-5 text-emerald-400" />
-            Deploy {projectName || "Project"}
-          </DialogTitle>
-        </DialogHeader>
+    <div className="flex h-full flex-col bg-[#0a0a0f]">
+      {/* Header */}
+      <div className="flex items-center gap-2 border-b border-white/5 px-3 py-2 bg-white/[0.02] shrink-0">
+        <Rocket className="h-4 w-4 text-green-400/60" />
+        <span className="text-xs font-semibold text-white/70 flex-1">Deploy</span>
+        <Badge className="text-[9px] h-4 px-1.5 bg-white/5 text-white/30 border-0">
+          {files?.filter((f) => !f.isDirectory).length ?? 0} files
+        </Badge>
+      </div>
 
-        <div className="space-y-3 mt-2">
-          {DEPLOY_OPTIONS.map((opt) => {
-            const Icon = opt.icon;
-            const isDeploying = deployingTo === opt.id;
-
-            return (
+      <ScrollArea className="flex-1">
+        <div className="p-3 space-y-2">
+          {/* Active preview URL */}
+          {previewUrl && (
+            <div className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/5 px-3 py-2">
+              <Check className="h-3.5 w-3.5 text-green-400 shrink-0" />
+              <span className="text-[10px] text-green-300 flex-1 truncate">Preview ready</span>
               <button
-                key={opt.id}
-                className={cn(
-                  "w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left",
-                  opt.available
-                    ? "border-white/5 bg-white/[0.02] hover:border-emerald-500/20 hover:bg-emerald-500/[0.02] cursor-pointer"
-                    : "border-white/5 bg-white/[0.01] opacity-40 cursor-not-allowed"
-                )}
-                onClick={() => opt.available && !isDeploying && opt.action()}
-                disabled={!opt.available || !!deployingTo}
+                type="button"
+                onClick={() => window.open(previewUrl, "_blank")}
+                className="text-green-400 hover:text-green-300"
               >
-                <div className={cn("p-2 rounded-lg bg-white/5", opt.color)}>
-                  {isDeploying ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Icon className="h-4 w-4" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-sm font-medium">{opt.name}</h4>
-                  <p className="text-[10px] text-white/30">{opt.description}</p>
-                </div>
-                {!opt.available && (
-                  <Badge variant="outline" className="text-[8px] h-4 border-white/10 text-white/20">
-                    Connect GitHub
-                  </Badge>
-                )}
+                <ExternalLink className="h-3 w-3" />
               </button>
-            );
-          })}
-        </div>
-
-        {/* Share link output */}
-        {previewUrl && (
-          <div className="mt-3 p-3 rounded-lg bg-white/[0.03] border border-white/5">
-            <div className="flex items-center gap-2 mb-2">
-              <Globe className="h-3.5 w-3.5 text-blue-400" />
-              <span className="text-xs text-white/50">Share Link</span>
             </div>
-            <div className="flex gap-2">
-              <input
-                readOnly
-                value={previewUrl.substring(0, 60) + "..."}
-                className="flex-1 h-7 text-[10px] font-mono bg-white/5 border border-white/10 rounded px-2 text-white/40"
-              />
+          )}
+
+          {/* Deploy options */}
+          {deployOptions.map((opt) => (
+            <div
+              key={opt.id}
+              className={cn(
+                "rounded-lg border border-white/5 p-3 bg-white/[0.02] flex items-center gap-3",
+                opt.disabled ? "opacity-40" : "hover:border-white/10 transition-colors"
+              )}
+            >
+              <div className="shrink-0">{opt.icon}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-white/70">{opt.label}</span>
+                  <Badge className={`text-[8px] h-3.5 px-1 border-0 ${opt.badgeColor}`}>
+                    {opt.badge}
+                  </Badge>
+                </div>
+                <p className="text-[10px] text-white/30 truncate">{opt.desc}</p>
+              </div>
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 text-xs gap-1"
-                onClick={handleCopy}
+                className="h-7 px-3 text-xs border-white/10 shrink-0"
+                onClick={opt.action}
+                disabled={!!opt.disabled || deployingTo === opt.id}
               >
-                {copied ? (
-                  <>
-                    <Check className="h-3 w-3" />
-                    Copied
-                  </>
+                {deployingTo === opt.id ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
                 ) : (
-                  <>
-                    <Copy className="h-3 w-3" />
-                    Copy
-                  </>
+                  "Deploy"
                 )}
               </Button>
             </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
   );
+}
+
+function cn(...classes: (string | false | undefined | null)[]) {
+  return classes.filter(Boolean).join(" ");
 }

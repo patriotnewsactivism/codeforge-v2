@@ -24,6 +24,8 @@ import { SessionSidebar } from "@/components/ide/SessionSidebar";
 import { PanelErrorBoundary } from "@/components/ide/PanelErrorBoundary";
 import { CostBar } from "@/components/ide/CostBar";
 import { ImportRepoDialog } from "@/components/ide/ImportRepoDialog";
+import { DiffViewer } from "@/components/ide/DiffViewer";
+import { DeployPanel } from "@/components/ide/DeployPanel";
 import { GitHubConnectDialog } from "@/components/ide/GitHubConnectDialog";
 import {
   FileTreeSkeleton,
@@ -62,7 +64,7 @@ function useIsMobile() {
   return isMobile;
 }
 
-type RightPanel = "chat" | "suggestions" | "agents" | "memory" | "thoughts" | "git";
+type RightPanel = "chat" | "suggestions" | "agents" | "memory" | "thoughts" | "git" | "diff" | "deploy";
 // Mobile views: one panel visible at a time
 type MobileView = "files" | "editor" | "preview" | "panel";
 
@@ -357,6 +359,8 @@ export function IDEPage() {
     { id: "memory", label: "Memory", icon: <Brain className="h-3.5 w-3.5" />, color: "text-violet-400 border-violet-400" },
     { id: "thoughts", label: "Activity", icon: <Cpu className="h-3.5 w-3.5" />, color: "text-cyan-400 border-cyan-400" },
     { id: "git", label: "Git", icon: <Github className="h-3.5 w-3.5" />, color: "text-orange-400 border-orange-400" },
+    { id: "diff", label: "Diff", icon: <Code2 className="h-3.5 w-3.5" />, color: "text-rose-400 border-rose-400" },
+    { id: "deploy", label: "Deploy", icon: <Zap className="h-3.5 w-3.5" />, color: "text-green-400 border-green-400" },
   ];
 
   const activeTabColor = panelTabs.find(t => t.id === rightPanel)?.color ?? "text-primary border-primary";
@@ -421,6 +425,16 @@ export function IDEPage() {
         {rightPanel === "git" && (
           <PanelErrorBoundary panelName="Git">
             <GitPanel projectId={projectId as Id<"projects">} />
+          </PanelErrorBoundary>
+        )}
+        {rightPanel === "diff" && (
+          <PanelErrorBoundary panelName="Diff Viewer">
+            <DiffViewer projectId={projectId as Id<"projects">} />
+          </PanelErrorBoundary>
+        )}
+        {rightPanel === "deploy" && (
+          <PanelErrorBoundary panelName="Deploy">
+            <DeployPanel projectId={projectId as Id<"projects">} />
           </PanelErrorBoundary>
         )}
       </div>
@@ -666,19 +680,15 @@ export function IDEPage() {
     </div>
 
     {/* GitHub Dialogs */}
-    {showImportDialog && (
-      <ImportRepoDialog
-        onClose={() => setShowImportDialog(false)}
-        onImported={(pid) => {
-          setShowImportDialog(false);
-        }}
-      />
-    )}
-    {showGitHubConnect && (
-      <GitHubConnectDialog
-        onClose={() => setShowGitHubConnect(false)}
-        onConnected={() => setShowGitHubConnect(false)}
-      />
-    )}
+    <ImportRepoDialog
+      open={showImportDialog}
+      onOpenChange={setShowImportDialog}
+      activeProjectId={projectId as Id<"projects"> | null}
+      onSelectProject={(_id) => setShowImportDialog(false)}
+    />
+    <GitHubConnectDialog
+      open={showGitHubConnect}
+      onOpenChange={setShowGitHubConnect}
+    />
   );
 }

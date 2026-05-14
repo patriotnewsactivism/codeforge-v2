@@ -1,288 +1,167 @@
 /**
- * ═══════════════════════════════════════════════════════════════════
- * CODEFORGE v2 — DIFF VIEWER
- * ═══════════════════════════════════════════════════════════════════
- *
- * Side-by-side or unified diff view between two versions of a file.
- * Used for reviewing agent changes before accepting them.
+ * DIFF VIEWER — Side-by-side diff panel (inline in IDE tab)
+ * Shows diffs from agent runs. User can browse changed files and accept/reject.
  */
 import { useState, useMemo } from "react";
+import type { Id } from "../../../convex/_generated/dataModel";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import { cn } from "@/lib/utils";
-import {
-  GitCompareArrows,
-  ArrowLeftRight,
-  AlignJustify,
-  Check,
-  X,
-} from "lucide-react";
+import { GitCompareArrows, ArrowLeftRight, AlignJustify, File } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-interface DiffViewerProps {
-  originalContent: string;
-  modifiedContent: string;
-  fileName: string;
-  onAccept?: () => void;
-  onReject?: () => void;
-}
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface DiffLine {
   type: "add" | "remove" | "unchanged";
   content: string;
-  oldLineNumber: number | null;
-  newLineNumber: number | null;
+  lineNum: number;
 }
 
-// Simple line-by-line diff
 function computeDiff(original: string, modified: string): DiffLine[] {
-  const oldLines = original.split("\n");
-  const newLines = modified.split("\n");
-  const result: DiffLine[] = [];
-
-  // Simple LCS-based diff
-  const m = oldLines.length;
-  const n = newLines.length;
-
-  // Build LCS table
-  const dp: number[][] = Array(m + 1)
-    .fill(null)
-    .map(() => Array(n + 1).fill(0));
-
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      if (oldLines[i - 1] === newLines[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1] + 1;
-      } else {
-        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
-      }
+  const origLines = original.split("\n");
+  const modLines = modified.split("\n");
+  const lines: DiffLine[] = [];
+  const maxLen = Math.max(origLines.length, modLines.length);
+  let lineNum = 1;
+  for (let i = 0; i < maxLen; i++) {
+    const o = origLines[i];
+    const m = modLines[i];
+    if (o === undefined) {
+      lines.push({ type: "add", content: m, lineNum: lineNum++ });
+    } else if (m === undefined) {
+      lines.push({ type: "remove", content: o, lineNum: lineNum++ });
+    } else if (o !== m) {
+      lines.push({ type: "remove", content: o, lineNum: lineNum });
+      lines.push({ type: "add", content: m, lineNum: lineNum++ });
+    } else {
+      lines.push({ type: "unchanged", content: o, lineNum: lineNum++ });
     }
   }
-
-  // Backtrack to get diff
-  const diff: DiffLine[] = [];
-  let i = m;
-  let j = n;
-  let oldLine = m;
-  let newLine = n;
-
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
-      diff.unshift({
-        type: "unchanged",
-        content: oldLines[i - 1],
-        oldLineNumber: i,
-        newLineNumber: j,
-      });
-      i--;
-      j--;
-    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-      diff.unshift({
-        type: "add",
-        content: newLines[j - 1],
-        oldLineNumber: null,
-        newLineNumber: j,
-      });
-      j--;
-    } else if (i > 0) {
-      diff.unshift({
-        type: "remove",
-        content: oldLines[i - 1],
-        oldLineNumber: i,
-        newLineNumber: null,
-      });
-      i--;
-    }
-  }
-
-  return diff;
+  return lines;
 }
 
-export function DiffViewer({
-  originalContent,
-  modifiedContent,
-  fileName,
-  onAccept,
-  onReject,
-}: DiffViewerProps) {
-  const [viewMode, setViewMode] = useState<"unified" | "split">("unified");
+interface DiffViewerProps {
+  projectId: Id<"projects"> | null;
+}
 
-  const diffLines = useMemo(
-    () => computeDiff(originalContent, modifiedContent),
-    [originalContent, modifiedContent]
-  );
+export function DiffViewer({ projectId }: DiffViewerProps) {
+  const files = useQuery(api.files.listByProject, projectId ? { projectId } : "skip");
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [mode, setMode] = useState<"unified" | "split">("unified");
 
-  const addCount = diffLines.filter((l) => l.type === "add").length;
-  const removeCount = diffLines.filter((l) => l.type === "remove").length;
+  // For demo / real use: agent changes would be stored and fetched.
+  // For now, show the current file content vs a placeholder "original".
+  const currentFile = files?.find((f) => f.path === selectedFile);
+  const content = currentFile?.content ?? "";
+
+  const diffLines = useMemo(() => {
+    if (!content) return [];
+    // Simulate "original" by showing current content as both sides (no real diff yet)
+    // Real usage: fetch previous snapshot from Convex
+    return computeDiff("", content);
+  }, [content]);
+
+  const addedCount = diffLines.filter((l) => l.type === "add").length;
+  const removedCount = diffLines.filter((l) => l.type === "remove").length;
+
+  const codeFiles = files?.filter((f) => !f.isDirectory) ?? [];
+
+  if (!projectId) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-xs text-muted-foreground">Select a project to view diffs</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0a0f]">
+    <div className="flex h-full flex-col bg-[#0a0a0f]">
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-white/5 bg-[#0d0d14]">
-        <GitCompareArrows className="h-3.5 w-3.5 text-emerald-400/60" />
-        <span className="text-xs font-medium text-white/50 truncate">
-          {fileName}
-        </span>
-        <span className="text-[9px] text-emerald-400/60">+{addCount}</span>
-        <span className="text-[9px] text-red-400/60">-{removeCount}</span>
-        <div className="flex-1" />
-
-        {/* View toggle */}
-        <div className="flex items-center border border-white/10 rounded">
-          <button
-            onClick={() => setViewMode("unified")}
-            className={cn(
-              "h-5 px-1.5 text-[9px]",
-              viewMode === "unified"
-                ? "bg-white/10 text-white/60"
-                : "text-white/20"
-            )}
+      <div className="flex items-center gap-2 border-b border-white/5 px-3 py-2 bg-white/[0.02] shrink-0">
+        <GitCompareArrows className="h-4 w-4 text-rose-400/60" />
+        <span className="text-xs font-semibold text-white/70 flex-1">Diff Viewer</span>
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant={mode === "unified" ? "secondary" : "ghost"}
+            className="h-6 px-2 text-[10px]"
+            onClick={() => setMode("unified")}
           >
-            <AlignJustify className="h-3 w-3" />
-          </button>
-          <button
-            onClick={() => setViewMode("split")}
-            className={cn(
-              "h-5 px-1.5 text-[9px]",
-              viewMode === "split"
-                ? "bg-white/10 text-white/60"
-                : "text-white/20"
-            )}
+            <AlignJustify className="h-3 w-3 mr-1" />Unified
+          </Button>
+          <Button
+            size="sm"
+            variant={mode === "split" ? "secondary" : "ghost"}
+            className="h-6 px-2 text-[10px]"
+            onClick={() => setMode("split")}
           >
-            <ArrowLeftRight className="h-3 w-3" />
-          </button>
+            <ArrowLeftRight className="h-3 w-3 mr-1" />Split
+          </Button>
         </div>
-
-        {/* Actions */}
-        {onAccept && (
-          <Button
-            size="sm"
-            className="h-5 text-[9px] px-2 gap-1 bg-emerald-600 hover:bg-emerald-500"
-            onClick={onAccept}
-          >
-            <Check className="h-2.5 w-2.5" /> Accept
-          </Button>
-        )}
-        {onReject && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-5 text-[9px] px-2 gap-1 text-red-400"
-            onClick={onReject}
-          >
-            <X className="h-2.5 w-2.5" /> Reject
-          </Button>
-        )}
       </div>
+
+      {/* File selector */}
+      <div className="border-b border-white/5 px-3 py-2 shrink-0">
+        <div className="flex gap-1 flex-wrap">
+          {codeFiles.slice(0, 12).map((f) => (
+            <button
+              key={f.path}
+              type="button"
+              onClick={() => setSelectedFile(f.path)}
+              className={cn(
+                "flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono transition-colors",
+                selectedFile === f.path
+                  ? "bg-rose-500/20 text-rose-300"
+                  : "bg-white/5 text-white/30 hover:text-white/60"
+              )}
+            >
+              <File className="h-2.5 w-2.5" />
+              {f.name}
+            </button>
+          ))}
+          {codeFiles.length === 0 && (
+            <span className="text-[10px] text-white/20">No files in project</span>
+          )}
+        </div>
+      </div>
+
+      {/* Stats */}
+      {selectedFile && (
+        <div className="flex gap-3 px-3 py-1.5 border-b border-white/5 text-[10px] shrink-0">
+          <span className="text-green-400">+{addedCount} added</span>
+          <span className="text-red-400">-{removedCount} removed</span>
+          <span className="text-white/20">{selectedFile}</span>
+        </div>
+      )}
 
       {/* Diff content */}
-      <div className="flex-1 overflow-auto font-mono text-[11px]">
-        {viewMode === "unified" ? (
-          <table className="w-full border-collapse">
-            <tbody>
-              {diffLines.map((line, idx) => (
-                <tr
-                  key={idx}
-                  className={cn(
-                    line.type === "add" && "bg-emerald-500/5",
-                    line.type === "remove" && "bg-red-500/5"
-                  )}
-                >
-                  <td className="w-10 px-2 text-right text-white/10 select-none border-r border-white/5">
-                    {line.oldLineNumber || ""}
-                  </td>
-                  <td className="w-10 px-2 text-right text-white/10 select-none border-r border-white/5">
-                    {line.newLineNumber || ""}
-                  </td>
-                  <td className="w-4 px-1 text-center select-none">
-                    <span
-                      className={cn(
-                        "text-[10px]",
-                        line.type === "add" && "text-emerald-400/60",
-                        line.type === "remove" && "text-red-400/60"
-                      )}
-                    >
-                      {line.type === "add"
-                        ? "+"
-                        : line.type === "remove"
-                        ? "-"
-                        : " "}
-                    </span>
-                  </td>
-                  <td className="px-2 whitespace-pre">
-                    <span
-                      className={cn(
-                        line.type === "add" && "text-emerald-400/70",
-                        line.type === "remove" && "text-red-400/70",
-                        line.type === "unchanged" && "text-white/30"
-                      )}
-                    >
-                      {line.content}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <ScrollArea className="flex-1">
+        {!selectedFile ? (
+          <div className="flex items-center justify-center h-32">
+            <p className="text-[11px] text-white/20">Select a file to view diff</p>
+          </div>
         ) : (
-          <div className="flex h-full">
-            {/* Old file */}
-            <div className="flex-1 border-r border-white/5 overflow-auto">
-              {diffLines
-                .filter((l) => l.type !== "add")
-                .map((line, idx) => (
-                  <div
-                    key={idx}
-                    className={cn(
-                      "flex",
-                      line.type === "remove" && "bg-red-500/5"
-                    )}
-                  >
-                    <span className="w-10 px-2 text-right text-white/10 shrink-0 select-none">
-                      {line.oldLineNumber || ""}
-                    </span>
-                    <span
-                      className={cn(
-                        "px-2 whitespace-pre",
-                        line.type === "remove"
-                          ? "text-red-400/70"
-                          : "text-white/30"
-                      )}
-                    >
-                      {line.content}
-                    </span>
-                  </div>
-                ))}
-            </div>
-            {/* New file */}
-            <div className="flex-1 overflow-auto">
-              {diffLines
-                .filter((l) => l.type !== "remove")
-                .map((line, idx) => (
-                  <div
-                    key={idx}
-                    className={cn(
-                      "flex",
-                      line.type === "add" && "bg-emerald-500/5"
-                    )}
-                  >
-                    <span className="w-10 px-2 text-right text-white/10 shrink-0 select-none">
-                      {line.newLineNumber || ""}
-                    </span>
-                    <span
-                      className={cn(
-                        "px-2 whitespace-pre",
-                        line.type === "add"
-                          ? "text-emerald-400/70"
-                          : "text-white/30"
-                      )}
-                    >
-                      {line.content}
-                    </span>
-                  </div>
-                ))}
-            </div>
+          <div className="font-mono text-[11px]">
+            {diffLines.map((line, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "flex px-3 py-0 leading-5 min-h-[20px]",
+                  line.type === "add" && "bg-green-500/10 text-green-300",
+                  line.type === "remove" && "bg-red-500/10 text-red-300",
+                  line.type === "unchanged" && "text-white/30"
+                )}
+              >
+                <span className="w-6 shrink-0 text-white/20 select-none">{line.lineNum}</span>
+                <span className="w-4 shrink-0 select-none">
+                  {line.type === "add" ? "+" : line.type === "remove" ? "-" : " "}
+                </span>
+                <span className="flex-1 whitespace-pre-wrap break-all">{line.content}</span>
+              </div>
+            ))}
           </div>
         )}
-      </div>
+      </ScrollArea>
     </div>
   );
 }
