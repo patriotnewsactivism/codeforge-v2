@@ -20,7 +20,8 @@
     "test:demo": "bun run --bun scripts/demo-test.ts",
     "screenshot": "bun run --bun scripts/screenshot.ts",
     "env:get": "bunx convex env get",
-    "env:list": "bunx convex env list"
+    "env:list": "bunx convex env list",
+    "start": "serve dist -s -p ${PORT:-3000}"
   },
   "dependencies": {
     "@auth/core": "^0.37.4",
@@ -76,7 +77,8 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
-    "zod": "^4.1.12"
+    "zod": "^4.1.12",
+    "serve": "^14.2.4"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",
