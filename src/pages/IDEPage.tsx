@@ -5,8 +5,7 @@ import { api } from "../../convex/_generated/api";
 import {
   ResizableHandle,
   ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
+  ResizablePanelGroup} from "@/components/ui/resizable";
 import { FileTree } from "@/components/ide/FileTree";
 import { CodeEditor } from "@/components/ide/CodeEditor";
 import { EditorTabs } from "@/components/ide/EditorTabs";
@@ -17,10 +16,8 @@ import { SuggestionsPanel } from "@/components/ide/SuggestionsPanel";
 import { BuildProgress } from "@/components/ide/BuildProgress";
 import { AgentPanel } from "@/components/ide/AgentPanel";
 import { MemoryTab } from "@/components/ide/MemoryTab";
-import { AgentThoughtStream } from "@/components/ide/AgentThoughtStream";
 import { AgentActivityPanel } from "@/components/ide/AgentActivityPanel";
 import { GitPanel } from "@/components/ide/GitPanel";
-import { SessionSidebar } from "@/components/ide/SessionSidebar";
 import { PanelErrorBoundary } from "@/components/ide/PanelErrorBoundary";
 import { CostBar } from "@/components/ide/CostBar";
 import { ImportRepoDialog } from "@/components/ide/ImportRepoDialog";
@@ -29,8 +26,7 @@ import { DeployPanel } from "@/components/ide/DeployPanel";
 import { GitHubConnectDialog } from "@/components/ide/GitHubConnectDialog";
 import {
   FileTreeSkeleton,
-  EditorSkeleton,
-} from "@/components/ide/PanelSkeleton";
+  EditorSkeleton} from "@/components/ide/PanelSkeleton";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { toast } from "sonner";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
@@ -43,13 +39,9 @@ import {
   Github,
   FolderOpen,
   Code2,
-  Eye,
-  EyeOff,
-  Save,
-  ChevronLeft,
-  Menu,
-  X,
-} from "lucide-react";
+  Eye
+  Save
+  X} from "lucide-react";
 
 // Mobile breakpoint: anything below 768px is "mobile"
 function useIsMobile() {
@@ -91,7 +83,6 @@ export function IDEPage() {
   const deleteFile = useMutation(api.files.remove);
   const getOrCreateSession = useMutation(api.chat.getOrCreateSession);
   const heartbeat = useMutation(api.collaboration.heartbeat);
-  const runBuildLoop = useAction(api.buildLoop.runBuildLoop);
   const generateSuggestions = useAction(api.suggestions.generateSuggestions);
   const runAutonomousCycle = useAction(api.suggestions.runAutonomousCycle);
 
@@ -100,20 +91,18 @@ export function IDEPage() {
   const [fileBuffers, setFileBuffers] = useState<Map<string, string>>(new Map());
   const [unsavedFiles, setUnsavedFiles] = useState<Set<string>>(new Set());
   const [sessionId, setSessionId] = useState<Id<"chatSessions"> | null>(null);
-  const [showPreview, setShowPreview] = useState(true);
+  const [showPreview] = useState(true);
   const [rightPanel, setRightPanel] = useState<RightPanel>("chat");
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showGitHubConnect, setShowGitHubConnect] = useState(false);
-  const [showRightPanel, setShowRightPanel] = useState(true);
+  const [showRightPanel] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [showSessionSidebar, setShowSessionSidebar] = useState(false);
 
   // Mobile-specific state
   const [mobileView, setMobileView] = useState<MobileView>("editor");
   const [mobileFileDrawer, setMobileFileDrawer] = useState(false);
 
   const createSession = useMutation(api.chat.createSession);
-  const projectBundle = useQuery(
     api.export.getProjectBundle,
     projectId ? { projectId: projectId as Id<"projects"> } : "skip"
   );
@@ -131,8 +120,7 @@ export function IDEPage() {
     const interval = setInterval(() => {
       heartbeat({
         projectId: projectId as Id<"projects">,
-        activeFile: activeFilePath ?? undefined,
-      }).catch(() => {});
+        activeFile: activeFilePath ?? undefined}).catch(() => {});
     }, 30_000);
     return () => clearInterval(interval);
   }, [projectId, activeFilePath, heartbeat]);
@@ -274,15 +262,13 @@ export function IDEPage() {
       if (!projectId) return;
       const parts = path.split("/");
       const name = parts[parts.length - 1] ?? path;
-      try {
-        const newFileId = await createFile({
+      try {  await createFile({
           projectId: projectId as Id<"projects">,
           path,
           name,
           content: isDirectory ? "" : "",
           isDirectory,
-          parentPath: parts.slice(0, -1).join("/") || undefined,
-        });
+          parentPath: parts.slice(0, -1).join("/") || undefined});
         if (!isDirectory) {
           setOpenFilePaths((prev) => [...prev, path]);
           setActiveFilePath(path);
@@ -331,8 +317,7 @@ export function IDEPage() {
   const openFilesDocs = (files ?? []).filter((f) => openFilePaths.includes(f.path));
   const openFileContexts = openFilesDocs.map((f) => ({
     path: f.path,
-    content: getFileContent(f.path),
-  }));
+    content: getFileContent(f.path)}));
   const previewFiles = (files ?? []).filter((f) => !f.isDirectory);
 
   if (!projectId || project === undefined) {
@@ -362,8 +347,6 @@ export function IDEPage() {
     { id: "diff", label: "Diff", icon: <Code2 className="h-3.5 w-3.5" />, color: "text-rose-400 border-rose-400" },
     { id: "deploy", label: "Deploy", icon: <Zap className="h-3.5 w-3.5" />, color: "text-green-400 border-green-400" },
   ];
-
-  const activeTabColor = panelTabs.find(t => t.id === rightPanel)?.color ?? "text-primary border-primary";
 
   const rightPanelContent = (
     <div className="h-full flex flex-col">
@@ -576,8 +559,8 @@ export function IDEPage() {
                       files={files}
                       activeFilePath={activeFilePath}
                       onFileSelect={handleFileSelect}
-                      onCreateFile={handleCreateFile}
-                      onDeleteFile={handleDeleteFile}
+                      onCreateFile={(name: string) => void handleCreateFile(name, false)}
+                      onDeleteFile={(fileId) => void handleDeleteFile(fileId, "")}
                       collaborators={collaborators}
                     />
                   )}
@@ -613,8 +596,8 @@ export function IDEPage() {
                   files={files}
                   activeFilePath={activeFilePath}
                   onFileSelect={handleFileSelect}
-                  onCreateFile={handleCreateFile}
-                  onDeleteFile={handleDeleteFile}
+                  onCreateFile={(name: string) => void handleCreateFile(name, false)}
+                  onDeleteFile={(fileId) => void handleDeleteFile(fileId, "")}
                   collaborators={collaborators}
                 />
               )}
