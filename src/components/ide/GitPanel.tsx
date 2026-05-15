@@ -62,7 +62,7 @@ export function GitPanel({ projectId }: GitPanelProps) {
     if (!repo || !allFiles || !projectId) return;
     const msg = commitMessage.trim() || `CodeForge update — ${new Date().toLocaleString()}`;
     setIsPushing(true);
-    const filesToPush = allFiles.filter((f) => !f.isDirectory && f.content);
+    const filesToPush = allFiles.filter((f: NonNullable<typeof allFiles>[number]) => !f.isDirectory && f.content);
     setPushProgress({ done: 0, total: filesToPush.length });
     let successCount = 0, failCount = 0;
     for (let i = 0; i < filesToPush.length; i++) {
@@ -215,7 +215,7 @@ export function GitPanel({ projectId }: GitPanelProps) {
                   </Button>
                 </div>
                 <div className="text-[10px] text-white/20">
-                  {allFiles?.filter((f) => !f.isDirectory).length || 0} files in project
+                  {allFiles?.filter((f: NonNullable<typeof allFiles>[number]) => !f.isDirectory).length || 0} files in project
                 </div>
               </div>
             ) : (
@@ -235,7 +235,7 @@ export function GitPanel({ projectId }: GitPanelProps) {
                 <p className="text-center text-[10px] text-white/15 py-4">No sessions yet</p>
               ) : (
                 <div className="space-y-1.5">
-                  {buildSessions.map((session) => (
+                  {buildSessions.map((session: NonNullable<typeof buildSessions>[number]) => (
                     <div
                       key={session._id}
                       className={cn(
