@@ -173,7 +173,7 @@ export function AgentPanel({ projectId }: AgentPanelProps) {
                     </div>
                   ))}
                   {/* Thought lines */}
-                  {(thoughts ?? []).slice(-60).map((t, i, arr) => {
+                  {(thoughts ?? []).slice(-60).map((t: NonNullable<typeof thoughts>[number], i: number, arr: NonNullable<typeof thoughts>[number][]) => {
                     const color = THOUGHT_COLORS[t.type] ?? "text-foreground/70";
                     const isLast = i === arr.length - 1;
                     return (
@@ -284,7 +284,7 @@ export function AgentPanel({ projectId }: AgentPanelProps) {
                 )}
                 {task.filesChanged && task.filesChanged.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1.5 ml-7">
-                    {task.filesChanged.slice(0, 5).map((f: { path: string; name: string; content: string; _id: string; type?: string }) => (
+                    {task.filesChanged.slice(0, 5).map((f: string) => (
                       <span key={f} className="text-[8px] bg-white/5 border border-border/50 px-1.5 py-0.5 rounded font-mono text-muted-foreground/60">
                         {f.split("/").pop()}
                       </span>
