@@ -77,7 +77,7 @@ function BuildSessionView({
 
       {/* Steps */}
       <div className="max-h-[200px] overflow-y-auto px-2 py-1.5 space-y-1">
-        {steps?.map((step) => {
+        {steps?.map((step: NonNullable<typeof steps>[number]) => {
           const StepIcon = ACTION_ICONS[step.action] ?? Hammer;
           return (
             <div
