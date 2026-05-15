@@ -4,8 +4,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
   Loader2, Check, AlertCircle, Zap, ToggleLeft, ToggleRight,
-  Flame, ChevronRight, Brain, Send,
-} from "lucide-react";
+  Flame, ChevronRight, Brain} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -23,15 +22,13 @@ const THOUGHT_COLORS: Record<string, string> = {
   search:    "text-cyan-400",
   commit:    "text-yellow-400",
   broadcast: "text-pink-400",
-  done:      "text-emerald-400",
-};
+  done:      "text-emerald-400"};
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
   queued:  <div className="w-2 h-2 rounded-full bg-muted-foreground/40 animate-pulse" />,
   running: <Loader2 className="h-3 w-3 text-primary animate-spin" />,
   done:    <Check className="h-3 w-3 text-green-400" />,
-  error:   <AlertCircle className="h-3 w-3 text-red-400" />,
-};
+  error:   <AlertCircle className="h-3 w-3 text-red-400" />};
 
 export function AgentPanel({ projectId }: AgentPanelProps) {
   const [prompt, setPrompt] = useState("");
@@ -43,12 +40,12 @@ export function AgentPanel({ projectId }: AgentPanelProps) {
   const tasks = useQuery(api.agents.listTasks, { projectId });
   const thoughts = useQuery(api.agentThoughts.listRecent, { projectId, limit: 100 });
   const autonomousSettings = useQuery(api.suggestions.getAutonomousMode, { projectId });
-  const runMultiAgent = useAction(api.engine.runMission);
+  const runMission = useAction(api.engine.runMission);
   const runAutonomousCycle = useAction(api.suggestions.runAutonomousCycle);
   const setAutonomousMode = useMutation(api.suggestions.setAutonomousMode);
 
-  const activeTasks = tasks?.filter(t => t.status === "running" || t.status === "queued") ?? [];
-  const recentTasks = tasks?.filter(t => t.status === "done" || t.status === "error").slice(-20).reverse() ?? [];
+  const activeTasks = tasks?.filter((t: NonNullable<typeof tasks>[number]) => t.status === "running" || t.status === "queued") ?? [];
+  const recentTasks = tasks?.filter((t: NonNullable<typeof tasks>[number]) => t.status === "done" || t.status === "error").slice(-20).reverse() ?? [];
   const autonomousOn = autonomousSettings?.autonomousMode ?? false;
   const isAgentRunning = isRunning || activeTasks.length > 0;
 
@@ -167,7 +164,7 @@ export function AgentPanel({ projectId }: AgentPanelProps) {
                 </div>
                 <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5 font-mono text-[10px]">
                   {/* Active task indicators */}
-                  {activeTasks.map(task => (
+                  {activeTasks.map((task: NonNullable<typeof tasks>[number]) => (
                     <div key={task._id} className="flex items-center gap-1.5 px-1.5 py-1 rounded bg-primary/5 border border-primary/15 mb-1">
                       <Loader2 className="h-2.5 w-2.5 text-primary animate-spin shrink-0" />
                       <span className="text-base leading-none">{task.agentIcon}</span>
@@ -267,7 +264,7 @@ export function AgentPanel({ projectId }: AgentPanelProps) {
                 <p className="text-sm text-muted-foreground">No tasks run yet</p>
               </div>
             )}
-            {recentTasks.map(task => (
+            {recentTasks.map((task: NonNullable<typeof tasks>[number]) => (
               <div key={task._id} className={cn(
                 "rounded-md border p-2.5",
                 task.status === "error" ? "border-red-500/20 bg-red-500/5" : "border-border bg-[oklch(0.13_0.02_260)]"
@@ -287,7 +284,7 @@ export function AgentPanel({ projectId }: AgentPanelProps) {
                 )}
                 {task.filesChanged && task.filesChanged.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1.5 ml-7">
-                    {task.filesChanged.slice(0, 5).map(f => (
+                    {task.filesChanged.slice(0, 5).map((f: { path: string; name: string; content: string; _id: string; type?: string }) => (
                       <span key={f} className="text-[8px] bg-white/5 border border-border/50 px-1.5 py-0.5 rounded font-mono text-muted-foreground/60">
                         {f.split("/").pop()}
                       </span>
