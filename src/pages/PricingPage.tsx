@@ -5,11 +5,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Zap, Crown, Clock, Sparkles, Check, ArrowRight,
-  Bot, GitBranch, Lock, Unlock, Infinity, TrendingUp} from "lucide-react";
+  Bot, GitBranch, Lock, Unlock, Infinity, TrendingUp,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Spawn visualizer: animates agent tree expanding ──────────────────────────
-function SpawnTree({ maxDepth, animate }: {: number; maxDepth: number; animate: boolean }) {
+function SpawnTree({ depth: _depth, maxDepth, animate }: { depth: number; maxDepth: number; animate: boolean }) {
   const nodes: { level: number; index: number }[] = [];
   let count = 1;
   for (let d = 0; d < maxDepth; d++) {
@@ -71,7 +72,7 @@ const PLANS = [
       { text: "15 AI requests / day", locked: false },
       { text: "2 missions / day", locked: false },
       { text: "1 agent at a time", locked: false },
-      { text: "Spawn: 1 (3 agents)", locked: false },
+      { text: "Spawn depth: 1 (3 agents)", locked: false },
       { text: "2 projects", locked: false },
       { text: "Community support", locked: false },
       { text: "Parallel agent swarms", locked: true },
@@ -79,7 +80,8 @@ const PLANS = [
     ],
     cta: "Get Started Free",
     ctaClass: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-    stripePlan: null},
+    stripePlan: null,
+  },
   {
     key: "weekly" as const,
     name: "Weekly Boost",
@@ -97,7 +99,7 @@ const PLANS = [
       { text: "250 AI requests / day", locked: false },
       { text: "20 missions / day", locked: false },
       { text: "5 concurrent agents", locked: false },
-      { text: "Spawn: 3 (up to 30 agents)", locked: false },
+      { text: "Spawn depth: 3 (up to 30 agents)", locked: false },
       { text: "15 projects", locked: false },
       { text: "$5 compute / week included", locked: false },
       { text: "Priority support", locked: false },
@@ -105,7 +107,8 @@ const PLANS = [
     ],
     cta: "Start Weekly",
     ctaClass: "bg-blue-600 text-white hover:bg-blue-500",
-    stripePlan: "weekly" as const},
+    stripePlan: "weekly" as const,
+  },
   {
     key: "monthly" as const,
     name: "Monthly Pro",
@@ -123,7 +126,7 @@ const PLANS = [
       { text: "600 AI requests / day", locked: false },
       { text: "60 missions / day", locked: false },
       { text: "12 concurrent agents", locked: false },
-      { text: "Spawn: 4 (up to 80 agents!)", locked: false },
+      { text: "Spawn depth: 4 (up to 80 agents!)", locked: false },
       { text: "30 projects", locked: false },
       { text: "$15 compute / month included", locked: false },
       { text: "Priority support", locked: false },
@@ -131,7 +134,8 @@ const PLANS = [
     ],
     cta: "Go Pro",
     ctaClass: "bg-violet-600 text-white hover:bg-violet-500",
-    stripePlan: "monthly" as const},
+    stripePlan: "monthly" as const,
+  },
   {
     key: "lifetime" as const,
     name: "Founder",
@@ -149,7 +153,7 @@ const PLANS = [
       { text: "1,500 AI requests / day", locked: false },
       { text: "150 missions / day", locked: false },
       { text: "32 concurrent agents", locked: false },
-      { text: "Spawn: 5 (up to 250 agents!!!)", locked: false },
+      { text: "Spawn depth: 5 (up to 250 agents!!!)", locked: false },
       { text: "200 projects", locked: false },
       { text: "$50 compute / month forever", locked: false },
       { text: "VIP Discord + direct support", locked: false },
@@ -158,7 +162,8 @@ const PLANS = [
     ],
     cta: "Become a Founder",
     ctaClass: "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-400 hover:to-orange-400",
-    stripePlan: "lifetime" as const},
+    stripePlan: "lifetime" as const,
+  },
 ];
 
 export function PricingPage() {
@@ -212,7 +217,8 @@ export function PricingPage() {
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2 font-semibold">
                 {plan.name}
               </p>
-              <SpawnTree={plan.key === "free" ? 2 : plan.spawnDepth}
+              <SpawnTree
+                depth={plan.key === "free" ? 2 : plan.spawnDepth}
                 maxDepth={plan.key === "free" ? 2 : plan.spawnDepth}
                 animate={hoveredPlan === plan.key}
               />
