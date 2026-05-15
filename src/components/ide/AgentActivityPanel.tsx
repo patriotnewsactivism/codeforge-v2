@@ -242,7 +242,7 @@ export function AgentActivityPanel({ projectId }: Props) {
                 <p className="text-[9px] font-bold uppercase text-muted-foreground/50 mb-1.5">
                   Running ({activeCalls.length})
                 </p>
-                {activeCalls.slice(0, 6).map(call => {
+                {activeCalls.slice(0, 6).map((call: { _id: string; tool: string; args: string; status: string; agentId?: string }) => {
                   const meta = TOOL_ICONS[call.tool] ?? { icon: <Zap className="h-3 w-3" />, color: "text-muted-foreground" };
                   let args: Record<string, string> = {};
                   try { args = JSON.parse(call.args); } catch { /* */ }
