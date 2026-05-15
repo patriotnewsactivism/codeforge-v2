@@ -68,7 +68,6 @@ export function UsageMeter() {
   const cappedOut = spend?.cappedAt != null || computePct >= 100;
 
   const aiLeft = Math.max(0, l.aiRequestsPerDay - aiUsed);
-  const missionsLeft = Math.max(0, l.missionsPerDay - missionsUsed);
 
   return (
     <div className="shrink-0">
