@@ -51,7 +51,7 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
 
   // For demo / real use: agent changes would be stored and fetched.
   // For now, show the current file content vs a placeholder "original".
-  const currentFile = files?.find((f) => f.path === selectedFile);
+  const currentFile = files?.find((f: NonNullable<typeof files>[number]) => f.path === selectedFile);
   const content = currentFile?.content ?? "";
 
   const diffLines = useMemo(() => {
@@ -64,7 +64,7 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
   const addedCount = diffLines.filter((l) => l.type === "add").length;
   const removedCount = diffLines.filter((l) => l.type === "remove").length;
 
-  const codeFiles = files?.filter((f) => !f.isDirectory) ?? [];
+  const codeFiles = files?.filter((f: NonNullable<typeof files>[number]) => !f.isDirectory) ?? [];
 
   if (!projectId) {
     return (
@@ -103,7 +103,7 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
       {/* File selector */}
       <div className="border-b border-white/5 px-3 py-2 shrink-0">
         <div className="flex gap-1 flex-wrap">
-          {codeFiles.slice(0, 12).map((f) => (
+          {codeFiles.slice(0, 12).map((f: NonNullable<typeof files>[number]) => (
             <button
               key={f.path}
               type="button"
