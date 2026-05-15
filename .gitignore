@@ -19,8 +19,6 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Convex generated (regenerated on deploy)
-convex/_generated/
 
 # Temp
 *.log

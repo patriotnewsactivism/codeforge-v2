@@ -592,6 +592,7 @@ export function IDEPage() {
 
   // ─── DESKTOP LAYOUT ───────────────────────────────────────────────────────────
   return (
+    <>
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       <CollaborationBar
         projectId={projectId as Id<"projects">}
@@ -679,16 +680,17 @@ export function IDEPage() {
       </div>
     </div>
 
-    {/* GitHub Dialogs */}
-    <ImportRepoDialog
-      open={showImportDialog}
-      onOpenChange={setShowImportDialog}
-      activeProjectId={projectId as Id<"projects"> | null}
-      onSelectProject={(_id) => setShowImportDialog(false)}
-    />
-    <GitHubConnectDialog
-      open={showGitHubConnect}
-      onOpenChange={setShowGitHubConnect}
-    />
+      {/* GitHub Dialogs */}
+      <ImportRepoDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        activeProjectId={projectId as Id<"projects"> | null}
+        onSelectProject={(_id) => setShowImportDialog(false)}
+      />
+      <GitHubConnectDialog
+        open={showGitHubConnect}
+        onOpenChange={setShowGitHubConnect}
+      />
+    </>
   );
 }
