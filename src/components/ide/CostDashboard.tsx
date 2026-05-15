@@ -9,20 +9,21 @@
 import type { Id } from "../../../convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   DollarSign,
   TrendingUp,
   Cpu,
   Activity,
-  BarChart3} from "lucide-react";
+  BarChart3,
+} from "lucide-react";
 
 interface CostDashboardProps {
-  projectId: Id<"projects"> | null;?: Id<"sessions"> | null;
+  projectId: Id<"projects"> | null;
+  sessionId?: Id<"sessions"> | null;
 }
 
-export function CostDashboard({ projectId }: CostDashboardProps) {
+export function CostDashboard({ projectId, sessionId: _sessionId }: CostDashboardProps) {
   const costEntries = useQuery(
     api.costEntries.listByProject,
     projectId ? { projectId } : "skip"
@@ -44,7 +45,8 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
     byModel.set(key, {
       cost: prev.cost + (entry.cost || 0),
       tokens: prev.tokens + (entry.inputTokens || 0) + (entry.outputTokens || 0),
-      calls: prev.calls + 1});
+      calls: prev.calls + 1,
+    });
   }
 
   const modelEntries = [...byModel.entries()].sort((a, b) => b[1].cost - a[1].cost);
@@ -54,7 +56,8 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
   const MODEL_COLORS: Record<string, string> = {
     "deepseek": "bg-blue-500",
     "grok": "bg-orange-500",
-    "kimi": "bg-purple-500"};
+    "kimi": "bg-purple-500",
+  };
 
   function getModelColor(model: string) {
     for (const [key, color] of Object.entries(MODEL_COLORS)) {
