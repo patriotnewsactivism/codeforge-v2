@@ -198,7 +198,7 @@ export function ChatPanel({
           </div>
         )}
 
-        {messages?.map(msg => (
+        {messages?.map((msg: NonNullable<typeof messages>[number]) => (
           <div
             key={msg._id}
             className={cn("flex gap-2 min-w-0", msg.role === "user" ? "justify-end" : "justify-start")}
