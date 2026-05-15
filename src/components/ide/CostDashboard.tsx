@@ -144,7 +144,7 @@ export function CostDashboard({ projectId, sessionId: _sessionId }: CostDashboar
           <span className="text-[10px] font-semibold text-white/50">Recent Calls</span>
         </div>
         <div className="space-y-0.5">
-          {entries.slice(-20).reverse().map((entry) => (
+          {entries.slice(-20).reverse().map((entry: NonNullable<typeof entries>[number]) => (
             <div
               key={entry._id}
               className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/[0.03] transition-colors"
