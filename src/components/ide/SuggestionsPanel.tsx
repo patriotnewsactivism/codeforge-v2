@@ -12,12 +12,13 @@ import {
   ToggleLeft,
   ToggleRight,
   Flame,
-  Star
+  Star,
   Shield,
   Cpu,
   Smartphone,
   BarChart2,
-  Lock} from "lucide-react";
+  Lock,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -32,12 +33,14 @@ const CATEGORY_META: Record<string, { icon: React.ReactNode; color: string }> = 
   performance: { icon: <BarChart2 className="h-3 w-3" />, color: "text-green-400" },
   ux: { icon: <Star className="h-3 w-3" />, color: "text-pink-400" },
   security: { icon: <Lock className="h-3 w-3" />, color: "text-red-400" },
-  mobile: { icon: <Smartphone className="h-3 w-3" />, color: "text-cyan-400" }};
+  mobile: { icon: <Smartphone className="h-3 w-3" />, color: "text-cyan-400" },
+};
 
 const PRIORITY_COLOR = {
   high: "text-red-400 bg-red-400/10 border-red-400/20",
   medium: "text-amber-400 bg-amber-400/10 border-amber-400/20",
-  low: "text-blue-400 bg-blue-400/10 border-blue-400/20"};
+  low: "text-blue-400 bg-blue-400/10 border-blue-400/20",
+};
 
 export function SuggestionsPanel({ projectId }: SuggestionsPanelProps) {
   const suggestions = useQuery(api.suggestions.listByProject, { projectId });
