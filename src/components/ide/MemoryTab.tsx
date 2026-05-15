@@ -122,7 +122,7 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
                     {meta.label} ({mems?.length ?? 0})
                   </div>
                   <div className="space-y-1">
-                    {mems?.map((mem) => {
+                    {mems?.map((mem: NonNullable<typeof mems>[number]) => {
                       const strength = mem.importance * mem.decayFactor;
                       const barWidth = `${Math.round(strength * 100)}%`;
                       return (
@@ -178,7 +178,7 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
                 </p>
               </div>
             )}
-            {retros?.map((retro) => {
+            {retros?.map((retro: NonNullable<typeof retros>[number]) => {
               const isExpanded = expandedRetro === retro._id;
               const scoreColor = retro.qualityScore >= 8 ? "text-green-400" :
                                  retro.qualityScore >= 6 ? "text-yellow-400" : "text-red-400";
@@ -266,7 +266,7 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
                 </p>
               </div>
             )}
-            {messages?.map((msg) => (
+            {messages?.map((msg: NonNullable<typeof messages>[number]) => (
               <div
                 key={msg._id}
                 className={cn(
@@ -292,7 +292,7 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
                 <p className="text-[11px] leading-relaxed">{msg.content}</p>
                 {msg.relatedFiles && msg.relatedFiles.length > 0 && (
                   <div className="flex gap-1 mt-1 flex-wrap">
-                    {msg.relatedFiles.map((f) => (
+                    {msg.relatedFiles.map((f: string) => (
                       <span key={f} className="text-[9px] bg-white/10 px-1 py-0.5 rounded font-mono">
                         {f}
                       </span>
