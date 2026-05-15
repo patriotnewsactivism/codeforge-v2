@@ -55,7 +55,7 @@ export function CollaborationBar({ projectId, projectName }: CollaborationBarPro
       <div className="hidden sm:flex items-center gap-2 shrink-0">
         <Users className="h-3.5 w-3.5 text-muted-foreground" />
         <div className="flex items-center -space-x-1.5">
-          {collaborators?.map((collab) => (
+          {collaborators?.map((collab: NonNullable<typeof collaborators>[number]) => (
             <div
               key={collab._id}
               className="w-6 h-6 rounded-full border-2 border-[oklch(0.09_0.02_260)] flex items-center justify-center text-[10px] font-bold"
