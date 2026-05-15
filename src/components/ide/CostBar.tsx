@@ -14,7 +14,7 @@ export function CostBar({ projectId }: { projectId: Id<"projects"> | null }) {
     projectId ? { projectId } : "skip"
   );
 
-  const activeAgents = agentTasks?.filter((t) => t.status === "running").length ?? 0;
+  const activeAgents = agentTasks?.filter((t: NonNullable<typeof agentTasks>[number]) => t.status === "running").length ?? 0;
   const todayCost = limitsData?.usage?.computeCostUsd ?? 0;
   const aiRequests = limitsData?.usage?.aiRequests ?? 0;
   const missions = limitsData?.usage?.missions ?? 0;
