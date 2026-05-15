@@ -14,10 +14,9 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import {
-  Bot, Loader2, Brain, CheckCircle2, AlertCircle,
+  Bot, Loader2, Brain, CheckCircle2,
   FileCode2, FilePlus, FileSearch, Zap, Send,
-  ChevronDown, Activity,
-} from "lucide-react";
+  ChevronDown, Activity} from "lucide-react";
 
 interface Props {
   projectId: Id<"projects">;
@@ -30,8 +29,7 @@ const AGENT_COLORS: Record<string, { dot: string; text: string; bg: string; bord
   "mobile-agent":  { dot: "bg-cyan-400",    text: "text-cyan-400",    bg: "bg-cyan-400/8",    border: "border-cyan-500/25" },
   "feature-agent": { dot: "bg-amber-400",   text: "text-amber-400",   bg: "bg-amber-400/8",   border: "border-amber-500/25" },
   "debug-agent":   { dot: "bg-red-400",     text: "text-red-400",     bg: "bg-red-400/8",     border: "border-red-500/25" },
-  "qa-agent":      { dot: "bg-emerald-400", text: "text-emerald-400", bg: "bg-emerald-400/8", border: "border-emerald-500/25" },
-};
+  "qa-agent":      { dot: "bg-emerald-400", text: "text-emerald-400", bg: "bg-emerald-400/8", border: "border-emerald-500/25" }};
 
 const DEFAULT_COLOR = { dot: "bg-pink-400", text: "text-pink-400", bg: "bg-pink-400/8", border: "border-pink-500/25" };
 
@@ -43,14 +41,12 @@ const TOOL_ICONS: Record<string, { icon: React.ReactNode; color: string }> = {
   search_files:  { icon: <FileSearch className="h-3 w-3" />,  color: "text-yellow-400" },
   spawn_agent:   { icon: <Zap className="h-3 w-3" />,         color: "text-violet-400" },
   send_message:  { icon: <Send className="h-3 w-3" />,        color: "text-pink-400" },
-  complete_task: { icon: <CheckCircle2 className="h-3 w-3" />,color: "text-emerald-400" },
-};
+  complete_task: { icon: <CheckCircle2 className="h-3 w-3" />,color: "text-emerald-400" }};
 
 const THOUGHT_COLORS: Record<string, string> = {
   plan: "text-violet-400", analyze: "text-blue-400", code: "text-green-400",
   debug: "text-red-400", review: "text-orange-400", memory: "text-purple-400",
-  search: "text-cyan-400", broadcast: "text-pink-400", done: "text-emerald-400",
-};
+  search: "text-cyan-400", broadcast: "text-pink-400", done: "text-emerald-400"};
 
 export function AgentActivityPanel({ projectId }: Props) {
   const toolCalls = useQuery(api.engine.listToolCalls, { projectId, limit: 200 });
@@ -99,8 +95,7 @@ export function AgentActivityPanel({ projectId }: Props) {
         isActive: isDone ? false : (existing?.isActive ?? false) || isActive,
         isDone: isDone || (existing?.isDone ?? false),
         thoughtCount: (existing?.thoughtCount ?? 0) + 1,
-        fileChanges: (existing?.fileChanges ?? 0) + (t.content.includes("create_file") || t.content.includes("edit_file") ? 1 : 0),
-      });
+        fileChanges: (existing?.fileChanges ?? 0) + (t.content.includes("create_file") || t.content.includes("edit_file") ? 1 : 0)});
     }
 
     // Planner first, qa last, rest in middle
@@ -116,10 +111,10 @@ export function AgentActivityPanel({ projectId }: Props) {
   }, [thoughts]);
 
   // Active tool calls across all agents
-  const activeCalls = toolCalls?.filter(c => c.status === "running" || c.status === "pending") ?? [];
+  const activeCalls = toolCalls?.filter((c: { status: string; tool: string; args: string; _id: string }) => c.status === "running" || c.status === "pending") ?? [];
   const totalCalls = toolCalls?.length ?? 0;
-  const isRunning = activeCalls.length > 0 || (thoughts?.some(t => t.isStreaming) ?? false);
-  const activeAgentCount = agentLanes.filter(a => a.isActive).length;
+  const isRunning = activeCalls.length > 0 || (thoughts?.some((t: { isStreaming?: boolean }) => t.isStreaming) ?? false);
+  const activeAgentCount = agentLanes.filter((a: NonNullable<typeof agentLanes>[number]) => a.isActive).length;
 
   return (
     <div className="h-full flex flex-col bg-[oklch(0.11_0.02_260)]">
@@ -277,7 +272,7 @@ export function AgentActivityPanel({ projectId }: Props) {
                 <p className="text-sm text-muted-foreground">No logs yet</p>
               </div>
             )}
-            {thoughts?.map((t, i, arr) => {
+            {thoughts?.map((t: NonNullable<typeof thoughts>[number], i: number, arr: NonNullable<typeof thoughts>) => {
               const color = THOUGHT_COLORS[t.type] ?? "text-foreground/70";
               const agentColor = (AGENT_COLORS[t.agentId] ?? DEFAULT_COLOR).text;
               const isLast = i === arr.length - 1;
