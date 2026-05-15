@@ -1,9 +1,9 @@
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Brain, Zap, GitBranch, Search, RefreshCw } from "lucide-react";
+import { Brain } from "lucide-react";
 
 interface ThoughtStreamProps {
   projectId: Id<"projects">;
@@ -17,8 +17,7 @@ const AGENT_ICONS: Record<string, string> = {
   "feature-agent": "✨",
   "test-agent": "🧪",
   "reviewer-agent": "🔎",
-  "retrospective-agent": "🔄",
-};
+  "retrospective-agent": "🔄"};
 
 const THOUGHT_COLORS: Record<string, string> = {
   plan:      "text-violet-400",
@@ -30,8 +29,7 @@ const THOUGHT_COLORS: Record<string, string> = {
   search:    "text-cyan-400",
   commit:    "text-yellow-400",
   broadcast: "text-pink-400",
-  done:      "text-emerald-400",
-};
+  done:      "text-emerald-400"};
 
 export function AgentThoughtStream({ projectId }: ThoughtStreamProps) {
   const thoughts = useQuery(api.agentThoughts.listRecent, { projectId, limit: 80 });
@@ -69,7 +67,7 @@ export function AgentThoughtStream({ projectId }: ThoughtStreamProps) {
         className="flex-1 overflow-y-auto p-2 space-y-0.5 font-mono text-[11px]"
         onScroll={handleScroll}
       >
-        {thoughts.map((thought, i) => {
+        {thoughts.map((thought: NonNullable<typeof thoughts>[number], i: number) => {
           const icon = AGENT_ICONS[thought.agentId] ?? "🤖";
           const color = THOUGHT_COLORS[thought.type] ?? "text-foreground";
           const isLast = i === thoughts.length - 1;
