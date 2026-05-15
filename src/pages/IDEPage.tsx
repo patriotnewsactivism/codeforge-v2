@@ -86,7 +86,6 @@ export function IDEPage() {
   const deleteFile = useMutation(api.files.remove);
   const getOrCreateSession = useMutation(api.chat.getOrCreateSession);
   const heartbeat = useMutation(api.collaboration.heartbeat);
-  const _runBuildLoop = useAction(api.buildLoop.runBuildLoop);
   const generateSuggestions = useAction(api.suggestions.generateSuggestions);
   const runAutonomousCycle = useAction(api.suggestions.runAutonomousCycle);
 
@@ -106,12 +105,6 @@ export function IDEPage() {
   // Mobile-specific state
   const [mobileView, setMobileView] = useState<MobileView>("editor");
   const [mobileFileDrawer, setMobileFileDrawer] = useState(false);
-
-  const createSession = useMutation(api.chat.createSession);
-  const _projectBundle = useQuery(
-    api.export.getProjectBundle,
-    projectId ? { projectId: projectId as Id<"projects"> } : "skip"
-  );
 
   // Initialize chat session
   useEffect(() => {
@@ -135,8 +128,8 @@ export function IDEPage() {
   // Auto-open first file
   useEffect(() => {
     if (files && files.length > 0 && openFilePaths.length === 0) {
-      const htmlFile = files.find((f) => f.name === "index.html");
-      const firstFile = htmlFile ?? files.find((f) => !f.isDirectory);
+      const htmlFile = files.find((f: NonNullable<typeof files>[number]) => f.name === "index.html");
+      const firstFile = htmlFile ?? files.find((f: NonNullable<typeof files>[number]) => !f.isDirectory);
       if (firstFile) {
         setOpenFilePaths([firstFile.path]);
         setActiveFilePath(firstFile.path);
@@ -166,12 +159,12 @@ export function IDEPage() {
   }, [projectId, autonomousSettings?.autonomousMode, autonomousSettings?.autoIntervalMinutes]);
 
 
-  const activeFile = files?.find((f) => f.path === activeFilePath) ?? null;
+  const activeFile = files?.find((f: NonNullable<typeof files>[number]) => f.path === activeFilePath) ?? null;
 
   const getFileContent = useCallback(
     (path: string) =>
       fileBuffers.get(path) ??
-      files?.find((f) => f.path === path)?.content ??
+      files?.find((f: NonNullable<typeof files>[number]) => f.path === path)?.content ??
       "",
     [fileBuffers, files]
   );
@@ -216,7 +209,7 @@ export function IDEPage() {
     (content: string) => {
       if (!activeFilePath) return;
       setFileBuffers((prev) => new Map(prev).set(activeFilePath, content));
-      const original = files?.find((f) => f.path === activeFilePath)?.content;
+      const original = files?.find((f: NonNullable<typeof files>[number]) => f.path === activeFilePath)?.content;
       if (content !== original) {
         setUnsavedFiles((prev) => new Set(prev).add(activeFilePath));
       } else {
@@ -302,16 +295,11 @@ export function IDEPage() {
     [deleteFile, handleTabClose]
   );
 
-  const _handleNewSession = useCallback(async () => {
-    if (!projectId) return;
-    const id = await createSession({ projectId: projectId as Id<"projects"> });
-    setSessionId(id);
-  }, [projectId, createSession]);
 
   const handleImplementSuggestion = useCallback(
     async (suggestion: { targetFile: string; content: string }) => {
       if (!projectId) return;
-      const file = files?.find((f) => f.path === suggestion.targetFile);
+      const file = files?.find((f: NonNullable<typeof files>[number]) => f.path === suggestion.targetFile);
       if (!file) return;
       setFileBuffers((prev) => new Map(prev).set(suggestion.targetFile, suggestion.content));
       setUnsavedFiles((prev) => new Set(prev).add(suggestion.targetFile));
@@ -323,12 +311,12 @@ export function IDEPage() {
     [projectId, files, openFilePaths]
   );
 
-  const openFilesDocs = (files ?? []).filter((f) => openFilePaths.includes(f.path));
-  const openFileContexts = openFilesDocs.map((f) => ({
+  const openFilesDocs = (files ?? []).filter((f: NonNullable<typeof files>[number]) => openFilePaths.includes(f.path));
+  const openFileContexts = openFilesDocs.map((f: NonNullable<typeof files>[number]) => ({
     path: f.path,
     content: getFileContent(f.path),
   }));
-  const previewFiles = (files ?? []).filter((f) => !f.isDirectory);
+  const previewFiles = (files ?? []).filter((f: NonNullable<typeof files>[number]) => !f.isDirectory);
 
   if (!projectId || project === undefined) {
     return (
@@ -357,8 +345,6 @@ export function IDEPage() {
     { id: "diff", label: "Diff", icon: <Code2 className="h-3.5 w-3.5" />, color: "text-rose-400 border-rose-400" },
     { id: "deploy", label: "Deploy", icon: <Zap className="h-3.5 w-3.5" />, color: "text-green-400 border-green-400" },
   ];
-
-  const _activeTabColor = panelTabs.find((t: { id: string; color: string }) => t.id === rightPanel)?.color ?? "text-primary border-primary";
 
   const rightPanelContent = (
     <div className="h-full flex flex-col">
