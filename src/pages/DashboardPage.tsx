@@ -5,20 +5,17 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle,
-} from "@/components/ui/card";
+  Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
-  DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+  DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Plus, FolderOpen, Trash2, Clock, Code2, Sparkles,
-  Github, Download, Loader2, CheckCircle2, AlertCircle, X,
+  Github, Download, Loader2, CheckCircle2, AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 type ModalMode = "none" | "create" | "import";
 
@@ -57,8 +54,7 @@ export function DashboardPage() {
     try {
       const projectId = await createProject({
         name: newProjectName.trim(),
-        description: newProjectDesc.trim() || undefined,
-      });
+        description: newProjectDesc.trim() || undefined});
       toast.success(`Created ${newProjectName}`);
       closeModal();
       navigate(`/project/${projectId}`);
@@ -95,16 +91,14 @@ export function DashboardPage() {
       const projectId = await createProject({
         name,
         description: `Imported from github.com/${repoFullName}`,
-        githubRepo: repoFullName,
-      });
+        githubRepo: repoFullName});
 
       setImportMsg(`Fetching files from ${repoFullName}...`);
 
       // Import files
       const result = await importFromGitHub({
         projectId,
-        repoFullName,
-      });
+        repoFullName});
 
       if (!result.success) {
         setImportStatus("error");
