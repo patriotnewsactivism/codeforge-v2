@@ -12,14 +12,12 @@ import {
   ToggleLeft,
   ToggleRight,
   Flame,
-  Star,
-  ArrowRight,
+  Star
   Shield,
   Cpu,
   Smartphone,
   BarChart2,
-  Lock,
-} from "lucide-react";
+  Lock} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -34,14 +32,12 @@ const CATEGORY_META: Record<string, { icon: React.ReactNode; color: string }> = 
   performance: { icon: <BarChart2 className="h-3 w-3" />, color: "text-green-400" },
   ux: { icon: <Star className="h-3 w-3" />, color: "text-pink-400" },
   security: { icon: <Lock className="h-3 w-3" />, color: "text-red-400" },
-  mobile: { icon: <Smartphone className="h-3 w-3" />, color: "text-cyan-400" },
-};
+  mobile: { icon: <Smartphone className="h-3 w-3" />, color: "text-cyan-400" }};
 
 const PRIORITY_COLOR = {
   high: "text-red-400 bg-red-400/10 border-red-400/20",
   medium: "text-amber-400 bg-amber-400/10 border-amber-400/20",
-  low: "text-blue-400 bg-blue-400/10 border-blue-400/20",
-};
+  low: "text-blue-400 bg-blue-400/10 border-blue-400/20"};
 
 export function SuggestionsPanel({ projectId }: SuggestionsPanelProps) {
   const suggestions = useQuery(api.suggestions.listByProject, { projectId });
@@ -59,11 +55,11 @@ export function SuggestionsPanel({ projectId }: SuggestionsPanelProps) {
   const [savingSoul, setSavingSoul] = useState(false);
 
   const pending = (suggestions ?? [])
-    .filter(s => s.status === "pending" || s.status === "implementing")
-    .sort((a, b) => ((b.impactScore ?? 5) - (a.impactScore ?? 5)));
+    .filter((s: NonNullable<typeof suggestions>[number]) => s.status === "pending" || s.status === "implementing")
+    .sort((a: NonNullable<typeof suggestions>[number], b: NonNullable<typeof suggestions>[number]) => ((b.impactScore ?? 5) - (a.impactScore ?? 5)));
 
-  const done = (suggestions ?? []).filter(s => s.status === "done");
-  const dismissed = (suggestions ?? []).filter(s => s.status === "dismissed");
+  const done = (suggestions ?? []).filter((s: NonNullable<typeof suggestions>[number]) => s.status === "done");
+  const dismissed = (suggestions ?? []).filter((s: NonNullable<typeof suggestions>[number]) => s.status === "dismissed");
 
   const autonomousOn = autonomousSettings?.autonomousMode ?? false;
 
@@ -321,7 +317,7 @@ export function SuggestionsPanel({ projectId }: SuggestionsPanelProps) {
                 <p className="text-sm text-muted-foreground">Nothing built yet</p>
               </div>
             )}
-            {done.map(s => (
+            {done.map((s: NonNullable<typeof suggestions>[number]) => (
               <div key={s._id} className="rounded-md border border-green-500/15 bg-green-500/5 p-2.5">
                 <div className="flex items-center gap-2">
                   <Check className="h-3 w-3 text-green-400 shrink-0" />
