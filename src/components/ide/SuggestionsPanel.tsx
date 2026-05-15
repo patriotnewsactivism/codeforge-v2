@@ -215,7 +215,7 @@ export function SuggestionsPanel({ projectId }: SuggestionsPanelProps) {
               </div>
             )}
 
-            {pending.map((s) => {
+            {pending.map((s: NonNullable<typeof suggestions>[number]) => {
               const catMeta = CATEGORY_META[s.category] ?? CATEGORY_META.functionality!;
               const isBuilding = implementing === s._id || s.status === "implementing";
 
@@ -239,7 +239,7 @@ export function SuggestionsPanel({ projectId }: SuggestionsPanelProps) {
                     </p>
                     <span className={cn(
                       "text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border shrink-0",
-                      PRIORITY_COLOR[s.priority]
+                      PRIORITY_COLOR[s.priority as keyof typeof PRIORITY_COLOR]
                     )}>
                       {s.priority}
                     </span>
