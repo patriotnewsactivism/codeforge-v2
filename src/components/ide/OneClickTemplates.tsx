@@ -21,18 +21,15 @@
 
 // src/components/ide/OneClickTemplates.tsx
 import { useState } from "react";
-import { useMutation, useAction } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Rocket, Search, X, Sparkles, Globe, ChevronRight,
-  Zap, Star, Clock, Users, ArrowRight, Loader2, Check
+  Rocket, Search, X
+  Zap, Star ArrowRight, Loader2
 } from "lucide-react";
-import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 type Category = "all" | "saas" | "news" | "legal" | "portfolio" | "ecommerce" | "dashboard" | "wtpnews";
 
@@ -48,8 +45,7 @@ const TEMPLATES: Template[] = [
     preview: "https://placehold.co/320x200/111118/e63946?text=News+Site",
     featured: true,
     wtpBranded: false,
-    agentPrompt: "Build a modern news website with dark theme, breaking news ticker, article cards by category, individual article pages with reading time, author bios, and a search bar",
-  },
+    agentPrompt: "Build a modern news website with dark theme, breaking news ticker, article cards by category, individual article pages with reading time, author bios, and a search bar"},
   {
     id: "civil-rights-intake",
     name: "Civil Rights Intake Form",
@@ -61,8 +57,7 @@ const TEMPLATES: Template[] = [
     preview: "https://placehold.co/320x200/111118/60a5fa?text=Legal+Intake",
     featured: true,
     wtpBranded: true,
-    agentPrompt: "Build a civil rights incident intake form with sections for: incident description, location, date/time, officer information, witness details, evidence upload, and PDF export. Dark professional theme matching civilrightshub.org",
-  },
+    agentPrompt: "Build a civil rights incident intake form with sections for: incident description, location, date/time, officer information, witness details, evidence upload, and PDF export. Dark professional theme matching civilrightshub.org"},
   {
     id: "saas-landing",
     name: "SaaS Landing Page",
@@ -74,8 +69,7 @@ const TEMPLATES: Template[] = [
     preview: "https://placehold.co/320x200/111118/a78bfa?text=SaaS+Landing",
     featured: true,
     wtpBranded: false,
-    agentPrompt: "Build a high-conversion SaaS landing page with: animated hero section, feature grid with icons, social proof section, 3-tier pricing table, FAQ accordion, and sticky CTA header",
-  },
+    agentPrompt: "Build a high-conversion SaaS landing page with: animated hero section, feature grid with icons, social proof section, 3-tier pricing table, FAQ accordion, and sticky CTA header"},
   {
     id: "activist-hub",
     name: "Activist Organization Hub",
@@ -87,8 +81,7 @@ const TEMPLATES: Template[] = [
     preview: "https://placehold.co/320x200/111118/f4a832?text=Activist+Hub",
     featured: false,
     wtpBranded: true,
-    agentPrompt: "Build an activist organization website with: mission statement hero, events calendar, resource library with downloadable guides, volunteer signup form, secure donate button, and news feed integration",
-  },
+    agentPrompt: "Build an activist organization website with: mission statement hero, events calendar, resource library with downloadable guides, volunteer signup form, secure donate button, and news feed integration"},
   {
     id: "admin-dashboard",
     name: "Admin Dashboard",
@@ -100,8 +93,7 @@ const TEMPLATES: Template[] = [
     preview: "https://placehold.co/320x200/111118/34d399?text=Dashboard",
     featured: false,
     wtpBranded: false,
-    agentPrompt: "Build a comprehensive admin dashboard with: KPI stat cards, line/bar/pie charts using Recharts, a searchable sortable data table, sidebar navigation, dark theme, and responsive layout",
-  },
+    agentPrompt: "Build a comprehensive admin dashboard with: KPI stat cards, line/bar/pie charts using Recharts, a searchable sortable data table, sidebar navigation, dark theme, and responsive layout"},
   {
     id: "portfolio",
     name: "Developer Portfolio",
@@ -113,8 +105,7 @@ const TEMPLATES: Template[] = [
     preview: "https://placehold.co/320x200/111118/f97316?text=Portfolio",
     featured: false,
     wtpBranded: false,
-    agentPrompt: "Build a modern developer portfolio with: animated hero with typed text effect, project cards with live demo links, tech stack section with icons, timeline/experience section, and a contact form",
-  },
+    agentPrompt: "Build a modern developer portfolio with: animated hero with typed text effect, project cards with live demo links, tech stack section with icons, timeline/experience section, and a contact form"},
   {
     id: "ecommerce-product",
     name: "E-Commerce Store",
@@ -126,8 +117,7 @@ const TEMPLATES: Template[] = [
     preview: "https://placehold.co/320x200/111118/f43f5e?text=E-Commerce",
     featured: false,
     wtpBranded: false,
-    agentPrompt: "Build an e-commerce store with: product listing grid with filters, product detail pages with image gallery, shopping cart sidebar, Stripe checkout integration, and order confirmation page",
-  },
+    agentPrompt: "Build an e-commerce store with: product listing grid with filters, product detail pages with image gallery, shopping cart sidebar, Stripe checkout integration, and order confirmation page"},
   {
     id: "wtpnews-article",
     name: "WTP News Article Template",
@@ -139,8 +129,7 @@ const TEMPLATES: Template[] = [
     preview: "https://placehold.co/320x200/111118/e63946?text=WTP+News",
     featured: false,
     wtpBranded: true,
-    agentPrompt: "Build a WTP News article page template with: breaking news badge, article header with date/author, estimated read time, body content with pull quotes, related articles sidebar, social sharing buttons, and comment section — matching the WTP News dark red theme",
-  },
+    agentPrompt: "Build a WTP News article page template with: breaking news badge, article header with date/author, estimated read time, body content with pull quotes, related articles sidebar, social sharing buttons, and comment section — matching the WTP News dark red theme"},
 ];
 
 interface Template {
@@ -157,9 +146,7 @@ interface Template {
   agentPrompt: string;
 }
 
-interface OneClickTemplatesProps {
-  projectId: Id<"projects"> | null;
-  sessionId: Id<"sessions"> | null;
+interface OneClickTemplatesProps {: Id<"projects"> | null;: Id<"sessions"> | null;
   onLaunch: (prompt: string, templateName: string) => void;
   onClose: () => void;
 }
@@ -175,7 +162,7 @@ const CATEGORIES: { id: Category; label: string; emoji: string }[] = [
   { id: "wtpnews", label: "WTP News", emoji: "🔴" },
 ];
 
-export function OneClickTemplates({ projectId, sessionId, onLaunch, onClose }: OneClickTemplatesProps) {
+export function OneClickTemplates({ onLaunch, onClose }: OneClickTemplatesProps) {
   const [category, setCategory] = useState<Category>("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Template | null>(null);
