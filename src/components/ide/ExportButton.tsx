@@ -35,7 +35,7 @@ export function ExportButton({
   const [done, setDone] = useState(false);
 
   const files = useQuery(
-    api.files.listWithContent,
+    api.files.listByProject,
     projectId ? { projectId } : "skip"
   );
 
@@ -53,7 +53,7 @@ export function ExportButton({
 
       let fileCount = 0;
       for (const file of files) {
-        if (file.type === "file" && file.content != null) {
+        if (!file.isDirectory && file.content != null) {
           // Normalize path — remove leading slash
           const path = file.path.startsWith("/")
             ? file.path.slice(1)

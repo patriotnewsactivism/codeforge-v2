@@ -236,7 +236,7 @@ export const runMultiAgent = action({
 
     // ── 2. LOAD ALL FILES ─────────────────────────────────────────────────────
     const files = await ctx.runQuery(api.files.listByProject, { projectId });
-    const codeFiles = files.filter((f) => !f.isDirectory);
+    const codeFiles = files.filter((f: any) => !f.isDirectory);
 
     await think(ctx, projectId, "planner-agent", "Planner", "search",
       `Indexing ${codeFiles.length} files for semantic search...`, true);
@@ -256,9 +256,9 @@ export const runMultiAgent = action({
       }
     } catch { /* non-fatal */ }
 
-    const fileList = codeFiles.map((f) => f.path).join(", ");
+    const fileList = codeFiles.map((f: any) => f.path).join(", ");
     const fileContext = codeFiles
-      .map((f) => `--- ${f.path} ---\n${f.content}`)
+      .map((f: any) => `--- ${f.path} ---\n${f.content}`)
       .join("\n\n");
 
     // ── 3. PLANNER PHASE ──────────────────────────────────────────────────────
@@ -502,8 +502,8 @@ Return ONLY valid JSON (no markdown fences):
               category: "insight",
               content: learning,
               importance: 6,
-              sourceAgentId: t.agentId,
-              tags: ["auto-learned", t.agentId],
+
+
             });
           } catch { /* non-fatal */ }
         }

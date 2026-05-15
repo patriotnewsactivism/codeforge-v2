@@ -52,3 +52,22 @@ export const getTotalCost = query({
     };
   },
 });
+
+export const listByProject = query({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, { projectId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    // Get all cost entries for this user, then filter to project's build sessions
+    const buildSessions = await ctx.db
+      .query("buildSessions")
+      .withIndex("by_project", (q: any) => q.eq("projectId", projectId))
+      .collect();
+    const sessionIds = new Set(buildSessions.map((s: any) => s._id.toString()));
+    const entries = await ctx.db
+      .query("costEntries")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    return entries.filter((e: any) => e.buildSessionId && sessionIds.has(e.buildSessionId.toString()));
+  },
+});

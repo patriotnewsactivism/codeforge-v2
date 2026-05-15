@@ -79,7 +79,6 @@ export function ImportRepoDialog({
         name: repo.name,
         description: repo.description || undefined,
         githubRepo: repo.fullName,
-        githubBranch: repo.defaultBranch,
       });
 
       // Import files

@@ -262,7 +262,7 @@ export const trackUsage = mutation({
       const period = monthKey();
       const sub = await ctx.db
         .query("subscriptions")
-        .withIndex("by_user", (q) => q.eq("userId", args.userId))
+        .withIndex("by_user", (q) => q.eq("userId", args.userId as any))
         .first();
       const plan = (sub?.planKey as PlanKey) ?? "free";
       const cap = PLAN_LIMITS[plan].hardCapUsdMonthly;
@@ -305,7 +305,7 @@ export const getUserPlanLimits = action({
     hardCapUsdMonthly: v.number(),
     cappedOut: v.boolean(),
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ plan: string; maxSpawnDepth: number; maxSpawnsPerMission: number; maxConcurrentAgents: number; hardCapUsdMonthly: number; cappedOut: boolean }> => {
     const sub = await ctx.runQuery(api.limits.getUserSub, { userId: args.userId });
     const plan = (sub?.planKey as PlanKey) ?? "free";
     const limits = PLAN_LIMITS[plan];
@@ -334,7 +334,7 @@ export const getUserSub = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("subscriptions")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user", (q) => q.eq("userId", args.userId as any))
       .first();
   },
 });

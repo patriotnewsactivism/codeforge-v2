@@ -227,12 +227,12 @@ export const generateSuggestions = action({
         .map(s => s.title.toLowerCase())
     );
     const pendingTitles = existing
-      .filter(s => s.status === "pending" || s.status === "implementing")
-      .map(s => s.title);
+      .filter((s: any) => s.status === "pending" || s.status === "implementing")
+      .map((s: any) => s.title);
 
     const fileSummary = files
-      .filter(f => !f.isDirectory)
-      .map(f => `--- ${f.path} ---\n${f.content.slice(0, 800)}`)
+      .filter((f: any) => !f.isDirectory)
+      .map((f: any) => `--- ${f.path} ---\n${f.content.slice(0, 800)}`)
       .join("\n\n");
 
     const soulSection = settings?.projectSoul
@@ -314,11 +314,11 @@ export const implementSuggestion = action({
     suggestionId: v.id("suggestions"),
   },
   returns: v.string(),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<string> => {
     // Get the suggestion
-    const suggestion = await ctx.runQuery(api.suggestions.listByProject, {
+    const suggestion: any = await ctx.runQuery(api.suggestions.listByProject, {
       projectId: args.projectId,
-    }).then(list => list.find(s => s._id === args.suggestionId));
+    }).then(list => list.find((s: any) => s._id === args.suggestionId));
 
     if (!suggestion) throw new Error("Suggestion not found");
 
@@ -333,7 +333,7 @@ export const implementSuggestion = action({
       projectId: args.projectId,
     });
 
-    const soulGuard = settings?.projectSoul
+    const soulGuard: string = settings?.projectSoul
       ? `\n\nCRITICAL: This project has a core soul/identity. Do NOT violate it:\n${settings.projectSoul}\n`
       : "";
 
@@ -342,7 +342,7 @@ export const implementSuggestion = action({
 IMPORTANT: This is an additive improvement. Do NOT remove or break any existing functionality. Only add to what's already there.`;
 
     try {
-      const result = await ctx.runAction(api.agents.runMultiAgent, {
+      const result: string = await ctx.runAction(api.agents.runMultiAgent, {
         projectId: args.projectId,
         prompt: enrichedPrompt,
       });
@@ -368,7 +368,7 @@ IMPORTANT: This is an additive improvement. Do NOT remove or break any existing 
 export const runAutonomousCycle = action({
   args: { projectId: v.id("projects") },
   returns: v.string(),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<string> => {
     const settings = await ctx.runQuery(api.suggestions.getAutonomousMode, {
       projectId: args.projectId,
     });
@@ -389,7 +389,7 @@ export const runAutonomousCycle = action({
     }
 
     // 2. Pick the top suggestion (highest impactScore, then highest priority)
-    const freshPending = await ctx.runQuery(api.suggestions.listPending, {
+    const freshPending: any[] = await ctx.runQuery(api.suggestions.listPending, {
       projectId: args.projectId,
     });
 
@@ -397,8 +397,8 @@ export const runAutonomousCycle = action({
       return "No pending suggestions to implement";
     }
 
-    const priorityRank = { high: 3, medium: 2, low: 1 };
-    const top = freshPending.sort((a, b) => {
+    const priorityRank: Record<string, number> = { high: 3, medium: 2, low: 1 };
+    const top = freshPending.sort((a: any, b: any) => {
       const scoreA = (a.impactScore ?? 5) + (priorityRank[a.priority] ?? 1) * 2;
       const scoreB = (b.impactScore ?? 5) + (priorityRank[b.priority] ?? 1) * 2;
       return scoreB - scoreA;
@@ -411,7 +411,7 @@ export const runAutonomousCycle = action({
       projectId: args.projectId,
     });
 
-    const result = await ctx.runAction(api.suggestions.implementSuggestion, {
+    const result: string = await ctx.runAction(api.suggestions.implementSuggestion, {
       projectId: args.projectId,
       suggestionId: top._id,
     });

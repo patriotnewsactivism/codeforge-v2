@@ -103,7 +103,7 @@ export const stripeWebhook = httpAction(async (ctx, req) => {
   try {
     switch (event.type) {
       case "checkout.session.completed": {
-        const userId = obj.metadata?.userId as string | undefined;
+        const userId = obj.metadata?.userId as any;
         const planKey = (obj.metadata?.plan as string) ?? "monthly";
         if (!userId) { console.warn("No userId in metadata"); break; }
 
@@ -244,7 +244,7 @@ export const upsertSubscription = mutation({
         .withIndex("by_id", (q: any) => q.eq("_id", args.userId))
         .first() as any;
       if (user) {
-        await ctx.db.patch(user._id, { plan: args.planKey, subscriptionStatus: args.status });
+        await ctx.db.patch(user._id, { plan: args.planKey, subscriptionStatus: args.status } as any);
       }
     } catch (_) {
       // users table may not have these fields yet — non-fatal

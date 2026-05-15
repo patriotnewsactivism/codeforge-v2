@@ -205,7 +205,6 @@ export const applyMemoryDecay = mutation({
       .collect();
 
     const now = Date.now();
-    const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
     for (const mem of memories) {
       const ageDays = (now - mem.lastUsedAt) / (1000 * 60 * 60 * 24);
@@ -406,7 +405,7 @@ Rules:
         category: category as "pattern" | "anti_pattern" | "preference" | "architecture" | "dependency" | "bugfix" | "convention" | "tool" | "insight",
         content: mem.content,
         importance: Math.max(0.1, Math.min(1.0, mem.importance ?? 0.5)),
-        sourceTaskId: args.sourceTaskId,
+        sourceTaskId: args.triggerTaskId,
         sourceRetroId: retroId,
       });
       memoryIds.push(memId);

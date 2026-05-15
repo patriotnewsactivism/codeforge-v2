@@ -282,7 +282,7 @@ export const sendMessage = action({
     userId: v.id("users"),
   },
   returns: v.string(),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<string> => {
     let combinedContext = "";
     if (args.fileContexts && args.fileContexts.length > 0) {
       combinedContext = args.fileContexts.map(f => `--- ${f.path} ---\n${f.content}`).join("\n\n");

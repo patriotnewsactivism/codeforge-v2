@@ -14,6 +14,7 @@ export const analyzeScreenshot = action({
     projectId: v.optional(v.id("projects")),
   },
   handler: async (ctx, { imageBase64, mode, projectId }) => {
+    void ctx; void projectId;
     const apiKey = process.env.OPENAI_API_KEY || process.env.AZURE_OPENAI_KEY;
     if (!apiKey) throw new Error("No vision API key configured");
 

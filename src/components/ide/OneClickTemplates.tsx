@@ -21,7 +21,6 @@
 
 // src/components/ide/OneClickTemplates.tsx
 import { useState } from "react";
-import type { Id } from "../../../convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -170,7 +169,7 @@ const CATEGORIES: { id: Category; label: string; emoji: string }[] = [
   { id: "wtpnews", label: "WTP News", emoji: "🔴" },
 ];
 
-export function OneClickTemplates({
+export function OneClickTemplates({ onLaunch, onClose }: OneClickTemplatesProps) {
   const [category, setCategory] = useState<Category>("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Template | null>(null);

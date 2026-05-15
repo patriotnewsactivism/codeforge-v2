@@ -138,9 +138,6 @@ export const getCostSummary = query({
       .withIndex("by_project", (q) => q.eq("projectId", projectId))
       .collect();
 
-    const total = tasks.reduce((sum, t) => {
-      return sum; // cost tracked elsewhere
-    }, 0);
 
     return {
       totalAgentRuns: tasks.length,

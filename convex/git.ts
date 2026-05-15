@@ -1,13 +1,12 @@
 import { v } from "convex/values";
 import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 
 declare const process: { env: Record<string, string | undefined> };
 
-const VIKTOR_API_URL = process.env.VIKTOR_SPACES_API_URL!;
-const PROJECT_NAME = process.env.VIKTOR_SPACES_PROJECT_NAME!;
-const PROJECT_SECRET = process.env.VIKTOR_SPACES_PROJECT_SECRET!;
+// const VIKTOR_API_URL = process.env.VIKTOR_SPACES_API_URL!;
+// const PROJECT_NAME = process.env.VIKTOR_SPACES_PROJECT_NAME!;
+// const PROJECT_SECRET = process.env.VIKTOR_SPACES_PROJECT_SECRET!;
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
@@ -180,7 +179,7 @@ export const pushToGitHub = action({
       const files = await ctx.runQuery(api.files.listByProject, {
         projectId: args.projectId,
       });
-      const codeFiles = files.filter((f) => !f.isDirectory);
+      const codeFiles = files.filter((f: any) => !f.isDirectory);
 
       // 2. Get default branch SHA
       const repoRes = await fetch(apiBase, { headers: ghHeaders });
@@ -278,7 +277,7 @@ export const pushToGitHub = action({
       }
 
       // 8. Record in DB
-      const changedPaths = codeFiles.map((f) => f.path);
+      const changedPaths = codeFiles.map((f: any) => f.path);
       await ctx.runMutation(api.git.recordCommit, {
         projectId: args.projectId,
         sha: commitSha,

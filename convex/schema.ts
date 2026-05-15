@@ -456,6 +456,7 @@ const schema = defineSchema({
     passwordHash: v.optional(v.string()),
     isActive: v.boolean(),
     viewCount: v.number(),
+    lastViewedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

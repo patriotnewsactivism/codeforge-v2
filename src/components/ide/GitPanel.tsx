@@ -254,7 +254,7 @@ export function GitPanel({ projectId }: GitPanelProps) {
                               ? "bg-emerald-500/10 text-emerald-400"
                               : session.status === "running"
                               ? "bg-blue-500/10 text-blue-400"
-                              : session.status === "failed"
+                              : session.status === "error"
                               ? "bg-red-500/10 text-red-400"
                               : "bg-white/5 text-white/40"
                           )}

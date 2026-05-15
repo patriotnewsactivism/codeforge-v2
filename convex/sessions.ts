@@ -100,7 +100,8 @@ export const listActiveByProject = query({
     sinceMs: v.optional(v.number()),
   },
   handler: async (ctx, { projectId, sinceMs }) => {
-    const cutoff = Date.now() - (sinceMs ?? 5 * 60 * 1000);
+    // cutoff not currently used
+    void sinceMs;
     const sessions = await ctx.db
       .query("sessions")
       .withIndex("by_project", (q) => q.eq("projectId", projectId))

@@ -1,13 +1,12 @@
 import { v } from "convex/values";
 import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 
 declare const process: { env: Record<string, string | undefined> };
 
-const VIKTOR_API_URL = process.env.VIKTOR_SPACES_API_URL!;
-const PROJECT_NAME = process.env.VIKTOR_SPACES_PROJECT_NAME!;
-const PROJECT_SECRET = process.env.VIKTOR_SPACES_PROJECT_SECRET!;
+// const VIKTOR_API_URL = process.env.VIKTOR_SPACES_API_URL!;
+// const PROJECT_NAME = process.env.VIKTOR_SPACES_PROJECT_NAME!;
+// const PROJECT_SECRET = process.env.VIKTOR_SPACES_PROJECT_SECRET!;
 
 // ── Simple TF-IDF style embedding stored as JSON string ─────────────────────
 // Real vector search would use an external embedding API. This implementation
@@ -160,11 +159,11 @@ export const removeFromIndex = mutation({
 export const indexProject = action({
   args: { projectId: v.id("projects") },
   returns: v.object({ filesIndexed: v.number() }),
-  handler: async (ctx, args) => {
-    const files = await ctx.runQuery(api.files.listByProject, {
+  handler: async (ctx, args): Promise<{ filesIndexed: number }> => {
+    const files: any[] = await ctx.runQuery(api.files.listByProject, {
       projectId: args.projectId,
     });
-    const codeFiles = files.filter((f) => !f.isDirectory && f.content.length > 0);
+    const codeFiles = files.filter((f: any) => !f.isDirectory && f.content.length > 0);
 
     for (const file of codeFiles) {
       await ctx.runMutation(api.rag.indexFile, {
@@ -209,16 +208,16 @@ export const search = action({
     });
 
     if (args.filterLanguage) {
-      entries = entries.filter((e) => e.language === args.filterLanguage);
+      entries = entries.filter((e: any) => e.language === args.filterLanguage);
     }
 
     // Score each file
-    const scored = entries.map((entry) => {
+    const scored = entries.map((entry: any) => {
       const fileTF = JSON.parse(entry.termFrequency) as Record<string, number>;
       let score = cosineSimilarity(queryTF, fileTF);
 
       // Bonus for tag matches (function/class names in query)
-      const tagBonus = entry.tags.filter((tag) =>
+      const tagBonus = entry.tags.filter((tag: string) =>
         queryWords.some((w) => tag.toLowerCase().includes(w) || w.includes(tag.toLowerCase()))
       ).length * 0.15;
 
@@ -235,8 +234,8 @@ export const search = action({
     });
 
     // Sort by score, take top K
-    scored.sort((a, b) => b.score - a.score);
-    const top = scored.slice(0, topK).filter((s) => s.score > 0);
+    scored.sort((a: any, b: any) => b.score - a.score);
+    const top = scored.slice(0, topK).filter((s: any) => s.score > 0);
 
     // Fetch actual file content for snippets
     const results: Array<{
@@ -257,7 +256,7 @@ export const search = action({
       if (file) {
         // Extract relevant snippet around the first query term match
         const lines = file.content.split("\n");
-        const firstMatch = lines.findIndex((line) =>
+        const firstMatch = lines.findIndex((line: string) =>
           queryWords.some((w) => line.toLowerCase().includes(w))
         );
         const start = Math.max(0, firstMatch - 2);

@@ -216,7 +216,7 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
                             ✓ What Worked
                           </p>
                           <ul className="space-y-0.5">
-                            {retro.whatWorked.map((item: NonNullable<typeof memories>[number], i: number) => (
+                            {retro.whatWorked.map((item: string, i: number) => (
                               <li key={i} className="text-[11px] text-muted-foreground">• {item}</li>
                             ))}
                           </ul>
@@ -228,7 +228,7 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
                             ✗ What Failed
                           </p>
                           <ul className="space-y-0.5">
-                            {retro.whatFailed.map((item: NonNullable<typeof memories>[number], i: number) => (
+                            {retro.whatFailed.map((item: string, i: number) => (
                               <li key={i} className="text-[11px] text-muted-foreground">• {item}</li>
                             ))}
                           </ul>
@@ -240,7 +240,7 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
                             → Improvements
                           </p>
                           <ul className="space-y-0.5">
-                            {retro.improvements.map((item: NonNullable<typeof memories>[number], i: number) => (
+                            {retro.improvements.map((item: string, i: number) => (
                               <li key={i} className="text-[11px] text-muted-foreground">• {item}</li>
                             ))}
                           </ul>

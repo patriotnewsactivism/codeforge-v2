@@ -232,7 +232,7 @@ async function executeTool(
 
       case "list_files": {
         const files = await ctx.runQuery(api.files.listByProject, { projectId });
-        output = files.filter(f => !f.isDirectory).map(f => f.path).join("\n");
+        output = files.filter((f: any) => !f.isDirectory).map((f: any) => f.path).join("\n");
         break;
       }
 
@@ -240,10 +240,10 @@ async function executeTool(
         const { query: searchQuery } = call.args as { query: string };
         const files = await ctx.runQuery(api.files.listByProject, { projectId });
         const q = searchQuery.toLowerCase();
-        const matches = files.filter(f =>
+        const matches = files.filter((f: any) =>
           !f.isDirectory && (f.path.toLowerCase().includes(q) || f.content.toLowerCase().includes(q))
         );
-        output = matches.slice(0, 10).map(f =>
+        output = matches.slice(0, 10).map((f: any) =>
           `${f.path}: ${f.content.substring(0, 200).replace(/\n/g, " ")}…`
         ).join("\n\n");
         if (!output) output = "No matches found";
