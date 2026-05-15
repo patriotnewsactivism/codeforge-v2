@@ -33,13 +33,12 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
 
   const [deployingTo, setDeployingTo] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
 
   const handleInstantPreview = useCallback(() => {
     if (!files) return;
     setDeployingTo("preview");
     try {
-      const htmlFile = files.find((f) => f.path === "index.html");
+      const htmlFile = files.find((f: NonNullable<typeof files>[number]) => f.path === "index.html");
       if (!htmlFile?.content) {
         toast.error("No index.html found");
         setDeployingTo(null);
@@ -61,7 +60,7 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
     if (!files) return;
     setDeployingTo("share");
     try {
-      const htmlFile = files.find((f) => f.path === "index.html");
+      const htmlFile = files.find((f: NonNullable<typeof files>[number]) => f.path === "index.html");
       if (!htmlFile?.content) {
         toast.error("No index.html found");
         setDeployingTo(null);
@@ -69,7 +68,7 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
       }
       const encoded = encodeURIComponent(htmlFile.content);
       const dataUrl = `data:text/html;charset=utf-8,${encoded}`;
-      setShareUrl(dataUrl);
+      // (shareUrl removed)
       navigator.clipboard.writeText(dataUrl).then(() => {
         toast.success("Share URL copied to clipboard");
       });
@@ -85,7 +84,7 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
     setDeployingTo("zip");
     try {
       // Build a simple downloadable HTML string with all files inlined
-      const htmlFile = files.find((f) => f.path === "index.html");
+      const htmlFile = files.find((f: NonNullable<typeof files>[number]) => f.path === "index.html");
       const content = htmlFile?.content || "<!-- No index.html found -->";
       const blob = new Blob([content], { type: "text/html" });
       const a = document.createElement("a");
@@ -165,7 +164,7 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
         <Rocket className="h-4 w-4 text-green-400/60" />
         <span className="text-xs font-semibold text-white/70 flex-1">Deploy</span>
         <Badge className="text-[9px] h-4 px-1.5 bg-white/5 text-white/30 border-0">
-          {files?.filter((f) => !f.isDirectory).length ?? 0} files
+          {files?.filter((f: NonNullable<typeof files>[number]) => !f.isDirectory).length ?? 0} files
         </Badge>
       </div>
 
