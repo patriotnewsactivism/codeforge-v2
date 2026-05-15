@@ -85,7 +85,7 @@ export function SessionSidebar({
             No sessions yet
           </p>
         )}
-        {sessions.map((s) => {
+        {sessions.map((s: NonNullable<typeof sessions>[number]) => {
           const isActive = s._id === activeSessionId;
           const title = s.title || "Untitled Chat";
           const isEditing = editingId === s._id;
