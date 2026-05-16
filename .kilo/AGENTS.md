@@ -1,0 +1,1 @@
+Real Docker-based workers wired into orchestrator. Domains: frontend, backend, tests. Each task spawns a container, runs lint/build/test, and returns artifacts to knowledgeBase.json; templates.json updated accordingly.
