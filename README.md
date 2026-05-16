@@ -1,3 +1,3 @@
-# CodeForge V2 (Automated Agents)
+# CodeForge V2 — Monorepo Frontend (workspace) and Docker-backed Agents
 
-This repository now includes a self-improving multi-agent orchestration module. Use `node ./.kilo/orchestrator.js <task description>` to execute tasks via real agents (mocked in this environment but wired for real tooling execution).
+This repo now hosts a frontend in frontend/ and a docker-based multi-agent orchestrator in .kilo/ and workers/. CI builds frontend via npm --workspace frontend run build.
