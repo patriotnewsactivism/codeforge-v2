@@ -1,3 +1,4 @@
-# CodeForge V2 — Monorepo Frontend (workspace) and Docker-backed Agents
+# CodeForge V2 with Convex Backend
 
-This repo now hosts a frontend in frontend/ and a docker-based multi-agent orchestrator in .kilo/ and workers/. CI builds frontend via npm --workspace frontend run build.
+- This repo now supports Convex-backed persistence for knowledge base and templates. The orchestrator can switch between local JSON storage and Convex persistence via config.
+- Environment-aware: use convex.cloud in prod, local mocks otherwise.

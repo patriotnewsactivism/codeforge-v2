@@ -1,1 +1,1 @@
-This folder contains the orchestration and agent runner. The governance module controls growth, quotas, and human-in-the-loop gates.
+This folder includes Convex-backed persistence integration. Switch between local JSON and Convex persistence using convexConfig.json and convexClient.ts.
