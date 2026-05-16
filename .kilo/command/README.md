@@ -1,1 +1,1 @@
-This folder contains the runnable orchestration module used to spawn agents and iterate on templates. The orchestrator uses real shell commands for lint/build/test in this environment. Ensure you have proper tooling installed.
+This folder contains the orchestration and agent runner. The governance module controls growth, quotas, and human-in-the-loop gates.

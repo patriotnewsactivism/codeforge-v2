@@ -2,7 +2,7 @@
 
 ## Phase 1: Core Architecture & IDE Layout
 - [x] Initialize project
-- [ ] Install Monaco Editor + dependencies
+- [ ] Install Monaco Editor + dependencies\n- [ ] Add Docker-backed agent runner and governance modules
 - [ ] Define Convex schema (projects, files, sessions, messages, collaborators)
 - [ ] Build IDE layout: file tree | editor tabs | AI chat panel
 - [ ] File tree component with expand/collapse
