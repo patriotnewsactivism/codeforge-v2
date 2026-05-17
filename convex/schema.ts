@@ -464,6 +464,23 @@ const schema = defineSchema({
     .index("by_token", ["token"]),
 
 
+
+  // ─── RAG CHUNKS — Code search index ─────────────────────────────────────────
+  ragChunks: defineTable({
+    projectId: v.id("projects"),
+    filePath: v.string(),
+    chunkType: v.string(),           // "block", "function", "class"
+    name: v.optional(v.string()),    // function/class name if applicable
+    content: v.string(),
+    startLine: v.number(),
+    endLine: v.number(),
+    embedding: v.optional(v.string()), // JSON-serialized TF-IDF vector
+    language: v.optional(v.string()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_file", ["projectId", "filePath"]),
+
 });
 
 export default schema;
+
