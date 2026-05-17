@@ -2,10 +2,13 @@
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["npm install"]
+cmds = ["npm install --legacy-peer-deps"]
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = [
+  "npx convex codegen",
+  "npx vite build"
+]
 
 [start]
-cmd = "npx serve dist -p ${PORT:-3000} -s"
+cmd = "npx serve dist -s -l $PORT"
