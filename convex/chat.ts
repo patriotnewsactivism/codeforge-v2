@@ -2,81 +2,9 @@ import { v } from "convex/values";
 import { action, mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { api } from "./_generated/api";
+import { callAIWithFallback, estimateCost, MODELS, DEFAULT_MODEL } from "./ai";
 
-declare const process: { env: Record<string, string | undefined> };
-
-const VIKTOR_API_URL = process.env.VIKTOR_SPACES_API_URL!;
-const PROJECT_NAME = process.env.VIKTOR_SPACES_PROJECT_NAME!;
-const PROJECT_SECRET = process.env.VIKTOR_SPACES_PROJECT_SECRET!;
-
-// Model configurations with pricing (per 1M tokens)
-const MODELS: Record<
-  string,
-  { name: string; inputCostPer1M: number; outputCostPer1M: number }
-> = {
-  "deepseek-v4-flash": {
-    name: "DeepSeek V4 Flash",
-    inputCostPer1M: 0.14,
-    outputCostPer1M: 0.28,
-  },
-  "deepseek-v3.2": {
-    name: "DeepSeek V3.2",
-    inputCostPer1M: 0.27,
-    outputCostPer1M: 1.1,
-  },
-  "grok-4.1-fast": {
-    name: "Grok 4.1 Fast",
-    inputCostPer1M: 3.0,
-    outputCostPer1M: 15.0,
-  },
-  "gpt-5-mini": {
-    name: "GPT-5 Mini",
-    inputCostPer1M: 1.5,
-    outputCostPer1M: 6.0,
-  },
-};
-
-// Cost estimation (rough: ~4 chars per token)
-function estimateCost(
-  text: string,
-  model: string,
-  isOutput: boolean
-): { tokens: number; cost: number } {
-  const tokens = Math.ceil(text.length / 4);
-  const config = MODELS[model] ?? MODELS["deepseek-v4-flash"];
-  const costPer1M = isOutput ? config.outputCostPer1M : config.inputCostPer1M;
-  const cost = (tokens / 1_000_000) * costPer1M;
-  return { tokens, cost };
-}
-
-
-// ─── AI CALL HELPER ───────────────────────────────────────────────────────────
-async function callViktorAI(
-  userMessage: string,
-  context?: string,
-  _model?: string   // kept for API compat — Viktor uses quick_ai_search role
-): Promise<string> {
-  const prompt = context
-    ? `CONTEXT:\n${context.slice(0, 4000)}\n\nUSER: ${userMessage}`
-    : userMessage;
-
-  const res = await fetch(`${VIKTOR_API_URL}/api/viktor-spaces/tools/call`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      project_name: PROJECT_NAME,
-      project_secret: PROJECT_SECRET,
-      role: "quick_ai_search",
-      arguments: { search_question: prompt },
-    }),
-  });
-  if (!res.ok) throw new Error(`Viktor API ${res.status}: ${await res.text()}`);
-  const json = await res.json() as { success: boolean; error?: string; result?: { search_response: string } };
-  if (!json.success) throw new Error(json.error ?? "AI call failed");
-  return json.result?.search_response ?? "";
-}
-
-// ─── Session Management ────────────────────────────────────────
+// ─── Session Management ──────────────────────────────────────────────────────
 
 export const getOrCreateSession = mutation({
   args: { projectId: v.id("projects"), model: v.optional(v.string()) },
@@ -85,18 +13,18 @@ export const getOrCreateSession = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    // Find existing active (non-archived) session
     const existing = await ctx.db
       .query("chatSessions")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
+
     const userSession = existing.find((s) => s.userId === userId && !s.isArchived);
     if (userSession) return userSession._id;
 
     return await ctx.db.insert("chatSessions", {
       projectId: args.projectId,
       userId,
-      model: args.model ?? "deepseek-v4-flash",
+      model: args.model ?? DEFAULT_MODEL,
       totalTokensUsed: 0,
       totalCost: 0,
       createdAt: Date.now(),
@@ -105,7 +33,11 @@ export const getOrCreateSession = mutation({
 });
 
 export const createSession = mutation({
-  args: { projectId: v.id("projects"), title: v.optional(v.string()), model: v.optional(v.string()) },
+  args: {
+    projectId: v.id("projects"),
+    title: v.optional(v.string()),
+    model: v.optional(v.string()),
+  },
   returns: v.id("chatSessions"),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -115,7 +47,7 @@ export const createSession = mutation({
       projectId: args.projectId,
       userId,
       title: args.title ?? "New Chat",
-      model: args.model ?? "deepseek-v4-flash",
+      model: args.model ?? DEFAULT_MODEL,
       totalTokensUsed: 0,
       totalCost: 0,
       createdAt: Date.now(),
@@ -162,14 +94,11 @@ export const deleteSession = mutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session || session.userId !== userId) throw new Error("Not your session");
 
-    // Delete all messages in this session
     const messages = await ctx.db
       .query("chatMessages")
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
       .collect();
-    for (const msg of messages) {
-      await ctx.db.delete(msg._id);
-    }
+    for (const msg of messages) await ctx.db.delete(msg._id);
     await ctx.db.delete(args.sessionId);
     return null;
   },
@@ -190,9 +119,7 @@ export const archiveSession = mutation({
 
 export const getSession = query({
   args: { sessionId: v.id("chatSessions") },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.sessionId);
-  },
+  handler: async (ctx, args) => ctx.db.get(args.sessionId),
 });
 
 export const updateModel = mutation({
@@ -206,47 +133,39 @@ export const updateModel = mutation({
   },
 });
 
-// ─── Messages ──────────────────────────────────────────────────
+// ─── Messages ─────────────────────────────────────────────────────────────────
 
 export const listMessages = query({
   args: { sessionId: v.id("chatSessions") },
-  handler: async (ctx, args) => {
-    return await ctx.db
+  handler: async (ctx, args) =>
+    ctx.db
       .query("chatMessages")
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
-      .collect();
-  },
+      .collect(),
 });
 
 export const addMessage = mutation({
   args: {
     sessionId: v.id("chatSessions"),
     projectId: v.id("projects"),
-    role: v.union(
-      v.literal("user"),
-      v.literal("assistant"),
-      v.literal("system")
-    ),
+    role: v.union(v.literal("user"), v.literal("assistant"), v.literal("system")),
     content: v.string(),
     model: v.optional(v.string()),
     tokensUsed: v.optional(v.number()),
     cost: v.optional(v.number()),
     isError: v.optional(v.boolean()),
     userId: v.optional(v.id("users")),
-    fileContexts: v.optional(v.array(v.object({
-      path: v.string(),
-      content: v.string(),
-    }))),
+    fileContexts: v.optional(
+      v.array(v.object({ path: v.string(), content: v.string() }))
+    ),
   },
   returns: v.id("chatMessages"),
   handler: async (ctx, args) => {
-    // Update session totals if we have cost info
     if (args.tokensUsed || args.cost) {
       const session = await ctx.db.get(args.sessionId);
       if (session) {
         await ctx.db.patch(args.sessionId, {
-          totalTokensUsed:
-            session.totalTokensUsed + (args.tokensUsed ?? 0),
+          totalTokensUsed: session.totalTokensUsed + (args.tokensUsed ?? 0),
           totalCost: session.totalCost + (args.cost ?? 0),
         });
       }
@@ -266,7 +185,7 @@ export const addMessage = mutation({
   },
 });
 
-// ─── AI Chat Action ────────────────────────────────────────────
+// ─── AI Chat Action ───────────────────────────────────────────────────────────
 
 export const sendMessage = action({
   args: {
@@ -275,30 +194,32 @@ export const sendMessage = action({
     content: v.string(),
     model: v.string(),
     fileContext: v.optional(v.string()),
-    fileContexts: v.optional(v.array(v.object({
-      path: v.string(),
-      content: v.string(),
-    }))),
+    fileContexts: v.optional(
+      v.array(v.object({ path: v.string(), content: v.string() }))
+    ),
     userId: v.id("users"),
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
+    // Build file context string
     let combinedContext = "";
-    if (args.fileContexts && args.fileContexts.length > 0) {
-      combinedContext = args.fileContexts.map(f => `--- ${f.path} ---\n${f.content}`).join("\n\n");
+    if (args.fileContexts?.length) {
+      combinedContext = args.fileContexts
+        .map((f) => `--- ${f.path} ---\n${f.content}`)
+        .join("\n\n");
     } else if (args.fileContext) {
       combinedContext = args.fileContext;
     }
 
-    // ── Usage gate ─────────────────────────────────────────────────────────
+    // Usage gate
     try {
       const gate = await ctx.runQuery(api.limits.checkCanRun, { action: "ai_request" });
       if (!gate.allowed) {
         const hint = (gate as any).upgradeHint ?? "";
-        throw new Error(`\u{1F6AB} ${gate.reason}${hint ? " " + hint : ""}`);
+        throw new Error(`🚫 ${gate.reason}${hint ? " " + hint : ""}`);
       }
     } catch (e) {
-      if (e instanceof Error && e.message.startsWith("\u{1F6AB}")) throw e;
+      if (e instanceof Error && e.message.startsWith("🚫")) throw e;
     }
 
     // Save user message
@@ -311,63 +232,107 @@ export const sendMessage = action({
       fileContexts: args.fileContexts,
     });
 
-    // ── SMART ROUTING ──────────────────────────────────────────────────────────
+    // ── SMART ROUTING ──────────────────────────────────────────────────────
     // Code-action keywords → dispatch to engine.runMission (full agent loop)
     // Questions/explanations → direct AI response (fast, cheap)
-    const isCodeRequest = /\b(build|create|add|make|implement|fix|refactor|update|write|generate|change|edit|delete|remove|style|design|migrate|rename|move|replace|convert|upgrade|optimize|improve|debug|deploy)\b/i.test(args.content);
+    const isCodeRequest =
+      /\b(build|create|add|make|implement|fix|refactor|update|write|generate|change|edit|delete|remove|style|design|migrate|rename|move|replace|convert|upgrade|optimize|improve|debug|deploy)\b/i.test(
+        args.content
+      );
 
-    // ── PATH A: Direct AI (questions, explanations, reviews) ──────────────────
+    // ── PATH A: Direct AI (questions, explanations, reviews) ───────────────
     if (!isCodeRequest) {
-      const modelOrder = [args.model, "deepseek-v4-flash"].filter((m, i, arr) => arr.indexOf(m) === i);
-      for (const model of modelOrder) {
-        try {
-          const result = await callViktorAI(args.content, combinedContext || undefined, model);
-          const inputEst = estimateCost(args.content + combinedContext, model, false);
-          const outputEst = estimateCost(result, model, true);
-          await ctx.runMutation(api.chat.addMessage, {
-            sessionId: args.sessionId,
-            projectId: args.projectId,
-            role: "assistant",
-            content: result,
-            model: MODELS[model]?.name ?? model,
-            tokensUsed: inputEst.tokens + outputEst.tokens,
-            cost: inputEst.cost + outputEst.cost,
-          });
-          return result;
-        } catch (e) {
-          console.log(`Direct AI model ${model} failed:`, e);
-          continue;
-        }
+      const systemPrompt =
+        "You are CodeForge, an expert software engineer assistant. " +
+        "Answer questions clearly and concisely. When reviewing code, be specific and actionable. " +
+        "Format code blocks with proper syntax highlighting markers.";
+
+      const userMessage = combinedContext
+        ? `CONTEXT:\n${combinedContext.slice(0, 6000)}\n\nQUESTION: ${args.content}`
+        : args.content;
+
+      try {
+        const { text: result, modelUsed } = await callAIWithFallback(userMessage, {
+          model: args.model,
+          systemPrompt,
+        });
+
+        const inputEst  = estimateCost(args.content + combinedContext, modelUsed, false);
+        const outputEst = estimateCost(result, modelUsed, true);
+
+        await ctx.runMutation(api.chat.addMessage, {
+          sessionId: args.sessionId,
+          projectId: args.projectId,
+          role: "assistant",
+          content: result,
+          model: modelUsed,
+          tokensUsed: inputEst.tokens + outputEst.tokens,
+          cost: inputEst.cost + outputEst.cost,
+        });
+
+        await ctx.runMutation(api.limits.trackUsage, {
+          userId: String(args.userId),
+          action: "ai_request",
+          costUsd: inputEst.cost + outputEst.cost,
+        });
+
+        return result;
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        await ctx.runMutation(api.chat.addMessage, {
+          sessionId: args.sessionId,
+          projectId: args.projectId,
+          role: "assistant",
+          content: `❌ AI error: ${errMsg}`,
+          isError: true,
+        });
+        throw err;
       }
     }
 
-    // ── PATH B: Engine mission (code changes) ─────────────────────────────────
-    // Notify chat that agents are spawning
-    await ctx.runMutation(api.chat.addMessage, {
-      sessionId: args.sessionId,
-      projectId: args.projectId,
-      role: "assistant",
-      content: "🤖 Launching agent swarm... Watch the Agents panel for live progress.",
-    });
-
+    // ── PATH B: Agent mission (build/fix/create requests) ──────────────────
     try {
-      const result = await ctx.runAction(api.engine.runMission, {
-        projectId: args.projectId,
-        prompt: args.content,
-        sessionId: args.sessionId,
+      const missionGate = await ctx.runQuery(api.limits.checkCanRun, {
+        action: "start_mission",
+      });
+      if (!missionGate.allowed) {
+        const hint = (missionGate as any).upgradeHint ?? "";
+        const msg = `🚫 ${missionGate.reason}${hint ? " " + hint : ""}`;
+        await ctx.runMutation(api.chat.addMessage, {
+          sessionId: args.sessionId,
+          projectId: args.projectId,
+          role: "assistant",
+          content: msg,
+          isError: true,
+        });
+        return msg;
+      }
+
+      await ctx.runMutation(api.limits.trackUsage, {
+        userId: String(args.userId),
+        action: "start_mission",
       });
 
-      // Update that last message with the real result
+      // Fire off the agent engine
+      const result: string = await ctx.runAction(api.engine.runMission, {
+        projectId: args.projectId,
+        prompt: args.content,
+        model: args.model,
+      });
+
+      const summary = `✅ Mission complete.\n\n${result}`;
+
       await ctx.runMutation(api.chat.addMessage, {
         sessionId: args.sessionId,
         projectId: args.projectId,
         role: "assistant",
-        content: `✅ Done!\n\n${result}`,
+        content: summary,
+        model: args.model,
       });
 
-      return result;
-    } catch (e) {
-      const errMsg = e instanceof Error ? e.message : String(e);
+      return summary;
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       await ctx.runMutation(api.chat.addMessage, {
         sessionId: args.sessionId,
         projectId: args.projectId,
@@ -375,7 +340,22 @@ export const sendMessage = action({
         content: `❌ Mission failed: ${errMsg}`,
         isError: true,
       });
-      return errMsg;
+      throw err;
     }
+  },
+});
+
+// ─── Model list (for frontend model picker) ───────────────────────────────────
+
+export const listModels = query({
+  args: {},
+  handler: async (_ctx) => {
+    return Object.values(MODELS).map((m) => ({
+      id: m.id,
+      name: m.name,
+      tier: m.tier,
+      inputCostPer1M: m.inputCostPer1M,
+      outputCostPer1M: m.outputCostPer1M,
+    }));
   },
 });

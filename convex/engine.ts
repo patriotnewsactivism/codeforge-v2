@@ -1,8 +1,8 @@
 /**
  * engine.ts — CodeForge v2 Agentic Tool-Calling Loop
  *
- * Instead of AI writing markdown parsed with regex, agents use structured tool calls:
- *   Agent calls AI → AI returns { tool_calls: [...] } → Tools execute → Results → AI continues
+ * Agents use tools, not text parsing.
+ * AI returns structured JSON → tools execute → results feed back → AI continues.
  *
  * Tools: create_file, edit_file, delete_file, read_file, list_files,
  *        search_files, spawn_agent, send_message, complete_task
@@ -12,13 +12,9 @@ import { v } from "convex/values";
 import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { callAIWithFallback, getModelForRole } from "./ai";
 
-declare const process: { env: Record<string, string | undefined> };
-const VIKTOR_API_URL = process.env.VIKTOR_SPACES_API_URL!;
-const PROJECT_NAME = process.env.VIKTOR_SPACES_PROJECT_NAME!;
-const PROJECT_SECRET = process.env.VIKTOR_SPACES_PROJECT_SECRET!;
-
-// ─── TOOL CALL SCHEMA ────────────────────────────────────────────────────────
+// ─── TOOL CALL SCHEMA ──────────────────────────────────────────────────────
 
 export type ToolName =
   | "create_file"
@@ -33,7 +29,7 @@ export type ToolName =
 
 export interface ToolCall {
   tool: ToolName;
-  args: Record<string, string | number | boolean>;
+  args: Record<string, unknown>;
 }
 
 export interface ToolResult {
@@ -43,9 +39,8 @@ export interface ToolResult {
   error?: string;
 }
 
-// ─── DB HELPERS ──────────────────────────────────────────────────────────────
+// ─── DB HELPERS ────────────────────────────────────────────────────────────
 
-// toolCalls table mutations
 export const createToolCall = mutation({
   args: {
     projectId: v.id("projects"),
@@ -54,30 +49,36 @@ export const createToolCall = mutation({
     agentName: v.string(),
     tool: v.string(),
     args: v.string(), // JSON
-    status: v.union(v.literal("pending"), v.literal("running"), v.literal("done"), v.literal("error")),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("done"),
+      v.literal("error")
+    ),
   },
   returns: v.id("toolCalls"),
   handler: async (ctx, args) => {
-    return await ctx.db.insert("toolCalls", {
-      ...args,
-      timestamp: Date.now(),
-    });
+    return await ctx.db.insert("toolCalls", { ...args, timestamp: Date.now() });
   },
 });
 
 export const updateToolCall = mutation({
   args: {
     toolCallId: v.id("toolCalls"),
-    status: v.union(v.literal("pending"), v.literal("running"), v.literal("done"), v.literal("error")),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("done"),
+      v.literal("error")
+    ),
     result: v.optional(v.string()),
     error: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const patch: Record<string, unknown> = { status: args.status };
+    const patch: Record<string, unknown> = { status: args.status, finishedAt: Date.now() };
     if (args.result !== undefined) patch.result = args.result;
-    if (args.error !== undefined) patch.error = args.error;
-    patch.finishedAt = Date.now();
+    if (args.error  !== undefined) patch.error  = args.error;
     await ctx.db.patch(args.toolCallId, patch);
     return null;
   },
@@ -115,28 +116,7 @@ export const clearToolCalls = mutation({
   },
 });
 
-// ─── AI CALL ─────────────────────────────────────────────────────────────────
-
-// ─── AI CALL ─────────────────────────────────────────────────────────────────
-// Uses quick_ai_search as the underlying LLM — we craft a tight prompt that
-// forces structured JSON output so agents always make real progress.
-
-async function callAI(prompt: string): Promise<string> {
-  const res = await fetch(`${VIKTOR_API_URL}/api/viktor-spaces/tools/call`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      project_name: PROJECT_NAME,
-      project_secret: PROJECT_SECRET,
-      role: "quick_ai_search",
-      arguments: { search_question: prompt },
-    }),
-  });
-  if (!res.ok) throw new Error(`AI API ${res.status}: ${await res.text()}`);
-  const json = await res.json() as { success: boolean; error?: string; result?: { search_response: string } };
-  if (!json.success) throw new Error(json.error ?? "AI call failed");
-  return json.result?.search_response ?? "";
-}
+// ─── PLAN LIMITS ───────────────────────────────────────────────────────────
 
 interface PlanLimits {
   maxSpawnDepth: number;
@@ -147,6 +127,16 @@ interface PlanLimits {
   plan: string;
 }
 
+// ─── TOOL EXECUTOR ─────────────────────────────────────────────────────────
+
+const LANG_MAP: Record<string, string> = {
+  ts: "typescript", tsx: "typescriptreact",
+  js: "javascript", jsx: "javascriptreact",
+  css: "css", html: "html", json: "json",
+  md: "markdown", py: "python", sh: "shell",
+  sql: "sql", yml: "yaml", yaml: "yaml",
+};
+
 async function executeTool(
   ctx: any,
   projectId: Id<"projects">,
@@ -156,13 +146,11 @@ async function executeTool(
   call: ToolCall,
   spawnDepth: number,
   spawnCount: { value: number },
+  model: string,
   planLimits?: PlanLimits
 ): Promise<ToolResult> {
   const toolCallId = await ctx.runMutation(api.engine.createToolCall, {
-    projectId,
-    missionId,
-    agentId,
-    agentName,
+    projectId, missionId, agentId, agentName,
     tool: call.tool,
     args: JSON.stringify(call.args),
     status: "running",
@@ -175,11 +163,6 @@ async function executeTool(
       case "create_file": {
         const { path, content } = call.args as { path: string; content: string };
         const ext = path.split(".").pop() ?? "";
-        const langMap: Record<string, string> = {
-          ts: "typescript", tsx: "typescriptreact", js: "javascript",
-          jsx: "javascriptreact", css: "css", html: "html",
-          json: "json", md: "markdown", py: "python",
-        };
         const existing = await ctx.runQuery(api.files.getByPath, { projectId, path });
         if (existing) {
           await ctx.runMutation(api.files.update, { fileId: existing._id, content });
@@ -190,7 +173,7 @@ async function executeTool(
             projectId, path,
             name: parts[parts.length - 1]!,
             content,
-            language: langMap[ext] ?? "plaintext",
+            language: LANG_MAP[ext] ?? "plaintext",
             isDirectory: false,
             parentPath: parts.slice(0, -1).join("/") || undefined,
           });
@@ -202,9 +185,7 @@ async function executeTool(
       case "edit_file": {
         const { path, content } = call.args as { path: string; content: string };
         const existing = await ctx.runQuery(api.files.getByPath, { projectId, path });
-        if (!existing) {
-          throw new Error(`File not found: ${path}`);
-        }
+        if (!existing) throw new Error(`File not found: ${path}`);
         await ctx.runMutation(api.files.update, { fileId: existing._id, content });
         output = `Edited ${path} (${content.length} chars)`;
         break;
@@ -232,7 +213,11 @@ async function executeTool(
 
       case "list_files": {
         const files = await ctx.runQuery(api.files.listByProject, { projectId });
-        output = files.filter((f: any) => !f.isDirectory).map((f: any) => f.path).join("\n");
+        output = files
+          .filter((f: any) => !f.isDirectory)
+          .map((f: any) => f.path)
+          .join("\n");
+        if (!output) output = "(no files yet)";
         break;
       }
 
@@ -240,40 +225,48 @@ async function executeTool(
         const { query: searchQuery } = call.args as { query: string };
         const files = await ctx.runQuery(api.files.listByProject, { projectId });
         const q = searchQuery.toLowerCase();
-        const matches = files.filter((f: any) =>
-          !f.isDirectory && (f.path.toLowerCase().includes(q) || f.content.toLowerCase().includes(q))
+        const matches = files.filter(
+          (f: any) =>
+            !f.isDirectory &&
+            (f.path.toLowerCase().includes(q) || f.content.toLowerCase().includes(q))
         );
-        output = matches.slice(0, 10).map((f: any) =>
-          `${f.path}: ${f.content.substring(0, 200).replace(/\n/g, " ")}…`
-        ).join("\n\n");
+        output = matches
+          .slice(0, 10)
+          .map((f: any) =>
+            `${f.path}: ${f.content.substring(0, 200).replace(/\n/g, " ")}…`
+          )
+          .join("\n\n");
         if (!output) output = "No matches found";
         break;
       }
 
       case "spawn_agent": {
-        const maxDepth = planLimits?.maxSpawnDepth ?? 3;
+        const maxDepth  = planLimits?.maxSpawnDepth      ?? 3;
         const maxSpawns = planLimits?.maxSpawnsPerMission ?? 25;
+
         if (spawnDepth >= maxDepth) {
-          output = `⚠️ Spawn depth limit (${maxDepth}) reached — upgrade for deeper agent cascades`;
+          output = `⚠️ Spawn depth limit (${maxDepth}) reached`;
           break;
         }
         if (spawnCount.value >= maxSpawns) {
-          output = `⚠️ Mission spawn limit (${maxSpawns}) reached — upgrade for more agents per mission`;
+          output = `⚠️ Mission spawn limit (${maxSpawns}) reached`;
           break;
         }
+
         spawnCount.value++;
         const { role, task } = call.args as { role: string; task: string };
+        const childModel = getModelForRole(role);
+
         await ctx.runMutation(api.agentThoughts.emit, {
-          projectId,
-          agentId,
-          agentName,
+          projectId, agentId, agentName,
           type: "broadcast",
           content: `Spawning ${role} agent: ${task}`,
           isStreaming: false,
         });
+
         const childResult = await runAgentLoop(
           ctx, projectId, missionId, role, role,
-          task, spawnDepth + 1, spawnCount, planLimits
+          task, spawnDepth + 1, spawnCount, childModel, planLimits
         );
         output = `Agent ${role} completed: ${childResult.slice(0, 300)}`;
         break;
@@ -304,33 +297,25 @@ async function executeTool(
     }
 
     await ctx.runMutation(api.engine.updateToolCall, {
-      toolCallId,
-      status: "done",
+      toolCallId, status: "done",
       result: output.slice(0, 2000),
     });
-
     return { tool: call.tool, success: true, output };
+
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
-    await ctx.runMutation(api.engine.updateToolCall, {
-      toolCallId,
-      status: "error",
-      error,
-    });
+    await ctx.runMutation(api.engine.updateToolCall, { toolCallId, status: "error", error });
     return { tool: call.tool, success: false, output: "", error };
   }
 }
 
-// ─── AGENT LOOP (think → act → observe → repeat) ─────────────────────────────
-
-// ─── AGENT LOOP ──────────────────────────────────────────────────────────────
-// Each agent runs an iterative tool-calling loop.
-// Key fixes vs v1:
-//  - Tight, action-forcing prompts with concrete examples
-//  - Progress detection: if 2 turns pass with no file writes, force a decision
-//  - Context window management: only last 3 turns kept in history
-//  - Stall detection: repeat tool call = skip and force complete_task
-//  - MAX_TURNS capped at 8 (enough, not infinite)
+// ─── AGENT LOOP ────────────────────────────────────────────────────────────
+// think → act → observe → repeat
+// - Tight, action-forcing prompts with concrete JSON examples
+// - Progress detection: 2 turns with no file writes → force decision
+// - Context window: only last 3 turns in history
+// - Stall detection: repeated tool call → skip, force complete_task
+// - MAX_TURNS = 8
 
 async function runAgentLoop(
   ctx: any,
@@ -341,405 +326,232 @@ async function runAgentLoop(
   task: string,
   depth: number,
   spawnCount: { value: number },
+  model: string,
   planLimits?: PlanLimits
 ): Promise<string> {
-
   const files = await ctx.runQuery(api.files.listByProject, { projectId });
   const codeFiles = files.filter((f: any) => !f.isDirectory);
-  const fileList = codeFiles.map((f: any) => f.path).join(", ");
+  const fileList = codeFiles.map((f: any) => `  ${f.path}`).join("\n") || "  (empty project)";
 
-  // Build a compact focused prompt — no long system text that wastes tokens
-  const systemPrompt = `You are ${agentName}, an AI coding agent. Your job: complete the task below by calling tools.
+  const SYSTEM_PROMPT = `You are ${agentName}, an expert software engineer agent inside CodeForge — the world's best autonomous coding platform.
 
-TASK: "${task}"
+Your task: ${task}
 
-AVAILABLE FILES: ${fileList || "none yet"}
+Current project files:
+${fileList}
 
-TOOLS (call at least one per turn, always end with complete_task when done):
-- read_file(path) — read a file before editing it
-- create_file(path, content) — write COMPLETE file content (not diffs!)
-- edit_file(path, content) — same as create_file
-- list_files() — see all files
-- search_files(query) — search content
-- spawn_agent(role, task) — delegate to specialist (roles: ui-agent, logic-agent, debug-agent)
-- complete_task(summary) — REQUIRED when done, summarize what you changed
+You MUST respond with a JSON object containing ONE tool call to make progress. No explanations outside the JSON.
 
-CRITICAL RULES:
-1. Always read_file BEFORE editing — never write blindly
-2. Write COMPLETE file content in create_file/edit_file — never partial snippets  
-3. Make real changes every turn — no analysis without action
-4. After 2 file reads without a write, you MUST write or call complete_task
-5. Call complete_task as your FINAL tool — do not keep looping after it
+Available tools:
+- create_file: { "tool": "create_file", "args": { "path": "src/foo.ts", "content": "..." } }
+- edit_file:   { "tool": "edit_file",   "args": { "path": "src/foo.ts", "content": "..." } }
+- delete_file: { "tool": "delete_file", "args": { "path": "src/foo.ts" } }
+- read_file:   { "tool": "read_file",   "args": { "path": "src/foo.ts" } }
+- list_files:  { "tool": "list_files",  "args": {} }
+- search_files:{ "tool": "search_files","args": { "query": "search term" } }
+- spawn_agent: { "tool": "spawn_agent", "args": { "role": "coder", "task": "implement X" } }
+- send_message:{ "tool": "send_message","args": { "to": "orchestrator", "message": "done with X" } }
+- complete_task:{"tool": "complete_task","args": { "summary": "What I accomplished" } }
 
-RESPOND WITH VALID JSON ONLY — no prose, no markdown fences:
-{"thought":"what you'll do and why (1 sentence)","tool_calls":[{"tool":"read_file","args":{"path":"src/App.tsx"}}]}`;
+Rules:
+1. Always output ONLY valid JSON. Nothing else.
+2. Write COMPLETE file content — never truncate with "// ...rest".
+3. When done with all changes, call complete_task.
+4. If you need to read a file before editing, call read_file first.
+5. Spawn specialist agents for distinct sub-tasks.`;
 
+  const conversationHistory: { role: "user" | "assistant"; content: string }[] = [];
   const MAX_TURNS = 8;
-  let finalSummary = "Task completed";
-  let recentHistory: Array<{ role: string; content: string }> = [];
-  let fileWritesThisTurn = 0;
-  let lastToolCall = "";
-  let stuckCount = 0;
+  let fileWriteCount = 0;
+  let turnsWithoutWrite = 0;
+  let lastToolCallKey = "";
+  let finalSummary = `${agentName} completed: ${task}`;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
-    // Emit turn heartbeat so UI shows live progress
+    // Build the user message for this turn
+    const turnMsg = conversationHistory.length === 0
+      ? `Begin your task. Respond with your first tool call as JSON.`
+      : `Tool result received. Continue with your next tool call, or call complete_task if done.`;
+
+    const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
+      { role: "system", content: SYSTEM_PROMPT },
+      // Keep only last 3 turns to avoid context overflow
+      ...conversationHistory.slice(-6),
+      { role: "user", content: turnMsg },
+    ];
+
+    // Emit thought
     await ctx.runMutation(api.agentThoughts.emit, {
       projectId, agentId, agentName,
-      type: turn === 0 ? "analyze" : "code",
-      content: turn === 0
-        ? `🔍 Starting: ${task.slice(0, 100)}`
-        : `🔄 Turn ${turn + 1}/${MAX_TURNS} — ${fileWritesThisTurn} writes so far`,
-      isStreaming: true,
+      type: "thinking",
+      content: `Turn ${turn + 1}/${MAX_TURNS}: ${task.slice(0, 80)}…`,
+      isStreaming: false,
     });
 
-    // Keep only last 3 exchanges to avoid context overflow
-    const historySlice = recentHistory.slice(-6); // 3 assistant + 3 user pairs
-
-    // Build the full prompt for this turn
-    const conversationText = [
-      `SYSTEM: ${systemPrompt}`,
-      ...historySlice.map(m => `${m.role.toUpperCase()}: ${m.content}`),
-      turn === 0
-        ? `USER: Begin the task. Call your first tool now.`
-        : `USER: Continue. ${fileWritesThisTurn === 0 && turn >= 2 ? "You MUST write a file or call complete_task NOW." : "Keep making progress or call complete_task if done."}`,
-    ].join("\n\n");
-
-    let rawResponse = "";
+    let rawResponse: string;
     try {
-      rawResponse = await callAI(conversationText);
-    } catch (err) {
-      await ctx.runMutation(api.agentThoughts.emit, {
-        projectId, agentId, agentName, type: "debug",
-        content: `❌ AI call failed on turn ${turn + 1}: ${err instanceof Error ? err.message : String(err)}`,
-        isStreaming: false,
-      });
-      // Don't give up — retry once with simplified prompt
-      try {
-        const fallbackPrompt = `Complete this coding task in ONE tool call. Task: "${task}". Respond with valid JSON: {"thought":"brief plan","tool_calls":[{"tool":"complete_task","args":{"summary":"could not complete: AI error"}}]}`;
-        rawResponse = await callAI(fallbackPrompt);
-      } catch {
-        break;
-      }
-    }
-
-    // Extract JSON — try multiple strategies
-    let parsed: { thought?: string; tool_calls?: ToolCall[] } | null = null;
-
-    // Strategy 1: look for {...} block
-    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try { parsed = JSON.parse(jsonMatch[0]); } catch { /* try next */ }
-    }
-
-    // Strategy 2: if AI returned a list of tool_calls wrapped differently
-    if (!parsed) {
-      try { parsed = JSON.parse(rawResponse.trim()); } catch { /* */ }
-    }
-
-    // Strategy 3: AI returned plain prose — extract file paths and create_file
-    if (!parsed) {
-      // Check if response contains code blocks — try to extract and write them
-      const codeBlockMatch = rawResponse.match(/```(?:\w+)?\n([\s\S]+?)```/);
-      if (codeBlockMatch) {
-        finalSummary = `Completed: extracted code from AI response`;
-      } else {
-        finalSummary = rawResponse.slice(0, 400);
-      }
-      await ctx.runMutation(api.agentThoughts.emit, {
-        projectId, agentId, agentName, type: "debug",
-        content: `⚠️ Non-JSON response — treating as completion. Preview: ${rawResponse.slice(0, 100)}`,
-        isStreaming: false,
-      });
-      break;
-    }
-
-    if (parsed.thought) {
-      await ctx.runMutation(api.agentThoughts.emit, {
-        projectId, agentId, agentName, type: "plan",
-        content: `💭 ${parsed.thought}`,
-        isStreaming: false,
-      });
-    }
-
-    const toolCalls = parsed.tool_calls ?? [];
-    if (toolCalls.length === 0) {
-      finalSummary = parsed.thought ?? "No actions taken";
-      await ctx.runMutation(api.agentThoughts.emit, {
-        projectId, agentId, agentName, type: "done",
-        content: `✅ ${finalSummary.slice(0, 200)}`,
-        isStreaming: false,
-      });
-      break;
-    }
-
-    // Stall detection: same tool+args as last turn = stuck
-    const toolKey = toolCalls.map(c => `${c.tool}:${JSON.stringify(c.args)}`).join("|");
-    if (toolKey === lastToolCall) {
-      stuckCount++;
-      if (stuckCount >= 2) {
-        finalSummary = "Task completed — agent reached stable state after " + turn + " turns";
-        await ctx.runMutation(api.agentThoughts.emit, {
-          projectId, agentId, agentName, type: "done",
-          content: `⚡ Stall detected — forcing completion after ${turn} turns`,
-          isStreaming: false,
-        });
-        break;
-      }
-    } else {
-      stuckCount = 0;
-      lastToolCall = toolKey;
-    }
-
-    // Execute tools
-    const toolResults: ToolResult[] = [];
-    let isDone = false;
-    fileWritesThisTurn = 0;
-
-    for (const call of toolCalls) {
-      const isWrite = call.tool === "create_file" || call.tool === "edit_file";
-      const isRead = call.tool === "read_file" || call.tool === "list_files" || call.tool === "search_files";
+      const { text, modelUsed } = await callAIWithFallback(messages, { model });
+      rawResponse = text;
 
       await ctx.runMutation(api.agentThoughts.emit, {
         projectId, agentId, agentName,
-        type: isWrite ? "code" : isRead ? "analyze" : "broadcast",
-        content: `🔧 ${call.tool}(${
-          call.tool === "create_file" || call.tool === "edit_file"
-            ? `${call.args.path}, [${String(call.args.content ?? "").length} chars]`
-            : Object.entries(call.args).map(([k, v]) => `${k}: ${String(v).slice(0, 50)}`).join(", ")
-        })`,
+        type: "action",
+        content: `[${modelUsed}] ${rawResponse.slice(0, 150)}`,
         isStreaming: false,
       });
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      await ctx.runMutation(api.agentThoughts.emit, {
+        projectId, agentId, agentName,
+        type: "error",
+        content: `AI error: ${errMsg}`,
+        isStreaming: false,
+      });
+      break;
+    }
 
-      const result = await executeTool(
-        ctx, projectId, missionId, agentId, agentName,
-        call, depth, spawnCount, planLimits
-      );
-      toolResults.push(result);
-
-      if (isWrite && result.success) fileWritesThisTurn++;
-
-      if (call.tool === "complete_task") {
-        finalSummary = result.output || parsed.thought || "Task completed";
-        isDone = true;
-        break;
+    // Parse the tool call from JSON response
+    let toolCall: ToolCall | null = null;
+    try {
+      // Extract JSON from response (may have markdown fences)
+      const jsonMatch = rawResponse.match(/```(?:json)?\s*([\s\S]*?)```/) ??
+                        rawResponse.match(/(\{[\s\S]*\})/);
+      const jsonStr = jsonMatch ? jsonMatch[1] : rawResponse.trim();
+      const parsed = JSON.parse(jsonStr!);
+      if (parsed.tool && parsed.args !== undefined) {
+        toolCall = parsed as ToolCall;
+      }
+    } catch {
+      // If JSON parse fails, try to extract tool name from text
+      const toolMatch = rawResponse.match(/"tool"\s*:\s*"([^"]+)"/);
+      if (!toolMatch) {
+        conversationHistory.push({ role: "assistant", content: rawResponse });
+        conversationHistory.push({
+          role: "user",
+          content: "Your response was not valid JSON. Respond ONLY with a JSON tool call object.",
+        });
+        continue;
       }
     }
 
-    if (isDone) break;
+    if (!toolCall) continue;
 
-    // Append to rolling history — truncate tool results so history stays compact
-    const resultsText = toolResults
-      .map(r => `${r.tool}: ${r.success ? r.output.slice(0, 800) : `ERROR: ${r.error?.slice(0, 200)}`}`)
-      .join("\n");
+    // Stall detection: same tool + same args twice in a row → force complete
+    const toolKey = `${toolCall.tool}:${JSON.stringify(toolCall.args)}`;
+    if (toolKey === lastToolCallKey) {
+      await ctx.runMutation(api.agentThoughts.emit, {
+        projectId, agentId, agentName,
+        type: "warning",
+        content: "Repeated tool call detected — forcing task completion.",
+        isStreaming: false,
+      });
+      break;
+    }
+    lastToolCallKey = toolKey;
 
-    recentHistory.push(
-      { role: "assistant", content: JSON.stringify({ thought: parsed.thought, tool_calls: toolCalls }) },
-      { role: "user", content: `RESULTS:\n${resultsText}\n\nContinue or call complete_task if done.` }
+    // complete_task → we're done
+    if (toolCall.tool === "complete_task") {
+      finalSummary = (toolCall.args as any).summary ?? finalSummary;
+      await ctx.runMutation(api.agentThoughts.emit, {
+        projectId, agentId, agentName,
+        type: "complete",
+        content: finalSummary,
+        isStreaming: false,
+      });
+      break;
+    }
+
+    // Execute the tool
+    const result = await executeTool(
+      ctx, projectId, missionId, agentId, agentName,
+      toolCall, depth, spawnCount, model, planLimits
     );
-  }
 
-  await ctx.runMutation(api.agentThoughts.emit, {
-    projectId, agentId, agentName, type: "done",
-    content: `✅ Done: ${finalSummary.slice(0, 250)}`,
-    isStreaming: false,
-  });
+    // Track progress
+    if (toolCall.tool === "create_file" || toolCall.tool === "edit_file") {
+      fileWriteCount++;
+      turnsWithoutWrite = 0;
+    } else {
+      turnsWithoutWrite++;
+    }
+
+    // Add to conversation history
+    conversationHistory.push({
+      role: "assistant",
+      content: JSON.stringify(toolCall),
+    });
+    conversationHistory.push({
+      role: "user",
+      content: result.success
+        ? `Tool result: ${result.output.slice(0, 800)}`
+        : `Tool error: ${result.error}. Try a different approach.`,
+    });
+
+    // Force progress if stalling (2 turns of reads/searches with no writes)
+    if (turnsWithoutWrite >= 2 && fileWriteCount === 0) {
+      conversationHistory.push({
+        role: "user",
+        content:
+          "You've been reading/searching without writing any files. " +
+          "Make a concrete file change now, or call complete_task if nothing is needed.",
+      });
+      turnsWithoutWrite = 0;
+    }
+  }
 
   return finalSummary;
 }
 
-// ─── PUBLIC ACTION: RUN MISSION ─────────────────────────────────────────────
-// Agents run in PARALLEL (Promise.all) — not sequentially.
-// Each agent gets its own tool-calling loop.
-// Live thoughts stream from all agents simultaneously.
+// ─── PUBLIC ACTION: runMission ──────────────────────────────────────────────
 
 export const runMission = action({
   args: {
     projectId: v.id("projects"),
     prompt: v.string(),
-    sessionId: v.optional(v.id("chatSessions")),
+    model: v.optional(v.string()),
   },
   returns: v.string(),
-  handler: async (ctx, args) => {
-    const missionId = `mission-${Date.now()}`;
-
-    // ── Plan limits ────────────────────────────────────────────────────────
-    let planLimits: PlanLimits = {
-      maxSpawnDepth: 3, maxSpawnsPerMission: 25,
-      maxConcurrentAgents: 5, hardCapUsdMonthly: 6, cappedOut: false, plan: "free",
-    };
-    try {
-      const project = await ctx.runQuery(api.projects.get, { projectId: args.projectId });
-      if (project?.ownerId) {
-        const pl = await ctx.runAction(api.limits.getUserPlanLimits, { userId: String(project.ownerId) });
-        planLimits = pl as PlanLimits;
-        if (planLimits.cappedOut) {
-          return "⛔ Monthly compute cap reached. Upgrade or wait for your cap to reset.";
-        }
-        await ctx.runMutation(api.limits.trackUsage, {
-          userId: String(project.ownerId),
-          action: "start_mission",
-        });
-      }
-    } catch { /* non-fatal */ }
-
-    // ── Clear and announce ─────────────────────────────────────────────────
-    await ctx.runMutation(api.agentThoughts.clearForProject, { projectId: args.projectId });
-    await ctx.runMutation(api.engine.clearToolCalls, { projectId: args.projectId });
-
-    await ctx.runMutation(api.agentThoughts.emit, {
-      projectId: args.projectId, agentId: "planner", agentName: "🗺️ Planner",
-      type: "plan", content: `📋 Mission: "${args.prompt}"`, isStreaming: true,
-    });
-
-    // ── Load memory for context ────────────────────────────────────────────
-    let memoryContext = "";
-    try {
-      memoryContext = await ctx.runAction(api.memory.getMemoriesForPrompt, {
-        projectId: args.projectId, topN: 8,
-      });
-    } catch { /* non-fatal */ }
-
-    // ── Read file list for planner context ─────────────────────────────────
-    const files = await ctx.runQuery(api.files.listByProject, { projectId: args.projectId });
-    const fileList = files.filter((f: any) => !f.isDirectory).map((f: any) => f.path).join(", ");
-
-    // ── PLANNER: decompose task into parallel agents ────────────────────────
-    const planPrompt = `You are the Master Planner for CodeForge. Decompose the user request into specialist agents that will run IN PARALLEL.
-
-USER REQUEST: "${args.prompt}"
-${memoryContext ? `CONTEXT: ${memoryContext}\n` : ""}
-PROJECT FILES: ${fileList || "none yet"}
-
-SPECIALIST AGENTS (pick 2-4 max, they run simultaneously):
-- ui-agent 🎨: HTML, CSS, layout, responsive design, visual polish
-- logic-agent ⚙️: JavaScript/TypeScript, state, events, data flow
-- mobile-agent 📱: Mobile-first design, touch, viewport
-- feature-agent ✨: New features, integrations, new pages
-- debug-agent 🔍: Bug fixes, error handling, edge cases  
-- qa-agent ✅: Final check — reads files and verifies correctness
-
-RULES:
-- Simple single-file change → 1 agent only
-- UI + logic change → ui-agent + logic-agent (parallel)
-- New feature → feature-agent + ui-agent (parallel), then qa-agent
-- Bug fix → debug-agent only
-- ALWAYS include qa-agent last for complex tasks
-- Each agent's task must be SPECIFIC — mention exact files/components
-
-Respond ONLY with valid JSON:
-{"plan":"brief approach","agents":[{"id":"ui-agent","name":"UI Agent","icon":"🎨","task":"specific task with file names"}]}`;
-
-    let agents: Array<{ id: string; name: string; icon: string; task: string }> = [];
-
-    try {
-      const planRaw = await callAI(planPrompt);
-      const planMatch = planRaw.match(/\{[\s\S]*\}/);
-      if (planMatch) {
-        const planParsed = JSON.parse(planMatch[0]);
-        agents = planParsed.agents ?? [];
-
-        await ctx.runMutation(api.agentThoughts.emit, {
-          projectId: args.projectId, agentId: "planner", agentName: "🗺️ Planner",
-          type: "plan",
-          content: `🚀 Plan: ${planParsed.plan ?? ""} → [${agents.map((a: any) => a.icon + a.name).join(" ⚡ ")}]`,
-          isStreaming: false,
-        });
-      }
-    } catch {
-      // Fallback: smart single agent based on keywords
-      const kw = args.prompt.toLowerCase();
-      const agentId = kw.match(/fix|bug|error|broken/) ? "debug-agent"
-        : kw.match(/style|css|color|layout|design|ui/) ? "ui-agent"
-        : kw.match(/mobile|touch|responsive/) ? "mobile-agent"
-        : "feature-agent";
-      agents = [{ id: agentId, name: agentId.replace("-agent","").replace(/^./, c => c.toUpperCase()) + " Agent",
-        icon: agentId === "debug-agent" ? "🔍" : agentId === "ui-agent" ? "🎨" : agentId === "mobile-agent" ? "📱" : "✨",
-        task: args.prompt }];
-    }
-
-    if (agents.length === 0) {
-      agents = [{ id: "feature-agent", name: "Feature Agent", icon: "✨", task: args.prompt }];
-    }
-
-    // ── Register tasks in DB ───────────────────────────────────────────────
-    for (const agent of agents) {
-      await ctx.runMutation(api.agents.createTask, {
-        projectId: args.projectId,
-        agentId: agent.id,
-        agentName: `${agent.icon} ${agent.name}`,
-        agentIcon: agent.icon,
-        task: agent.task,
-      });
-    }
-
-    // ── RUN AGENTS IN PARALLEL ─────────────────────────────────────────────
-    // Separate qa-agent (always last) from parallel agents
-    const qaAgent = agents.find(a => a.id === "qa-agent");
-    const parallelAgents = agents.filter(a => a.id !== "qa-agent");
-
+  handler: async (ctx, args): Promise<string> => {
+    const missionId = `mission_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const model = args.model ?? getModelForRole("orchestrator");
     const spawnCount = { value: 0 };
 
-    // Concurrency cap from plan
-    const maxConcurrent = planLimits.maxConcurrentAgents ?? 5;
-    const batches: typeof parallelAgents[] = [];
-    for (let i = 0; i < parallelAgents.length; i += maxConcurrent) {
-      batches.push(parallelAgents.slice(i, i + maxConcurrent));
+    // Fetch plan limits
+    let planLimits: PlanLimits | undefined;
+    try {
+      const limitsData = await ctx.runQuery(api.limits.getMyLimits, {});
+      if (limitsData) {
+        planLimits = {
+          maxSpawnDepth:       limitsData.limits.maxSpawnDepth,
+          maxSpawnsPerMission: limitsData.limits.maxSpawnsPerMission,
+          maxConcurrentAgents: limitsData.limits.maxConcurrentAgents,
+          hardCapUsdMonthly:   limitsData.limits.hardCapUsdMonthly,
+          cappedOut:           false,
+          plan:                limitsData.plan,
+        };
+      }
+    } catch {
+      // Use generous defaults if limits query fails
+      planLimits = {
+        maxSpawnDepth: 3, maxSpawnsPerMission: 25,
+        maxConcurrentAgents: 5, hardCapUsdMonthly: 10,
+        cappedOut: false, plan: "free",
+      };
     }
 
-    const results: string[] = [];
+    const result = await runAgentLoop(
+      ctx,
+      args.projectId,
+      missionId,
+      "orchestrator",
+      "Orchestrator",
+      args.prompt,
+      0,
+      spawnCount,
+      model,
+      planLimits
+    );
 
-    for (const batch of batches) {
-      await ctx.runMutation(api.agentThoughts.emit, {
-        projectId: args.projectId, agentId: "planner", agentName: "🗺️ Planner",
-        type: "broadcast",
-        content: `⚡ Launching ${batch.length} agents in parallel: ${batch.map(a => a.icon + a.name).join(", ")}`,
-        isStreaming: false,
-      });
-
-      const batchResults = await Promise.all(
-        batch.map(agent =>
-          runAgentLoop(
-            ctx, args.projectId, missionId, agent.id,
-            `${agent.icon} ${agent.name}`, agent.task, 0, spawnCount, planLimits
-          ).then(r => `[${agent.name}] ${r}`)
-           .catch(e => `[${agent.name}] Error: ${e instanceof Error ? e.message : String(e)}`)
-        )
-      );
-      results.push(...batchResults);
-    }
-
-    // ── QA AGENT runs last, after all parallel agents complete ─────────────
-    if (qaAgent) {
-      await ctx.runMutation(api.agentThoughts.emit, {
-        projectId: args.projectId, agentId: "qa-agent", agentName: "✅ QA Agent",
-        type: "review",
-        content: "🔎 All agents done — running QA verification pass...",
-        isStreaming: true,
-      });
-
-      const qaResult = await runAgentLoop(
-        ctx, args.projectId, missionId, "qa-agent",
-        "✅ QA Agent",
-        `Verify the following work was completed correctly: ${args.prompt}. Read the relevant files and confirm changes are correct and complete. If anything is missing or broken, fix it.`,
-        0, spawnCount, planLimits
-      ).catch(e => `QA Error: ${e instanceof Error ? e.message : String(e)}`);
-
-      results.push(`[QA] ${qaResult}`);
-    }
-
-    const summary = results.join("\n");
-
-    // ── Post result to chat ────────────────────────────────────────────────
-    if (args.sessionId) {
-      const agentCount = agents.length;
-      await ctx.runMutation(api.chat.addMessage, {
-        sessionId: args.sessionId,
-        projectId: args.projectId,
-        role: "assistant",
-        content: `✅ Mission complete! ${agentCount} agent${agentCount > 1 ? "s" : ""} worked in parallel.\n\n${summary}`,
-      });
-    }
-
-    return summary;
+    return result;
   },
 });

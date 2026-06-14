@@ -2,12 +2,10 @@ import { v } from "convex/values";
 import { action, mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { api } from "./_generated/api";
+import { callAIWithFallback } from "./ai";
 
 declare const process: { env: Record<string, string | undefined> };
 
-const VIKTOR_API_URL = process.env.VIKTOR_SPACES_API_URL!;
-const PROJECT_NAME = process.env.VIKTOR_SPACES_PROJECT_NAME!;
-const PROJECT_SECRET = process.env.VIKTOR_SPACES_PROJECT_SECRET!;
 
 // ── Queries ──
 
@@ -290,23 +288,7 @@ Return ONLY the file content. No markdown fences, no explanation — just the ra
   },
 });
 
-async function callAI(prompt: string): Promise<string> {
-  const response = await fetch(
-    `${VIKTOR_API_URL}/api/viktor-spaces/tools/call`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        project_name: PROJECT_NAME,
-        project_secret: PROJECT_SECRET,
-        role: "quick_ai_search",
-        arguments: { search_question: prompt },
-      }),
-    }
-  );
-
-  if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-  const json = await response.json();
-  if (!json.success) throw new Error(json.error ?? "AI call failed");
-  return json.result.search_response;
+async function callAI(prompt: string, model?: string, _maxTokens?: number): Promise<string> {
+  const { text } = await callAIWithFallback(prompt, { model });
+  return text;
 }

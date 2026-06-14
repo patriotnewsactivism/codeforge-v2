@@ -4,9 +4,6 @@ import { api } from "./_generated/api";
 
 declare const process: { env: Record<string, string | undefined> };
 
-// const VIKTOR_API_URL = process.env.VIKTOR_SPACES_API_URL!;
-// const PROJECT_NAME = process.env.VIKTOR_SPACES_PROJECT_NAME!;
-// const PROJECT_SECRET = process.env.VIKTOR_SPACES_PROJECT_SECRET!;
 
 // ── Simple TF-IDF style embedding stored as JSON string ─────────────────────
 // Real vector search would use an external embedding API. This implementation
