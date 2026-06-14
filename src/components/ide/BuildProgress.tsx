@@ -1,4 +1,5 @@
 import { useQuery } from "convex/react";
+import { useEffect, useRef } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
@@ -23,10 +24,20 @@ const ACTION_ICONS: Record<string, React.ElementType> = {
 
 interface BuildProgressProps {
   projectId: Id<"projects">;
+  onMissionActive?: (missionId: Id<"buildSessions">) => void;
 }
 
-export function BuildProgress({ projectId }: BuildProgressProps) {
+export function BuildProgress({ projectId, onMissionActive }: BuildProgressProps) {
   const activeSession = useQuery(api.buildLoop.getActiveSession, { projectId });
+
+  // Notify parent when a mission becomes active (for Cinema panel)
+  const lastNotified = useRef<string | null>(null);
+  useEffect(() => {
+    if (activeSession && activeSession._id !== lastNotified.current) {
+      lastNotified.current = activeSession._id;
+      onMissionActive?.(activeSession._id);
+    }
+  }, [activeSession?._id, onMissionActive]);
 
   if (!activeSession) return null;
 
