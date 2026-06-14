@@ -33,7 +33,7 @@ export const getDashboard = query({
 
     // ── Missions ─────────────────────────────────────────────────────────
     const missions = await ctx.db
-      .query("missions")
+      .query("buildSessions")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .order("desc")
       .take(100);
@@ -41,7 +41,7 @@ export const getDashboard = query({
     const missionStats = {
       total: missions.length,
       completed: missions.filter((m: any) => m.status === "completed").length,
-      failed: missions.filter((m: any) => m.status === "failed" || m.status === "error").length,
+      failed: missions.filter((m: any) => m.status === "error").length,
       running: missions.filter((m: any) => m.status === "running").length,
       last7Days: missions.filter((m: any) => m._creationTime > now - week).length,
       successRate: missions.length
@@ -233,7 +233,7 @@ export const getMissionTimeline = query({
     const since = Date.now() - days * 24 * 60 * 60 * 1000;
 
     const missions = await ctx.db
-      .query("missions")
+      .query("buildSessions")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .filter((q) => q.gte(q.field("_creationTime"), since))
       .collect();
@@ -245,7 +245,7 @@ export const getMissionTimeline = query({
       if (!byDay[day]) byDay[day] = { success: 0, fail: 0, total: 0 };
       byDay[day].total++;
       if ((m as any).status === "completed") byDay[day].success++;
-      if ((m as any).status === "failed" || (m as any).status === "error") byDay[day].fail++;
+      if ((m as any).status === "error") byDay[day].fail++;
     }
 
     return Object.entries(byDay)
@@ -265,17 +265,24 @@ export const getCostBreakdown = query({
     const days = args.days ?? 30;
     const since = Date.now() - days * 24 * 60 * 60 * 1000;
 
-    const costs = await ctx.db
-      .query("costEntries")
+    // costEntries is indexed by user, not project — get all and filter by session
+    const sessions = await ctx.db
+      .query("buildSessions")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .filter((q) => q.gte(q.field("_creationTime"), since))
       .collect();
+    const sessionIds = new Set(sessions.map((s) => s._id));
+
+    const allCosts = await ctx.db
+      .query("costEntries")
+      .filter((q) => q.gte(q.field("_creationTime"), since))
+      .take(500);
+    const costs = allCosts.filter((c: any) => c.buildSessionId && sessionIds.has(c.buildSessionId));
 
     const byModel = costs.reduce((acc, c: any) => {
       const model = c.model ?? "unknown";
       if (!acc[model]) acc[model] = { tokens: 0, cost: 0, calls: 0 };
-      acc[model].tokens += c.totalTokens ?? 0;
-      acc[model].cost += c.estimatedCostUsd ?? 0;
+      acc[model].tokens += (c.inputTokens ?? 0) + (c.outputTokens ?? 0);
+      acc[model].cost += c.cost ?? 0;
       acc[model].calls++;
       return acc;
     }, {} as Record<string, { tokens: number; cost: number; calls: number }>);

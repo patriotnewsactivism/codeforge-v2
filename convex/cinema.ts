@@ -19,7 +19,7 @@ import type { Id } from "./_generated/dataModel";
 export const recordFrame = mutation({
   args: {
     projectId: v.id("projects"),
-    missionId: v.id("missions"),
+    missionId: v.id("buildSessions"),
     buildSessionId: v.optional(v.id("buildSessions")),
     frameType: v.union(
       v.literal("spawn"),
@@ -54,7 +54,7 @@ export const recordFrame = mutation({
 
 export const finalizeReplay = mutation({
   args: {
-    missionId: v.id("missions"),
+    missionId: v.id("buildSessions"),
     totalFrames: v.number(),
     durationMs: v.number(),
     agentCount: v.number(),
@@ -85,7 +85,7 @@ export const finalizeReplay = mutation({
 
 export const getFrames = query({
   args: {
-    missionId: v.id("missions"),
+    missionId: v.id("buildSessions"),
     fromTs: v.optional(v.number()),    // for pagination / scrubbing
     limit: v.optional(v.number()),
   },
@@ -105,7 +105,7 @@ export const getFrames = query({
 });
 
 export const getAgentTree = query({
-  args: { missionId: v.id("missions") },
+  args: { missionId: v.id("buildSessions") },
   handler: async (ctx, args) => {
     const spawnFrames = await ctx.db
       .query("cinemaFrames")
@@ -131,7 +131,7 @@ export const getAgentTree = query({
 });
 
 export const getTimelineSummary = query({
-  args: { missionId: v.id("missions") },
+  args: { missionId: v.id("buildSessions") },
   handler: async (ctx, args) => {
     const all = await ctx.db
       .query("cinemaFrames")
@@ -167,7 +167,7 @@ export const getTimelineSummary = query({
 export const buildCinemaFromExisting = action({
   args: {
     projectId: v.id("projects"),
-    missionId: v.id("missions"),
+    missionId: v.id("buildSessions"),
   },
   returns: v.object({ framesCreated: v.number() }),
   handler: async (ctx, args) => {

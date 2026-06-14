@@ -51,7 +51,7 @@ export interface ForensicReport {
 export const saveReport = mutation({
   args: {
     projectId: v.id("projects"),
-    missionId: v.optional(v.id("missions")),
+    missionId: v.optional(v.id("buildSessions")),
     buildSessionId: v.optional(v.id("buildSessions")),
     failureClass: v.string(),
     rootCause: v.string(),
@@ -119,7 +119,7 @@ export const getReport = query({
 export const runForensicAnalysis = action({
   args: {
     projectId: v.id("projects"),
-    missionId: v.optional(v.id("missions")),
+    missionId: v.optional(v.id("buildSessions")),
     buildSessionId: v.optional(v.id("buildSessions")),
     // Provide as much evidence as available
     failureSummary: v.string(),           // human-readable description of what went wrong

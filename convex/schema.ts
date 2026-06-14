@@ -573,7 +573,7 @@ const schema = defineSchema({
   // ─── LEARNING LOOP: FORENSIC ──────────────────────────────────────────────────
   forensicReports: defineTable({
     projectId: v.id("projects"),
-    missionId: v.optional(v.id("missions")),
+    missionId: v.optional(v.id("buildSessions")),
     buildSessionId: v.optional(v.id("buildSessions")),
     failureClass: v.string(),
     rootCause: v.string(),
@@ -652,7 +652,7 @@ const schema = defineSchema({
   // ─── CINEMA: MISSION REPLAY ────────────────────────────────────────────────────
   cinemaFrames: defineTable({
     projectId: v.id("projects"),
-    missionId: v.id("missions"),
+    missionId: v.id("buildSessions"),
     buildSessionId: v.optional(v.id("buildSessions")),
     frameType: v.union(
       v.literal("spawn"),

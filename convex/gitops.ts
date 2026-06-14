@@ -378,8 +378,7 @@ export const approveDeploy = action({
       }
 
       const canaryPercent = args.canaryPercent ?? 10;
-      const user = await ctx.runQuery(api.users.getCurrentUser, {});
-      const approverName = (user as any)?.email ?? String(userId);
+      const approverName = String(userId);
 
       await ctx.runMutation(api.gitops.updateDeploymentStatus, {
         deploymentId: args.deploymentId,
