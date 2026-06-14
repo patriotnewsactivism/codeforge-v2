@@ -13,6 +13,7 @@ import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { callAIWithFallback, getModelForRole } from "./ai";
+import { api } from "./_generated/api";
 
 // ─── TOOL CALL SCHEMA ──────────────────────────────────────────────────────
 
@@ -193,6 +194,16 @@ async function executeTool(
 
       case "delete_file": {
         const { path } = call.args as { path: string };
+        // Destructive ops require debate approval
+        const debateCheck = await ctx.runAction(api.debate.requireDebate, {
+          projectId,
+          proposal: `Delete file: ${path}`,
+          operationType: "destructive",
+        });
+        if (!debateCheck.allowed) {
+          output = debateCheck.message;
+          break;
+        }
         const existing = await ctx.runQuery(api.files.getByPath, { projectId, path });
         if (existing) {
           await ctx.runMutation(api.files.remove, { fileId: existing._id });

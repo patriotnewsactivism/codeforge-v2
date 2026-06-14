@@ -480,6 +480,33 @@ const schema = defineSchema({
     .index("by_project", ["projectId"])
     .index("by_project_and_file", ["projectId", "filePath"]),
 
+  // ─── DEBATE ENGINE ────────────────────────────────────────────────────────────
+  // Every architectural/destructive decision runs through Proponent→Opponent→Moderator
+  debates: defineTable({
+    projectId: v.id("projects"),
+    buildSessionId: v.optional(v.id("buildSessions")),
+    proposal: v.string(),
+    proponentArgument: v.string(),
+    opponentArgument: v.string(),
+    moderatorReasoning: v.string(),
+    verdict: v.union(
+      v.literal("PROCEED"),
+      v.literal("REFINE"),
+      v.literal("ESCALATE")
+    ),
+    refinements: v.optional(v.array(v.string())),
+    escalationReason: v.optional(v.string()),
+    confidence: v.number(),        // 0–100
+    durationMs: v.number(),
+    timestamp: v.number(),
+    humanApproved: v.boolean(),    // true after human approves an ESCALATE verdict
+    approvedAt: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_verdict", ["projectId", "verdict"])
+    .index("by_project_and_time", ["projectId", "timestamp"]),
+
+
 });
 
 export default schema;
