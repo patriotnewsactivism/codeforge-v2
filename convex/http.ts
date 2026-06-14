@@ -441,4 +441,50 @@ http.route({
   }),
 });
 
+
+// ═══════════════════════════════════════════════════════════════
+// ERROR INGESTION — Sentry / Datadog / Bugsnag / custom webhook
+// POST /api/error-ingest?projectId=<id>&source=sentry&autoFix=true
+// Body: raw JSON payload from the error tracker
+// ═══════════════════════════════════════════════════════════════
+
+http.route({
+  path: "/api/error-ingest",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    try {
+      const url = new URL(req.url);
+      const projectId = url.searchParams.get("projectId") ?? "";
+      const source = url.searchParams.get("source") ?? "webhook";
+      const repoFullName = url.searchParams.get("repo") ?? undefined;
+      const autoFix = url.searchParams.get("autoFix") !== "false";
+
+      if (!projectId) {
+        return new Response(JSON.stringify({ error: "projectId query param required" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      const rawPayload = await req.text();
+
+      // Delegate to the full ingest+autofix action
+      const result = await ctx.runAction(internal.errorIngestion.ingestFromWebhookInternal, {
+        projectId: projectId as unknown as import("./_generated/dataModel").Id<"projects">,
+        source,
+        rawPayload,
+        autoFix,
+        repoFullName,
+      });
+
+      return new Response(JSON.stringify({ ok: true, ...result }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      return serverError(e);
+    }
+  }),
+});
+
 export default http;
