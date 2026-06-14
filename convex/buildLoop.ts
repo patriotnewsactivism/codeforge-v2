@@ -4,6 +4,38 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { api } from "./_generated/api";
 import { callAIWithFallback } from "./ai";
 
+// ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
+// Lifetime users get their stored keys injected into AI calls.
+// Weekly/monthly/free users use platform process.env keys (no userKeys passed).
+async function resolveByok(
+  ctx: any,
+  userId?: string
+): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
+  try {
+    const sub = await ctx.runQuery(api.limits.getMyLimits, {});
+    const callerPlan: string = sub?.plan ?? "free";
+    if (callerPlan !== "lifetime") return { callerPlan };
+    if (!userId) return { callerPlan };
+
+    const userKeys: Record<string, string> = await ctx.runQuery(
+      api.apiKeys.getAllKeysForUser,
+      { userId }
+    );
+    if (!userKeys || Object.keys(userKeys).length === 0) {
+      throw new Error(
+        "⚠️ Lifetime plan requires your own API key. " +
+          "Add one in Settings → API Keys to use AI features."
+      );
+    }
+    return { callerPlan, userKeys };
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("⚠️")) throw err;
+    return { callerPlan: "free" };
+  }
+}
+
+
+
 declare const process: { env: Record<string, string | undefined> };
 
 
@@ -136,6 +168,10 @@ export const runBuildLoop = action({
   },
   returns: v.string(),
   handler: async (ctx, args) => {
+    // Resolve BYOK (lifetime users supply their own keys)
+    const currentUser = await ctx.runQuery(api.auth.currentUser, {});
+    const byok = await resolveByok(ctx, currentUser?._id ? String(currentUser._id) : undefined);
+
     // Create build session
     const buildSessionId = await ctx.runMutation(api.buildLoop.createSession, {
       projectId: args.projectId,
@@ -186,7 +222,7 @@ Plan what files to create or modify. Return ONLY a JSON object (no markdown):
   "summary": "One-line summary of what you'll build"
 }`;
 
-      const planResult = await callAI(planPrompt);
+      const planResult = await callAI(planPrompt, undefined, undefined, byok);
       const planMatch = planResult.match(/\{[\s\S]*\}/);
       if (!planMatch) throw new Error("Failed to generate build plan");
 
@@ -230,7 +266,7 @@ ${files.filter((f) => !f.isDirectory).map((f) => `--- ${f.path} ---\n${f.content
 
 Return ONLY the file content. No markdown fences, no explanation — just the raw code.`;
 
-        const code = await callAI(codePrompt);
+        const code = await callAI(codePrompt, undefined, undefined, byok);
 
         // Strip any code fences the AI might have added
         const cleanCode = code.replace(/^```[\w]*\n?/, "").replace(/\n?```$/, "").trim();
@@ -288,7 +324,20 @@ Return ONLY the file content. No markdown fences, no explanation — just the ra
   },
 });
 
-async function callAI(prompt: string, model?: string, _maxTokens?: number): Promise<string> {
-  const { text } = await callAIWithFallback(prompt, { model });
+async function callAI(
+  prompt: string,
+  model?: string,
+  _maxTokens?: number,
+  byok?: { callerPlan: string; userKeys?: Record<string, string> }
+): Promise<string> {
+  const { text } = await callAIWithFallback(prompt, {
+    model,
+    callerPlan: byok?.callerPlan,
+    userKeys: byok?.userKeys,
+  });
   return text;
 }
+
+
+
+
