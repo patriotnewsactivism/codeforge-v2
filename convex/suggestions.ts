@@ -4,11 +4,52 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { api } from "./_generated/api";
 import { callAIWithFallback } from "./ai";
 
+// ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
+// Lifetime users get their stored keys injected into AI calls.
+// Weekly/monthly/free users use platform process.env keys (no userKeys passed).
+async function resolveByok(
+  ctx: any,
+  userId?: string
+): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
+  try {
+    const sub = await ctx.runQuery(api.limits.getMyLimits, {});
+    const callerPlan: string = sub?.plan ?? "free";
+    if (callerPlan !== "lifetime") return { callerPlan };
+    if (!userId) return { callerPlan };
+
+    const userKeys: Record<string, string> = await ctx.runQuery(
+      api.apiKeys.getAllKeysForUser,
+      { userId }
+    );
+    if (!userKeys || Object.keys(userKeys).length === 0) {
+      throw new Error(
+        "⚠️ Lifetime plan requires your own API key. " +
+          "Add one in Settings → API Keys to use AI features."
+      );
+    }
+    return { callerPlan, userKeys };
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("⚠️")) throw err;
+    return { callerPlan: "free" };
+  }
+}
+
+
+
 declare const process: { env: Record<string, string | undefined> };
 
 
-async function callAI(prompt: string, model?: string, _maxTokens?: number): Promise<string> {
-  const { text } = await callAIWithFallback(prompt, { model });
+async function callAI(
+  prompt: string,
+  model?: string,
+  _maxTokens?: number,
+  byok?: { callerPlan: string; userKeys?: Record<string, string> }
+): Promise<string> {
+  const { text } = await callAIWithFallback(prompt, {
+    model,
+    callerPlan: byok?.callerPlan,
+    userKeys: byok?.userKeys,
+  });
   return text;
 }
 
@@ -255,7 +296,8 @@ Return ONLY a JSON array (no markdown, no code fences):
 ]`;
 
     try {
-      const text = await callAI(prompt, 4000);
+      const byok = await resolveByok(ctx);
+      const text = await callAI(prompt, 4000, undefined, byok);
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (!jsonMatch) return 0;
 
@@ -410,3 +452,7 @@ export const runAutonomousCycle = action({
     return `Built: "${top.title}" — ${result}`;
   },
 });
+
+
+
+
