@@ -25,6 +25,9 @@ import { ImportRepoDialog } from "@/components/ide/ImportRepoDialog";
 import { DiffViewer } from "@/components/ide/DiffViewer";
 import { DeployPanel } from "@/components/ide/DeployPanel";
 import { GitHubConnectDialog } from "@/components/ide/GitHubConnectDialog";
+import { CinemaPanel } from "@/components/ide/CinemaPanel";
+import { ErrorIngestionPanel } from "@/components/ide/ErrorIngestionPanel";
+import { AnalyticsDashboard } from "@/components/ide/AnalyticsDashboard";
 import {
   FileTreeSkeleton,
   EditorSkeleton,
@@ -44,6 +47,9 @@ import {
   Eye,
   Save,
   X,
+  Film,
+  AlertTriangle,
+  BarChart3,
 } from "lucide-react";
 
 // Mobile breakpoint: anything below 768px is "mobile"
@@ -59,7 +65,7 @@ function useIsMobile() {
   return isMobile;
 }
 
-type RightPanel = "chat" | "suggestions" | "agents" | "memory" | "thoughts" | "git" | "diff" | "deploy";
+type RightPanel = "chat" | "suggestions" | "agents" | "memory" | "thoughts" | "git" | "diff" | "deploy" | "cinema" | "errors" | "analytics";
 // Mobile views: one panel visible at a time
 type MobileView = "files" | "editor" | "preview" | "panel";
 
@@ -101,6 +107,7 @@ export function IDEPage() {
   const [showRightPanel, _setShowRightPanel] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [_showSessionSidebar, _setShowSessionSidebar] = useState(false);
+  const [cinemaMissionId, setCinemaMissionId] = useState<Id<"buildSessions"> | null>(null);
 
   // Mobile-specific state
   const [mobileView, setMobileView] = useState<MobileView>("editor");
@@ -343,7 +350,10 @@ export function IDEPage() {
     { id: "thoughts", label: "Activity", icon: <Cpu className="h-3.5 w-3.5" />, color: "text-cyan-400 border-cyan-400" },
     { id: "git", label: "Git", icon: <Github className="h-3.5 w-3.5" />, color: "text-orange-400 border-orange-400" },
     { id: "diff", label: "Diff", icon: <Code2 className="h-3.5 w-3.5" />, color: "text-rose-400 border-rose-400" },
-    { id: "deploy", label: "Deploy", icon: <Zap className="h-3.5 w-3.5" />, color: "text-green-400 border-green-400" },
+    { id: "deploy",     label: "Deploy",     icon: <Zap className="h-3.5 w-3.5" />,        color: "text-green-400 border-green-400" },
+    { id: "cinema",    label: "Cinema",    icon: <Film className="h-3.5 w-3.5" />,       color: "text-pink-400 border-pink-400" },
+    { id: "errors",    label: "Errors",    icon: <AlertTriangle className="h-3.5 w-3.5" />, color: "text-red-400 border-red-400" },
+    { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-3.5 w-3.5" />,  color: "text-teal-400 border-teal-400" },
   ];
 
   const rightPanelContent = (
@@ -416,6 +426,27 @@ export function IDEPage() {
         {rightPanel === "deploy" && (
           <PanelErrorBoundary panelName="Deploy">
             <DeployPanel projectId={projectId as Id<"projects">} />
+          </PanelErrorBoundary>
+        )}
+        {rightPanel === "cinema" && (
+          <PanelErrorBoundary panelName="Cinema">
+            <CinemaPanel
+              projectId={projectId as Id<"projects">}
+              missionId={cinemaMissionId}
+            />
+          </PanelErrorBoundary>
+        )}
+        {rightPanel === "errors" && (
+          <PanelErrorBoundary panelName="Error Ingestion">
+            <ErrorIngestionPanel
+              projectId={projectId as Id<"projects">}
+              repoFullName={project?.githubRepo ?? undefined}
+            />
+          </PanelErrorBoundary>
+        )}
+        {rightPanel === "analytics" && (
+          <PanelErrorBoundary panelName="Analytics">
+            <AnalyticsDashboard projectId={projectId as Id<"projects">} />
           </PanelErrorBoundary>
         )}
       </div>
@@ -675,3 +706,4 @@ export function IDEPage() {
     </>
   );
 }
+
