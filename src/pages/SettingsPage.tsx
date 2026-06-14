@@ -1,8 +1,9 @@
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useMutation, useQuery } from "convex/react";
-import { ChevronRight, Loader2, Moon, Palette, Sun, User } from "lucide-react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { ChevronRight, Github, Key, Loader2, Moon, Palette, Save, Sun, User, Zap, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +30,35 @@ export function SettingsPage() {
 
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+
+  // ── GitHub integration state ───────────────────────────────────────────────
+  const [githubToken, setGithubToken] = useState("");
+  const [showToken, setShowToken] = useState(false);
+  const [savingToken, setSavingToken] = useState(false);
+  const [savingToken, setSavingToken] = useState(false);
+  const saveGithubToken = useMutation(api.github.saveToken);
+  const validateGithubToken = useAction(api.github.validateToken);
+  const githubSettings = useQuery(api.github.getSettings);
+
+  const handleSaveGithubToken = async () => {
+    if (!githubToken.trim()) return;
+    setSavingToken(true);
+    try {
+      // Save then immediately validate to confirm it works
+      await saveGithubToken({ token: githubToken.trim() });
+      const check = await validateGithubToken({ token: githubToken.trim() });
+      if (check.valid) {
+        toast.success(`GitHub connected as @${check.username ?? "unknown"}`);
+      } else {
+        toast.error(check.error ?? "Token saved but validation failed");
+      }
+      setGithubToken("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save token");
+    } finally {
+      setSavingToken(false);
+    }
+  };
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -295,7 +325,78 @@ export function SettingsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen}>
+      {/* ── GitHub Integration ────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Github className="h-4 w-4" />
+            GitHub Integration
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {githubSettings?.connected ? (
+            <div className="flex items-center gap-3 p-3 bg-green-950/30 border border-green-500/30 rounded-lg">
+              <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-green-400">Connected</p>
+                {githubSettings.username && (
+                  <p className="text-xs text-muted-foreground">@{githubSettings.username}</p>
+                )}
+              </div>
+
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 p-3 bg-muted/20 border border-border rounded-lg">
+              <Github className="h-4 w-4 text-muted-foreground shrink-0" />
+              <p className="text-sm text-muted-foreground">Not connected — add a token below</p>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Key className="h-3 w-3" />
+              Personal Access Token
+            </Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  type={showToken ? "text" : "password"}
+                  placeholder="ghp_xxxxxxxxxxxx"
+                  value={githubToken}
+                  onChange={(e) => setGithubToken(e.target.value)}
+                  className="pr-8 font-mono text-sm"
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveGithubToken()}
+                />
+                <button type="button" onClick={() => setShowToken(p => !p)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+              <Button onClick={handleSaveGithubToken} disabled={savingToken || !githubToken.trim()}
+                size="sm" className="gap-1.5 shrink-0">
+                {savingToken ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Save
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Needs <code className="font-mono">repo</code> + <code className="font-mono">workflow</code> scopes.{" "}
+              <a href="https://github.com/settings/tokens/new?scopes=repo,workflow&description=CodeForge"
+                target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                Generate one →
+              </a>
+            </p>
+          </div>
+
+          <div className="border-t border-border pt-3">
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <Zap className="h-3 w-3 text-yellow-400" />
+              Used for: auto-commits, PR creation, repo import, error-fix PRs
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+            <Dialog open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Account</DialogTitle>
