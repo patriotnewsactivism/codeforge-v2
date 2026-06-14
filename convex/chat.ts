@@ -4,6 +4,38 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { api } from "./_generated/api";
 import { callAIWithFallback, estimateCost, MODELS, DEFAULT_MODEL } from "./ai";
 
+// ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
+// Lifetime users get their stored keys injected into AI calls.
+// Weekly/monthly/free users use platform process.env keys (no userKeys passed).
+async function resolveByok(
+  ctx: any,
+  userId?: string
+): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
+  try {
+    const sub = await ctx.runQuery(api.limits.getMyLimits, {});
+    const callerPlan: string = sub?.plan ?? "free";
+    if (callerPlan !== "lifetime") return { callerPlan };
+    if (!userId) return { callerPlan };
+
+    const userKeys: Record<string, string> = await ctx.runQuery(
+      api.apiKeys.getAllKeysForUser,
+      { userId }
+    );
+    if (!userKeys || Object.keys(userKeys).length === 0) {
+      throw new Error(
+        "⚠️ Lifetime plan requires your own API key. " +
+          "Add one in Settings → API Keys to use AI features."
+      );
+    }
+    return { callerPlan, userKeys };
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("⚠️")) throw err;
+    return { callerPlan: "free" };
+  }
+}
+
+
+
 // ─── Session Management ──────────────────────────────────────────────────────
 
 export const getOrCreateSession = mutation({
@@ -232,6 +264,9 @@ export const sendMessage = action({
       fileContexts: args.fileContexts,
     });
 
+    // ── BYOK: resolve caller plan + user keys ─────────────────────────────
+    const byok = await resolveByok(ctx, String(args.userId));
+
     // ── SMART ROUTING ──────────────────────────────────────────────────────
     // Code-action keywords → dispatch to engine.runMission (full agent loop)
     // Questions/explanations → direct AI response (fast, cheap)
@@ -255,6 +290,8 @@ export const sendMessage = action({
         const { text: result, modelUsed } = await callAIWithFallback(userMessage, {
           model: args.model,
           systemPrompt,
+          callerPlan: byok.callerPlan,
+          userKeys: byok.userKeys,
         });
 
         const inputEst  = estimateCost(args.content + combinedContext, modelUsed, false);
@@ -359,3 +396,7 @@ export const listModels = query({
     }));
   },
 });
+
+
+
+
