@@ -14,7 +14,7 @@
  */
 
 import { v } from "convex/values";
-import { action, mutation, query, httpAction } from "./_generated/server";
+import { action, internalAction, mutation, query, httpAction } from "./_generated/server";
 import { api } from "./_generated/api";
 import { callAIWithFallback, getModelForRole } from "./ai";
 
@@ -330,5 +330,26 @@ export const ingestFromWebhook = action({
     }
 
     return { incidentId, autoFixTriggered };
+  },
+});
+
+// ── Internal alias used by http.ts httpAction ─────────────────────────────────
+// httpActions can only call ctx.runAction(internal.*) — this wraps the public action.
+export const ingestFromWebhookInternal = internalAction({
+  args: {
+    projectId: v.id("projects"),
+    source: v.string(),
+    rawPayload: v.string(),
+    autoFix: v.boolean(),
+    repoFullName: v.optional(v.string()),
+  },
+  returns: v.object({
+    incidentId: v.optional(v.id("errorIncidents")),
+    autoFixTriggered: v.boolean(),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    // Delegate to the full public action handler (same logic, internal surface)
+    return await ctx.runAction(api.errorIngestion.ingestFromWebhook, args);
   },
 });
