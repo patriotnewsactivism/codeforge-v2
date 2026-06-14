@@ -152,6 +152,12 @@ export function IDEPage() {
   }, [projectId, files?.length]);
 
   // Autonomous mode: run a build cycle every autoIntervalMinutes
+  // Missions list for Cinema panel picker
+  const missionsList = useQuery(
+    api.missions.listByProject,
+    projectId ? { projectId: projectId as Id<"projects"> } : "skip"
+  );
+
   const autonomousSettings = useQuery(
     api.suggestions.getAutonomousMode,
     projectId ? { projectId: projectId as Id<"projects"> } : "skip"
@@ -433,6 +439,8 @@ export function IDEPage() {
             <CinemaPanel
               projectId={projectId as Id<"projects">}
               missionId={cinemaMissionId}
+              missionsList={missionsList ?? []}
+              onSelectMission={(id) => setCinemaMissionId(id)}
             />
           </PanelErrorBoundary>
         )}
@@ -484,7 +492,7 @@ export function IDEPage() {
           </button>
         </div>
 
-        <BuildProgress projectId={projectId as Id<"projects">} />
+        <BuildProgress projectId={projectId as Id<"projects">} onMissionActive={(id) => { setCinemaMissionId(id); }} />
 
         {/* Main content area — full height minus top bar and bottom nav */}
         <div className="flex-1 overflow-hidden relative">
@@ -610,7 +618,7 @@ export function IDEPage() {
         projectId={projectId as Id<"projects">}
         projectName={project.name}
       />
-      <BuildProgress projectId={projectId as Id<"projects">} />
+      <BuildProgress projectId={projectId as Id<"projects">} onMissionActive={(id) => { setCinemaMissionId(id); }} />
       <CostBar projectId={projectId as Id<"projects">} />
 
       <div className="flex-1 overflow-hidden">
@@ -706,4 +714,3 @@ export function IDEPage() {
     </>
   );
 }
-
