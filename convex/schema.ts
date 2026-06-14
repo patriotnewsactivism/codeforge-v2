@@ -1,5 +1,5 @@
 import { authTables } from "@convex-dev/auth/server";
-import { defineSchema, defineTable } from "convex/server";
+import { defineSchema, defineTable } from "./_generated/server";
 import { v } from "convex/values";
 
 const schema = defineSchema({
@@ -800,4 +800,6 @@ const schema = defineSchema({
 });
 
 export default schema;
+
+
 

@@ -415,7 +415,7 @@ export const rollbackDeploy = action({
     repoFullName: v.string(),
     reason: v.string(),
   },
-  returns: v.object({ success: v.boolean(); error: v.optional(v.string()) }),
+  returns: v.object({ success: v.boolean(), error: v.optional(v.string()) }),
   handler: async (ctx, args) => {
     const deployment = await ctx.runQuery(api.gitops.getDeployment, {
       deploymentId: args.deploymentId,
@@ -533,3 +533,7 @@ export const launchPipeline = action({
     }
   },
 });
+
+
+
+

@@ -30,3 +30,6 @@ export const deleteAccount = mutation({
     return { success: true };
   },
 });
+
+
+

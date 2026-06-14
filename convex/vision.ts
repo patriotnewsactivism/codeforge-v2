@@ -68,3 +68,6 @@ export const analyzeScreenshot = action({
     return { analysis, mode };
   },
 });
+
+
+
