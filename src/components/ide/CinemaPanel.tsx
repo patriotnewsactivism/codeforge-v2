@@ -107,12 +107,22 @@ function FrameCard({ frame, isActive }: { frame: CinemaFrame; isActive: boolean 
   );
 }
 
+interface MissionSummary {
+  _id: Id<"buildSessions">;
+  _creationTime: number;
+  status: string;
+  currentStep?: string;
+  startedAt: number;
+}
+
 interface CinemaPanelProps {
   projectId: Id<"projects">;
   missionId: Id<"buildSessions"> | null;
+  missionsList?: MissionSummary[];
+  onSelectMission?: (id: Id<"buildSessions">) => void;
 }
 
-export function CinemaPanel({ projectId, missionId }: CinemaPanelProps) {
+export function CinemaPanel({ projectId, missionId, missionsList = [], onSelectMission }: CinemaPanelProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
@@ -172,11 +182,48 @@ export function CinemaPanel({ projectId, missionId }: CinemaPanelProps) {
 
   if (!missionId) {
     return (
-      <div className="h-full flex items-center justify-center text-center p-6">
-        <div>
-          <Film className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-muted-foreground text-sm">Select a mission to watch its Cinema replay</p>
+      <div className="h-full flex flex-col">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-[oklch(0.10_0.02_260)] shrink-0">
+          <Film className="h-4 w-4 text-primary" />
+          <span className="text-xs font-semibold">Mission Cinema</span>
         </div>
+        {missionsList.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center text-center p-6">
+            <div>
+              <Film className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-muted-foreground text-sm">No missions yet — run an agent task to generate a Cinema recording.</p>
+            </div>
+          </div>
+        ) : (
+          <ScrollArea className="flex-1 px-3 py-2">
+            <p className="text-[10px] text-muted-foreground mb-2 uppercase tracking-wide">Select a mission to replay</p>
+            <div className="flex flex-col gap-1.5">
+              {missionsList.map((m) => (
+                <button
+                  key={m._id}
+                  type="button"
+                  onClick={() => onSelectMission?.(m._id)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card hover:border-primary/50 text-left transition-colors"
+                >
+                  <span className={`h-2 w-2 rounded-full shrink-0 ${
+                    m.status === "completed" ? "bg-green-400" :
+                    m.status === "running"   ? "bg-yellow-400 animate-pulse" :
+                    m.status === "error"     ? "bg-red-400" : "bg-muted"
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-foreground truncate">{m.currentStep ?? "Mission"}</p>
+                    <p className="text-[10px] text-muted-foreground">{new Date(m.startedAt).toLocaleString()}</p>
+                  </div>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded border shrink-0 ${
+                    m.status === "completed" ? "text-green-400 border-green-500/30" :
+                    m.status === "running"   ? "text-yellow-400 border-yellow-500/30" :
+                    m.status === "error"     ? "text-red-400 border-red-500/30" : "text-muted-foreground border-border"
+                  }`}>{m.status}</span>
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
       </div>
     );
   }
@@ -189,6 +236,11 @@ export function CinemaPanel({ projectId, missionId }: CinemaPanelProps) {
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-[oklch(0.10_0.02_260)] shrink-0">
         <Film className="h-4 w-4 text-primary" />
         <span className="text-xs font-semibold text-foreground">Mission Cinema</span>
+        {onSelectMission && (
+          <button type="button" onClick={() => onSelectMission(null as any)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+            ← missions
+          </button>
+        )}
         {summary && (
           <div className="ml-auto flex items-center gap-3 text-[10px] text-muted-foreground">
             <span>{summary.totalFrames} frames</span>
