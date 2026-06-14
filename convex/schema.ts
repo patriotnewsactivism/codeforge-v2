@@ -570,6 +570,85 @@ const schema = defineSchema({
     .index("by_project_and_time", ["projectId", "timestamp"]),
 
 
+  // ─── LEARNING LOOP: FORENSIC ──────────────────────────────────────────────────
+  forensicReports: defineTable({
+    projectId: v.id("projects"),
+    missionId: v.optional(v.id("missions")),
+    buildSessionId: v.optional(v.id("buildSessions")),
+    failureClass: v.string(),
+    rootCause: v.string(),
+    evidenceQuotes: v.array(v.string()),
+    proposedMutation: v.string(),
+    mutationTarget: v.union(
+      v.literal("prompt"),
+      v.literal("tool_policy"),
+      v.literal("retry_strategy"),
+      v.literal("model_assignment"),
+      v.literal("none"),
+    ),
+    severity: v.union(
+      v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("critical"),
+    ),
+    confidence: v.number(),
+    timestamp: v.number(),
+    mutationApplied: v.boolean(),
+    appliedAt: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_severity", ["projectId", "severity"])
+    .index("by_project_and_time", ["projectId", "timestamp"]),
+
+  // ─── LEARNING LOOP: MUTATION ENGINE ───────────────────────────────────────────
+  mutationLog: defineTable({
+    projectId: v.id("projects"),
+    reportId: v.id("forensicReports"),
+    proposedMutation: v.string(),
+    mutationTarget: v.union(
+      v.literal("prompt"),
+      v.literal("tool_policy"),
+      v.literal("retry_strategy"),
+      v.literal("model_assignment"),
+      v.literal("none"),
+    ),
+    severity: v.union(
+      v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("critical"),
+    ),
+    autoApply: v.boolean(),
+    status: v.union(
+      v.literal("pending_review"),
+      v.literal("pending_apply"),
+      v.literal("applied"),
+      v.literal("rejected"),
+      v.literal("rolled_back"),
+    ),
+    appliedPatch: v.optional(v.string()),
+    rejectionReason: v.optional(v.string()),
+    version: v.number(),
+    rollbackAvailable: v.boolean(),
+    createdAt: v.number(),
+    appliedAt: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_status", ["projectId", "status"]),
+
+  // ─── LEARNING LOOP: REFLECTION AGENT ──────────────────────────────────────────
+  reflectionSessions: defineTable({
+    projectId: v.id("projects"),
+    mutationsReviewed: v.number(),
+    mutationsApproved: v.number(),
+    mutationsRejected: v.number(),
+    retrospectivesRead: v.number(),
+    forensicReportsRead: v.number(),
+    lessonsLearned: v.array(v.string()),
+    overallHealthScore: v.number(),
+    summary: v.string(),
+    nextActions: v.array(v.string()),
+    timestamp: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_time", ["projectId", "timestamp"]),
+
+
 });
 
 export default schema;

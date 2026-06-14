@@ -445,3 +445,37 @@ export const deleteMemory = mutation({
     await ctx.db.delete(args.memoryId);
   },
 });
+
+// ─── SAVE MEMORY (used by Reflection Agent) ──────────────────────────────────
+
+export const saveMemory = mutation({
+  args: {
+    projectId: v.id("projects"),
+    category: v.union(
+      v.literal("pattern"),
+      v.literal("anti_pattern"),
+      v.literal("preference"),
+      v.literal("architecture"),
+      v.literal("dependency"),
+      v.literal("bugfix"),
+      v.literal("convention"),
+      v.literal("tool"),
+      v.literal("insight"),
+    ),
+    content: v.string(),
+    importance: v.number(),
+    source: v.optional(v.string()),
+  },
+  returns: v.id("agentMemories"),
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("agentMemories", {
+      projectId: args.projectId,
+      category: args.category,
+      content: args.content,
+      importance: Math.min(1, Math.max(0, args.importance)),
+      usageCount: 0,
+      lastUsedAt: Date.now(),
+      decayFactor: 1.0,
+    });
+  },
+});
