@@ -649,6 +649,154 @@ const schema = defineSchema({
     .index("by_project_and_time", ["projectId", "timestamp"]),
 
 
+  // ─── CINEMA: MISSION REPLAY ────────────────────────────────────────────────────
+  cinemaFrames: defineTable({
+    projectId: v.id("projects"),
+    missionId: v.id("missions"),
+    buildSessionId: v.optional(v.id("buildSessions")),
+    frameType: v.union(
+      v.literal("spawn"),
+      v.literal("tool_call"),
+      v.literal("tool_result"),
+      v.literal("thought"),
+      v.literal("debate"),
+      v.literal("sentry"),
+      v.literal("message"),
+      v.literal("memory_read"),
+      v.literal("memory_write"),
+      v.literal("complete"),
+      v.literal("error"),
+    ),
+    agentId: v.string(),
+    agentName: v.string(),
+    agentRole: v.optional(v.string()),
+    parentAgentId: v.optional(v.string()),
+    spawnDepth: v.optional(v.number()),
+    payload: v.string(),
+    durationMs: v.optional(v.number()),
+    success: v.optional(v.boolean()),
+    ts: v.number(),
+  })
+    .index("by_mission", ["missionId"])
+    .index("by_project", ["projectId"])
+    .index("by_mission_ts", ["missionId", "ts"]),
+
+  // ─── CROSS-PROJECT INTELLIGENCE ────────────────────────────────────────────────
+  globalInsights: defineTable({
+    userId: v.id("users"),
+    pattern: v.string(),
+    detail: v.string(),
+    insightType: v.union(
+      v.literal("anti_pattern"),
+      v.literal("best_practice"),
+      v.literal("architecture"),
+      v.literal("gotcha"),
+      v.literal("performance"),
+      v.literal("security"),
+    ),
+    exampleCode: v.optional(v.string()),
+    occurrenceCount: v.number(),
+    projectIds: v.array(v.string()),
+    confidence: v.number(),
+    tags: v.array(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_type", ["userId", "insightType"]),
+
+  // ─── BENCHMARKS ────────────────────────────────────────────────────────────────
+  benchmarkRuns: defineTable({
+    projectId: v.id("projects"),
+    taskDescription: v.string(),
+    agentRole: v.string(),
+    modelA: v.string(),
+    modelB: v.string(),
+    outputA: v.string(),
+    outputB: v.string(),
+    scoreA: v.number(),
+    scoreB: v.number(),
+    winner: v.union(v.literal("A"), v.literal("B"), v.literal("tie")),
+    judgeReasoning: v.string(),
+    latencyAMs: v.number(),
+    latencyBMs: v.number(),
+    tokensA: v.optional(v.number()),
+    tokensB: v.optional(v.number()),
+    dimensions: v.object({
+      correctness: v.object({ a: v.number(), b: v.number() }),
+      codeQuality: v.object({ a: v.number(), b: v.number() }),
+      conciseness: v.object({ a: v.number(), b: v.number() }),
+      followsInstructions: v.object({ a: v.number(), b: v.number() }),
+    }),
+    timestamp: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_role", ["projectId", "agentRole"]),
+
+  // ─── ERROR INGESTION ───────────────────────────────────────────────────────────
+  errorIncidents: defineTable({
+    projectId: v.id("projects"),
+    source: v.union(
+      v.literal("sentry"),
+      v.literal("datadog"),
+      v.literal("bugsnag"),
+      v.literal("cloudwatch"),
+      v.literal("webhook"),
+      v.literal("manual"),
+    ),
+    errorType: v.string(),
+    errorMessage: v.string(),
+    stackTrace: v.optional(v.string()),
+    affectedFile: v.optional(v.string()),
+    affectedFunction: v.optional(v.string()),
+    environment: v.optional(v.string()),
+    occurrenceCount: v.number(),
+    rawPayload: v.optional(v.string()),
+    fingerprint: v.string(),
+    status: v.union(
+      v.literal("new"),
+      v.literal("analyzing"),
+      v.literal("fixing"),
+      v.literal("pr_opened"),
+      v.literal("resolved"),
+      v.literal("wont_fix"),
+    ),
+    forensicReportId: v.optional(v.id("forensicReports")),
+    prUrl: v.optional(v.string()),
+    fixSummary: v.optional(v.string()),
+    autoFixAttempted: v.boolean(),
+    createdAt: v.number(),
+    lastSeenAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_status", ["projectId", "status"])
+    .index("by_project_fingerprint", ["projectId", "fingerprint"]),
+
+  // ─── REPO IMPORT JOBS ──────────────────────────────────────────────────────────
+  importJobs: defineTable({
+    projectId: v.id("projects"),
+    repoUrl: v.string(),
+    repoFullName: v.string(),
+    branch: v.string(),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("cloning"),
+      v.literal("indexing"),
+      v.literal("analyzing"),
+      v.literal("ready"),
+      v.literal("failed"),
+    ),
+    filesImported: v.optional(v.number()),
+    detectedStack: v.optional(v.array(v.string())),
+    briefGenerated: v.optional(v.boolean()),
+    error: v.optional(v.string()),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"]),
+
+
 });
 
 export default schema;
