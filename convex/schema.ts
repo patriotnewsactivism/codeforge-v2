@@ -507,6 +507,69 @@ const schema = defineSchema({
     .index("by_project_and_time", ["projectId", "timestamp"]),
 
 
+  // ─── GITOPS BRIDGE ────────────────────────────────────────────────────────────
+  deployments: defineTable({
+    projectId: v.id("projects"),
+    branchName: v.string(),
+    prNumber: v.optional(v.number()),
+    prUrl: v.optional(v.string()),
+    commitSha: v.string(),
+    commitMessage: v.string(),
+    repoFullName: v.string(),
+    triggeredByAgentId: v.string(),
+    buildSessionId: v.optional(v.id("buildSessions")),
+    deploymentCertificate: v.optional(v.string()),
+    status: v.union(
+      v.literal("pending_ci"),
+      v.literal("ci_running"),
+      v.literal("ci_failed"),
+      v.literal("awaiting_human"),
+      v.literal("deploying"),
+      v.literal("canary"),
+      v.literal("deployed"),
+      v.literal("rolled_back"),
+    ),
+    ciSummary: v.optional(v.string()),
+    humanApproved: v.boolean(),
+    approvedBy: v.optional(v.string()),
+    canaryPercent: v.number(),
+    createdAt: v.number(),
+    deployedAt: v.optional(v.number()),
+    error: v.optional(v.string()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_status", ["projectId", "status"]),
+
+  // ─── SENTRY AGENT ─────────────────────────────────────────────────────────────
+  sentryViolations: defineTable({
+    projectId: v.id("projects"),
+    agentId: v.string(),
+    agentRole: v.string(),
+    tool: v.string(),
+    args: v.string(),
+    violationType: v.union(
+      v.literal("unauthorized_tool"),
+      v.literal("spawn_depth_exceeded"),
+      v.literal("unauthorized_spawn"),
+      v.literal("rate_limit_exceeded"),
+      v.literal("dangerous_pattern"),
+      v.literal("debate_required"),
+    ),
+    details: v.string(),
+    severity: v.union(
+      v.literal("low"),
+      v.literal("medium"),
+      v.literal("high"),
+      v.literal("critical"),
+    ),
+    blocked: v.boolean(),
+    timestamp: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_severity", ["projectId", "severity"])
+    .index("by_project_and_time", ["projectId", "timestamp"]),
+
+
 });
 
 export default schema;

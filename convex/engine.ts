@@ -13,6 +13,7 @@ import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { callAIWithFallback, getModelForRole } from "./ai";
+import { api as _api } from "./_generated/api";
 import { api } from "./_generated/api";
 
 // ─── TOOL CALL SCHEMA ──────────────────────────────────────────────────────
@@ -158,6 +159,40 @@ async function executeTool(
   });
 
   try {
+    // ── Sentry check ──────────────────────────────────────────────────────
+    const sentryResult = await ctx.runAction(api.sentry.checkToolCall, {
+      projectId,
+      agentId,
+      agentRole: agentName,
+      tool: call.tool,
+      toolArgs: JSON.stringify(call.args),
+      spawnDepth,
+    });
+
+    if (!sentryResult.allowed) {
+      await ctx.runMutation(api.engine.updateToolCall, {
+        toolCallId, status: "error",
+        error: `Sentry blocked: ${sentryResult.reason}`,
+      });
+      return { tool: call.tool, success: false, output: "", error: `Sentry blocked: ${sentryResult.reason}` };
+    }
+
+    // If debate required (sensitive path/dangerous content), run it first
+    if (sentryResult.requiresDebate && call.tool !== "complete_task") {
+      const debateCheck = await ctx.runAction(api.debate.requireDebate, {
+        projectId,
+        proposal: `${call.tool}: ${JSON.stringify(call.args).slice(0, 200)}`,
+        operationType: call.tool === "delete_file" ? "destructive" : "feature",
+      });
+      if (!debateCheck.allowed) {
+        await ctx.runMutation(api.engine.updateToolCall, {
+          toolCallId, status: "error",
+          error: debateCheck.message,
+        });
+        return { tool: call.tool, success: false, output: "", error: debateCheck.message };
+      }
+    }
+
     let output = "";
 
     switch (call.tool) {
