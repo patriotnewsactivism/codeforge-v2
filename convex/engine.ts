@@ -16,6 +16,38 @@ import { callAIWithFallback, getModelForRole } from "./ai";
 import { api as _api } from "./_generated/api";
 import { api } from "./_generated/api";
 
+// ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
+// Lifetime users get their stored keys injected into AI calls.
+// Weekly/monthly/free users use platform process.env keys (no userKeys passed).
+async function resolveByok(
+  ctx: any,
+  userId?: string
+): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
+  try {
+    const sub = await ctx.runQuery(api.limits.getMyLimits, {});
+    const callerPlan: string = sub?.plan ?? "free";
+    if (callerPlan !== "lifetime") return { callerPlan };
+    if (!userId) return { callerPlan };
+
+    const userKeys: Record<string, string> = await ctx.runQuery(
+      api.apiKeys.getAllKeysForUser,
+      { userId }
+    );
+    if (!userKeys || Object.keys(userKeys).length === 0) {
+      throw new Error(
+        "⚠️ Lifetime plan requires your own API key. " +
+          "Add one in Settings → API Keys to use AI features."
+      );
+    }
+    return { callerPlan, userKeys };
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("⚠️")) throw err;
+    return { callerPlan: "free" };
+  }
+}
+
+
+
 // ─── TOOL CALL SCHEMA ──────────────────────────────────────────────────────
 
 export type ToolName =
@@ -373,7 +405,8 @@ async function runAgentLoop(
   depth: number,
   spawnCount: { value: number },
   model: string,
-  planLimits?: PlanLimits
+  planLimits?: PlanLimits,
+  byok?: { callerPlan: string; userKeys?: Record<string, string> }
 ): Promise<string> {
   const files = await ctx.runQuery(api.files.listByProject, { projectId });
   const codeFiles = files.filter((f: any) => !f.isDirectory);
@@ -436,7 +469,11 @@ Rules:
 
     let rawResponse: string;
     try {
-      const { text, modelUsed } = await callAIWithFallback(messages, { model });
+      const { text, modelUsed } = await callAIWithFallback(messages, {
+        model,
+        callerPlan: byok?.callerPlan,
+        userKeys: byok?.userKeys,
+      });
       rawResponse = text;
 
       await ctx.runMutation(api.agentThoughts.emit, {
@@ -585,6 +622,10 @@ export const runMission = action({
       };
     }
 
+    // Resolve BYOK for this caller
+    const userId = await ctx.runQuery(api.auth.currentUser, {});
+    const byok = await resolveByok(ctx, userId?._id ? String(userId._id) : undefined);
+
     const result = await runAgentLoop(
       ctx,
       args.projectId,
@@ -595,9 +636,14 @@ export const runMission = action({
       0,
       spawnCount,
       model,
-      planLimits
+      planLimits,
+      byok
     );
 
     return result;
   },
 });
+
+
+
+
