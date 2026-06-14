@@ -33,6 +33,7 @@ export const emit = mutation({
     agentId: v.string(),
     agentName: v.string(),
     type: v.union(
+      // Original types
       v.literal("plan"),
       v.literal("analyze"),
       v.literal("code"),
@@ -42,7 +43,14 @@ export const emit = mutation({
       v.literal("search"),
       v.literal("commit"),
       v.literal("broadcast"),
-      v.literal("done")
+      v.literal("done"),
+      // Extended types used by new feature files
+      v.literal("action"),
+      v.literal("complete"),
+      v.literal("error"),
+      v.literal("warning"),
+      v.literal("thinking"),
+      v.literal("finding")
     ),
     content: v.string(),
     isStreaming: v.optional(v.boolean()),
