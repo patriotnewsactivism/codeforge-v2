@@ -383,6 +383,23 @@ const schema = defineSchema({
     .index("by_user", ["userId"])
     .index("by_stripe_customer", ["stripeCustomerId"]),
 
+  // ─── BYOK: PER-USER API KEYS ─────────────────────────────────────────────────
+  userApiKeys: defineTable({
+    userId: v.id("users"),
+    provider: v.union(
+      v.literal("openai"),
+      v.literal("deepseek"),
+      v.literal("xai"),
+      v.literal("moonshot")
+    ),
+    encryptedKey: v.string(),
+    maskedKey: v.string(),
+    isValid: v.optional(v.boolean()),
+    validatedAt: v.optional(v.number()),
+    addedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_provider", ["userId", "provider"]),
 
 
   // ─── USAGE TRACKING ──────────────────────────────────────────────────────────

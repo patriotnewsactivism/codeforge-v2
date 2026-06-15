@@ -17,6 +17,38 @@ import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import { callAIWithFallback } from "./ai";
 
+// ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
+// Lifetime users get their stored keys injected into AI calls.
+// Weekly/monthly/free users use platform process.env keys (no userKeys passed).
+async function resolveByok(
+  ctx: any,
+  userId?: string
+): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
+  try {
+    const sub = await ctx.runQuery(api.limits.getMyLimits, {});
+    const callerPlan: string = sub?.plan ?? "free";
+    if (callerPlan !== "lifetime") return { callerPlan };
+    if (!userId) return { callerPlan };
+
+    const userKeys: Record<string, string> = await ctx.runQuery(
+      api.apiKeys.getAllKeysForUser,
+      { userId }
+    );
+    if (!userKeys || Object.keys(userKeys).length === 0) {
+      throw new Error(
+        "⚠️ Lifetime plan requires your own API key. " +
+          "Add one in Settings → API Keys to use AI features."
+      );
+    }
+    return { callerPlan, userKeys };
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("⚠️")) throw err;
+    return { callerPlan: "free" };
+  }
+}
+
+
+
 // ─── DB ──────────────────────────────────────────────────────────────────────
 
 export const saveBenchmark = mutation({
@@ -124,9 +156,13 @@ export const runBenchmark = action({
 
     // Run A and B in "parallel" (sequential in Convex, but fast enough)
     const startA = Date.now();
+    // BYOK: resolve caller plan + keys for lifetime users
+    const byok = await resolveByok(ctx);
     const { text: outputA, usage: usageA } = await callAIWithFallback(fullPrompt, {
       model: args.modelA,
       temperature: 0.3,
+      callerPlan: byok?.callerPlan,
+      userKeys: byok?.userKeys,
     });
     const latencyAMs = Date.now() - startA;
 
@@ -134,6 +170,8 @@ export const runBenchmark = action({
     const { text: outputB, usage: usageB } = await callAIWithFallback(fullPrompt, {
       model: args.modelB,
       temperature: 0.3,
+      callerPlan: byok?.callerPlan,
+      userKeys: byok?.userKeys,
     });
     const latencyBMs = Date.now() - startB;
 
@@ -179,6 +217,8 @@ JSON only:
     const { text: judgeRaw } = await callAIWithFallback(judgePrompt, {
       model: "grok-4",   // always use strong model as judge
       temperature: 0.1,
+      callerPlan: byok?.callerPlan,
+      userKeys: byok?.userKeys,
     });
 
     let scoreA = 5, scoreB = 5;
@@ -243,6 +283,7 @@ JSON only:
     return { benchmarkId, winner, scoreA, scoreB, judgeReasoning, recommendation };
   },
 });
+
 
 
 

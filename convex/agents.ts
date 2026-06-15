@@ -4,13 +4,54 @@ import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { callAIWithFallback } from "./ai";
 
+// ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
+// Lifetime users get their stored keys injected into AI calls.
+// Weekly/monthly/free users use platform process.env keys (no userKeys passed).
+async function resolveByok(
+  ctx: any,
+  userId?: string
+): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
+  try {
+    const sub = await ctx.runQuery(api.limits.getMyLimits, {});
+    const callerPlan: string = sub?.plan ?? "free";
+    if (callerPlan !== "lifetime") return { callerPlan };
+    if (!userId) return { callerPlan };
+
+    const userKeys: Record<string, string> = await ctx.runQuery(
+      api.apiKeys.getAllKeysForUser,
+      { userId }
+    );
+    if (!userKeys || Object.keys(userKeys).length === 0) {
+      throw new Error(
+        "⚠️ Lifetime plan requires your own API key. " +
+          "Add one in Settings → API Keys to use AI features."
+      );
+    }
+    return { callerPlan, userKeys };
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("⚠️")) throw err;
+    return { callerPlan: "free" };
+  }
+}
+
+
+
 declare const process: { env: Record<string, string | undefined> };
 
 
 // ─── AI CALL ─────────────────────────────────────────────────────────────────
 
-async function callAI(prompt: string, model?: string, _maxTokens?: number): Promise<string> {
-  const { text } = await callAIWithFallback(prompt, { model });
+async function callAI(
+  prompt: string,
+  model?: string,
+  _maxTokens?: number,
+  byok?: { callerPlan: string; userKeys?: Record<string, string> }
+): Promise<string> {
+  const { text } = await callAIWithFallback(prompt, {
+    model,
+    callerPlan: byok?.callerPlan,
+    userKeys: byok?.userKeys,
+  });
   return text;
 }
 
@@ -191,6 +232,10 @@ export const runMultiAgent = action({
     // Clear old thoughts
     await ctx.runMutation(api.agentThoughts.clearForProject, { projectId });
 
+    // BYOK: resolve caller plan + API keys
+    const currentUser = await ctx.runQuery(api.auth.currentUser, {});
+    const byok = await resolveByok(ctx, currentUser?._id ? String(currentUser._id) : undefined);
+
     await think(ctx, projectId, "planner-agent", "Planner", "plan",
       `Task received: "${args.prompt}"`, true);
 
@@ -281,7 +326,7 @@ Return ONLY valid JSON (no markdown fences):
   ]
 }`;
 
-    const planResult = await callAI(planPrompt, "deepseek-v4-flash", 3000);
+    const planResult = await callAI(planPrompt, "deepseek-v4-flash", 3000, byok);
     const planMatch = planResult.match(/\{[\s\S]*\}/);
     if (!planMatch) throw new Error("Planner failed to produce a valid plan");
 
@@ -413,7 +458,7 @@ Return ONLY valid JSON (no markdown fences):
         await think(ctx, projectId, t.agentId, t.agentName, "code",
           "Working...", true);
 
-        const agentResult = await callAI(agentPrompt, "deepseek-v4-flash", 8000);
+        const agentResult = await callAI(agentPrompt, "deepseek-v4-flash", 8000, byok);
         const jsonMatch = agentResult.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error("Non-JSON output from agent");
 
@@ -598,6 +643,7 @@ Return ONLY valid JSON (no markdown fences):
       .join("\n");
   },
 });
+
 
 
 

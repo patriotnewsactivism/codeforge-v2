@@ -18,6 +18,38 @@ import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { callAIWithFallback, getModelForRole } from "./ai";
 
+// ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
+// Lifetime users get their stored keys injected into AI calls.
+// Weekly/monthly/free users use platform process.env keys (no userKeys passed).
+async function resolveByok(
+  ctx: any,
+  userId?: string
+): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
+  try {
+    const sub = await ctx.runQuery(api.limits.getMyLimits, {});
+    const callerPlan: string = sub?.plan ?? "free";
+    if (callerPlan !== "lifetime") return { callerPlan };
+    if (!userId) return { callerPlan };
+
+    const userKeys: Record<string, string> = await ctx.runQuery(
+      api.apiKeys.getAllKeysForUser,
+      { userId }
+    );
+    if (!userKeys || Object.keys(userKeys).length === 0) {
+      throw new Error(
+        "⚠️ Lifetime plan requires your own API key. " +
+          "Add one in Settings → API Keys to use AI features."
+      );
+    }
+    return { callerPlan, userKeys };
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("⚠️")) throw err;
+    return { callerPlan: "free" };
+  }
+}
+
+
+
 // ─── TYPES ─────────────────────────────────────────────────────────────────
 
 export type DebateVerdict = "PROCEED" | "REFINE" | "ESCALATE";
@@ -141,9 +173,13 @@ Operation type: ${opType}${contextBlock}
 Respond with a focused argument (3–5 sentences max). Be concrete — cite real engineering benefits.
 Do NOT hedge. You are arguing FOR this change.`;
 
+    // BYOK: resolve caller plan + keys for lifetime users
+    const byok = await resolveByok(ctx);
     const { text: proponentArgument } = await callAIWithFallback(proponentPrompt, {
       model: getModelForRole("architect"),
       temperature: 0.4,
+      callerPlan: byok?.callerPlan,
+      userKeys: byok?.userKeys,
     });
 
     // ── Round 2: Opponent ──────────────────────────────────────────────────
@@ -162,6 +198,8 @@ Do NOT agree with the proponent. You are finding problems.`;
     const { text: opponentArgument } = await callAIWithFallback(opponentPrompt, {
       model: getModelForRole("reviewer"),
       temperature: 0.4,
+      callerPlan: byok?.callerPlan,
+      userKeys: byok?.userKeys,
     });
 
     // ── Round 3: Moderator ─────────────────────────────────────────────────
@@ -201,6 +239,8 @@ Verdict definitions:
     const { text: moderatorRaw } = await callAIWithFallback(moderatorPrompt, {
       model: getModelForRole("orchestrator"),
       temperature: 0.2,
+      callerPlan: byok?.callerPlan,
+      userKeys: byok?.userKeys,
     });
 
     // Parse moderator JSON
@@ -337,6 +377,7 @@ export const requireDebate = action({
     };
   },
 });
+
 
 
 

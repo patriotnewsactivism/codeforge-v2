@@ -155,7 +155,8 @@ const PLANS = [
       { text: "32 concurrent agents", locked: false },
       { text: "Spawn depth: 5 (up to 250 agents!!!)", locked: false },
       { text: "200 projects", locked: false },
-      { text: "$50 compute / month forever", locked: false },
+      { text: "Bring Your Own Key (BYOK) — use your own AI credits", locked: false },
+      { text: "No API compute charges from CodeForge", locked: false },
       { text: "VIP Discord + direct support", locked: false },
       { text: "All future features, forever", locked: false },
       { text: "Founder badge on profile", locked: false },
@@ -274,6 +275,11 @@ export function PricingPage() {
                     <span className="text-3xl font-bold">{plan.price}</span>
                     <span className="text-muted-foreground text-sm pb-1">{plan.period}</span>
                   </div>
+                  {plan.key === "lifetime" && (
+                    <p className="text-xs text-amber-400/80 mt-1">
+                      BYOK — bring your own AI provider key
+                    </p>
+                  )}
 
                   {/* Agent swarm badge */}
                   <div className="mt-3 flex items-center gap-1.5 rounded-lg bg-black/20 px-2.5 py-1.5">
@@ -293,6 +299,17 @@ export function PricingPage() {
                       <span className="text-xs leading-snug">{f.text}</span>
                     </div>
                   ))}
+                  {plan.key === "lifetime" && (
+                    <div className="rounded-md p-3 text-xs mt-3" style={{
+                      background: "rgba(245,158,11,0.08)",
+                      border: "1px solid rgba(245,158,11,0.2)",
+                      color: "#94A3B8"
+                    }}>
+                      <span className="text-amber-400 font-semibold">BYOK:</span>{" "}
+                      Lifetime access includes unlimited usage of CodeForge — you supply your own
+                      OpenAI, DeepSeek, xAI, or Moonshot API key. No compute costs billed by us.
+                    </div>
+                  )}
                 </div>
 
                 {/* CTA */}
