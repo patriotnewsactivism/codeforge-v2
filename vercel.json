@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npx convex deploy --prod && npm run build",
   "outputDirectory": "dist",
   "rewrites": [
     {
