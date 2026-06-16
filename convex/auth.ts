@@ -34,11 +34,15 @@ if (jwtPrivateKey) {
   process.env.JWT_PRIVATE_KEY = decodePrivateKey(jwtPrivateKey)!;
 }
 
+const resendConfigured = Boolean(process.env.RESEND_API_KEY);
+
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     Password({
-      verify: CodeForgeEmail,
-      reset: CodeForgePasswordReset,
+      // Only require email verification when Resend is configured.
+      // Without it, sign-up and sign-in both fail because OTP can't be sent.
+      ...(resendConfigured ? { verify: CodeForgeEmail } : {}),
+      ...(resendConfigured ? { reset: CodeForgePasswordReset } : {}),
     }),
     // Enable test credentials in preview/dev environments
     ...(process.env.IS_PREVIEW === "true" ? [TestCredentials] : []),
