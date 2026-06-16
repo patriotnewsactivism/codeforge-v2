@@ -16,6 +16,7 @@ import {
   Github, Download, Loader2, CheckCircle2, AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
+import { BYOKBanner } from "@/components/ide/BYOKBanner";
 
 type ModalMode = "none" | "create" | "import";
 
@@ -136,6 +137,7 @@ export function DashboardPage() {
 
   return (
     <div className="min-h-[calc(100dvh-64px)] p-3 sm:p-6">
+      <BYOKBanner />
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 sm:mb-8">

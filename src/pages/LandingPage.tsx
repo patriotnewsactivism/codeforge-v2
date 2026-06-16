@@ -452,6 +452,10 @@ export function LandingPage() {
               Sign in
             </Button>
           </div>
+          <p className="text-sm text-slate-400 mt-6">
+            * Lifetime plan is Bring Your Own Key — supply your AI provider API key
+            and we'll never charge you for compute.
+          </p>
         </div>
       </section>
 

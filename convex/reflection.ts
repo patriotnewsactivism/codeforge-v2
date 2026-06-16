@@ -21,6 +21,38 @@ import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import { callAIWithFallback, getModelForRole } from "./ai";
 
+// ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
+// Lifetime users get their stored keys injected into AI calls.
+// Weekly/monthly/free users use platform process.env keys (no userKeys passed).
+async function resolveByok(
+  ctx: any,
+  userId?: string
+): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
+  try {
+    const sub = await ctx.runQuery(api.limits.getMyLimits, {});
+    const callerPlan: string = sub?.plan ?? "free";
+    if (callerPlan !== "lifetime") return { callerPlan };
+    if (!userId) return { callerPlan };
+
+    const userKeys: Record<string, string> = await ctx.runQuery(
+      api.apiKeys.getAllKeysForUser,
+      { userId }
+    );
+    if (!userKeys || Object.keys(userKeys).length === 0) {
+      throw new Error(
+        "⚠️ Lifetime plan requires your own API key. " +
+          "Add one in Settings → API Keys to use AI features."
+      );
+    }
+    return { callerPlan, userKeys };
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("⚠️")) throw err;
+    return { callerPlan: "free" };
+  }
+}
+
+
+
 // ─── DB ──────────────────────────────────────────────────────────────────────
 
 export const saveReflectionSession = mutation({
@@ -146,9 +178,13 @@ Respond with JSON only:
   "nextActions": ["action 1", "action 2"]
 }`;
 
+    // BYOK: resolve caller plan + keys for lifetime users
+    const byok = await resolveByok(ctx);
     const { text: raw } = await callAIWithFallback(reflectionPrompt, {
       model: getModelForRole("orchestrator"),
       temperature: 0.3,
+      callerPlan: byok?.callerPlan,
+      userKeys: byok?.userKeys,
     });
 
     // Parse
@@ -305,9 +341,13 @@ JSON only:
   "summary": "2-3 sentence strategic assessment"
 }`;
 
+    // BYOK: resolve caller plan + keys for lifetime users
+    const byok = await resolveByok(ctx);
     const { text: raw } = await callAIWithFallback(prompt, {
       model: getModelForRole("orchestrator"),
       temperature: 0.4,
+      callerPlan: byok?.callerPlan,
+      userKeys: byok?.userKeys,
     });
 
     let topologyChanges: string[] = [];
@@ -334,6 +374,7 @@ JSON only:
     return { recommendations, topologyChanges, summary };
   },
 });
+
 
 
 

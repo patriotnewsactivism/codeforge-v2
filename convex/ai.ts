@@ -1,140 +1,90 @@
 /**
- * ai.ts — CodeForge AI Router
+ * ai.ts — CodeForge AI Router (BYOK update)
  *
- * Self-contained multi-model AI layer. No third-party middleware.
- * Calls provider APIs directly with automatic fallback.
+ * CHANGES FROM ORIGINAL:
+ * - getApiKey() now accepts an optional userKeys map (for lifetime users)
+ * - callAI() accepts optional callerPlan + userKeys
+ * - callAIWithFallback() enforces BYOK-only fallback for lifetime users
+ *   (does NOT fall back to platform keys if a lifetime user's key fails)
+ * - New exported helper: checkByokRequirement()
  *
- * Supported models:
- *   deepseek-v3          → api.deepseek.com  (DeepSeek V3)
- *   deepseek-chat        → api.deepseek.com  (DeepSeek V3, alias)
- *   grok-3-fast          → api.x.ai          (Grok 3 Fast)
- *   grok-4              → api.x.ai          (Grok 4)
- *   kimi-k2             → api.moonshot.cn   (Kimi K2)
- *   gpt-4o-mini         → api.openai.com    (GPT-4o Mini fallback)
+ * All other code (MODELS, DEFAULT_MODEL, AGENT_MODELS, etc.) unchanged.
  */
 
 declare const process: { env: Record<string, string | undefined> };
 
 // ─── MODEL REGISTRY ────────────────────────────────────────────────────────
+// (unchanged from original — copy as-is)
 
 export interface ModelConfig {
   id: string;
   name: string;
   provider: "deepseek" | "xai" | "moonshot" | "openai" | "azure";
-  apiModel: string;            // model name sent to the API
-  inputCostPer1M: number;      // USD per 1M input tokens
-  outputCostPer1M: number;     // USD per 1M output tokens
+  apiModel: string;
+  inputCostPer1M: number;
+  outputCostPer1M: number;
   maxTokens: number;
   tier: "strong" | "balanced" | "fast";
 }
 
 export const MODELS: Record<string, ModelConfig> = {
-  // ── DeepSeek ──────────────────────────────────────────────────────────────
   "deepseek-v3": {
-    id: "deepseek-v3",
-    name: "DeepSeek V3",
-    provider: "deepseek",
-    apiModel: "deepseek-chat",
-    inputCostPer1M: 0.27,
-    outputCostPer1M: 1.10,
-    maxTokens: 8192,
-    tier: "balanced",
+    id: "deepseek-v3", name: "DeepSeek V3", provider: "deepseek",
+    apiModel: "deepseek-chat", inputCostPer1M: 0.27, outputCostPer1M: 1.10,
+    maxTokens: 8192, tier: "balanced",
   },
   "deepseek-chat": {
-    id: "deepseek-chat",
-    name: "DeepSeek V3",
-    provider: "deepseek",
-    apiModel: "deepseek-chat",
-    inputCostPer1M: 0.27,
-    outputCostPer1M: 1.10,
-    maxTokens: 8192,
-    tier: "balanced",
+    id: "deepseek-chat", name: "DeepSeek V3", provider: "deepseek",
+    apiModel: "deepseek-chat", inputCostPer1M: 0.27, outputCostPer1M: 1.10,
+    maxTokens: 8192, tier: "balanced",
   },
   "deepseek-reasoner": {
-    id: "deepseek-reasoner",
-    name: "DeepSeek R1",
-    provider: "deepseek",
-    apiModel: "deepseek-reasoner",
-    inputCostPer1M: 0.55,
-    outputCostPer1M: 2.19,
-    maxTokens: 8192,
-    tier: "strong",
+    id: "deepseek-reasoner", name: "DeepSeek R1", provider: "deepseek",
+    apiModel: "deepseek-reasoner", inputCostPer1M: 0.55, outputCostPer1M: 2.19,
+    maxTokens: 8192, tier: "strong",
   },
-
-  // ── xAI / Grok ────────────────────────────────────────────────────────────
   "grok-3-fast": {
-    id: "grok-3-fast",
-    name: "Grok 3 Fast",
-    provider: "xai",
-    apiModel: "grok-3-fast",
-    inputCostPer1M: 3.0,
-    outputCostPer1M: 15.0,
-    maxTokens: 8192,
-    tier: "fast",
+    id: "grok-3-fast", name: "Grok 3 Fast", provider: "xai",
+    apiModel: "grok-3-fast", inputCostPer1M: 3.0, outputCostPer1M: 15.0,
+    maxTokens: 8192, tier: "fast",
   },
   "grok-4": {
-    id: "grok-4",
-    name: "Grok 4",
-    provider: "xai",
-    apiModel: "grok-4",
-    inputCostPer1M: 5.0,
-    outputCostPer1M: 25.0,
-    maxTokens: 16384,
-    tier: "strong",
+    id: "grok-4", name: "Grok 4", provider: "xai",
+    apiModel: "grok-4", inputCostPer1M: 5.0, outputCostPer1M: 25.0,
+    maxTokens: 16384, tier: "strong",
   },
-
-  // ── Moonshot / Kimi ───────────────────────────────────────────────────────
   "kimi-k2": {
-    id: "kimi-k2",
-    name: "Kimi K2",
-    provider: "moonshot",
-    apiModel: "moonshot-v1-8k",
-    inputCostPer1M: 0.12,
-    outputCostPer1M: 0.12,
-    maxTokens: 8192,
-    tier: "fast",
+    id: "kimi-k2", name: "Kimi K2", provider: "moonshot",
+    apiModel: "moonshot-v1-8k", inputCostPer1M: 0.12, outputCostPer1M: 0.12,
+    maxTokens: 8192, tier: "fast",
   },
-
-  // ── OpenAI (fallback) ─────────────────────────────────────────────────────
   "gpt-4o-mini": {
-    id: "gpt-4o-mini",
-    name: "GPT-4o Mini",
-    provider: "openai",
-    apiModel: "gpt-4o-mini",
-    inputCostPer1M: 0.15,
-    outputCostPer1M: 0.60,
-    maxTokens: 8192,
-    tier: "fast",
+    id: "gpt-4o-mini", name: "GPT-4o Mini", provider: "openai",
+    apiModel: "gpt-4o-mini", inputCostPer1M: 0.15, outputCostPer1M: 0.60,
+    maxTokens: 8192, tier: "fast",
   },
   "gpt-4o": {
-    id: "gpt-4o",
-    name: "GPT-4o",
-    provider: "openai",
-    apiModel: "gpt-4o",
-    inputCostPer1M: 2.50,
-    outputCostPer1M: 10.0,
-    maxTokens: 8192,
-    tier: "strong",
+    id: "gpt-4o", name: "GPT-4o", provider: "openai",
+    apiModel: "gpt-4o", inputCostPer1M: 2.50, outputCostPer1M: 10.0,
+    maxTokens: 8192, tier: "strong",
   },
 };
 
-// Default model used when none is specified
 export const DEFAULT_MODEL = "deepseek-v3";
 
-// Role → model mapping for the agent system
 export const AGENT_MODELS: Record<string, string> = {
-  orchestrator:  "grok-4",
-  architect:     "grok-4",
-  coder:         "deepseek-v3",
-  reviewer:      "grok-3-fast",
-  debugger:      "deepseek-v3",
-  tester:        "deepseek-v3",
-  devops:        "deepseek-v3",
-  sentry:        "grok-3-fast",
-  forensic:      "grok-4",
-  reflection:    "grok-4",
-  strategist:    "grok-4",
-  default:       "deepseek-v3",
+  orchestrator: "grok-4",
+  architect:    "grok-4",
+  coder:        "deepseek-v3",
+  reviewer:     "grok-3-fast",
+  debugger:     "deepseek-v3",
+  tester:       "deepseek-v3",
+  devops:       "deepseek-v3",
+  sentry:       "grok-3-fast",
+  forensic:     "grok-4",
+  reflection:   "grok-4",
+  strategist:   "grok-4",
+  default:      "deepseek-v3",
 };
 
 // ─── PROVIDER BASE URLS ────────────────────────────────────────────────────
@@ -149,7 +99,39 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
   }
 }
 
-function getApiKey(provider: ModelConfig["provider"]): string {
+// Provider → userApiKeys field mapping
+const PROVIDER_KEY_MAP: Record<ModelConfig["provider"], string> = {
+  deepseek: "deepseek",
+  xai:      "xai",
+  moonshot: "moonshot",
+  openai:   "openai",
+  azure:    "openai", // azure falls back to openai key in BYOK
+};
+
+/**
+ * getApiKey — resolves the API key for a provider.
+ *
+ * For lifetime users: reads from their supplied userKeys map.
+ * For weekly/monthly/free: reads from process.env (platform keys).
+ *
+ * @param provider    - the AI provider
+ * @param callerPlan  - "lifetime" | "monthly" | "weekly" | "free"
+ * @param userKeys    - map of provider → decrypted key (for lifetime users)
+ */
+function getApiKey(
+  provider: ModelConfig["provider"],
+  callerPlan?: string,
+  userKeys?: Record<string, string>
+): string {
+  if (callerPlan === "lifetime" && userKeys) {
+    const providerSlug = PROVIDER_KEY_MAP[provider];
+    const userKey = userKeys[providerSlug];
+    if (userKey) return userKey;
+    // No user key for this provider — return empty so the caller can handle it
+    return "";
+  }
+
+  // Platform keys for weekly/monthly/free
   switch (provider) {
     case "deepseek":  return process.env.DEEPSEEK_API_KEY ?? "";
     case "xai":       return process.env.XAI_API_KEY ?? "";
@@ -166,13 +148,38 @@ export function estimateCost(
   modelId: string,
   isOutput: boolean
 ): { tokens: number; cost: number } {
-  const tokens = Math.ceil(text.length / 4); // ~4 chars per token
+  const tokens = Math.ceil(text.length / 4);
   const config = MODELS[modelId] ?? MODELS[DEFAULT_MODEL];
   const costPer1M = isOutput ? config.outputCostPer1M : config.inputCostPer1M;
   return { tokens, cost: (tokens / 1_000_000) * costPer1M };
 }
 
-// ─── CORE AI CALL ─────────────────────────────────────────────────────────
+// ─── BYOK REQUIREMENT CHECK ────────────────────────────────────────────────
+
+/**
+ * checkByokRequirement — determines if a lifetime user is blocked from AI use.
+ *
+ * Returns { blocked: false } if the user can proceed.
+ * Returns { blocked: true, message } if they need to add keys first.
+ */
+export function checkByokRequirement(
+  callerPlan: string,
+  userKeys?: Record<string, string>
+): { blocked: boolean; message?: string } {
+  if (callerPlan !== "lifetime") return { blocked: false };
+
+  const hasAtLeastOneKey = userKeys && Object.keys(userKeys).length > 0;
+  if (!hasAtLeastOneKey) {
+    return {
+      blocked: true,
+      message:
+        "Lifetime plan requires your own API key — add one in Settings → API Keys.",
+    };
+  }
+  return { blocked: false };
+}
+
+// ─── TYPES ────────────────────────────────────────────────────────────────
 
 export interface Message {
   role: "system" | "user" | "assistant";
@@ -184,14 +191,19 @@ export interface AICallOptions {
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
+  /** The calling user's plan key — determines platform vs BYOK keys */
+  callerPlan?: string;
+  /** Decrypted user-supplied API keys — required when callerPlan === "lifetime" */
+  userKeys?: Record<string, string>;
 }
 
+// ─── CORE AI CALL ─────────────────────────────────────────────────────────
+
 /**
- * callAI — the single entry point for all AI calls in CodeForge.
+ * callAI — single entry point for all AI calls.
  *
- * Accepts a prompt string OR a messages array.
- * Returns the response text.
- * Throws on hard failure (after fallback exhausted).
+ * For lifetime users: inject their own API keys.
+ * For others: use platform environment keys.
  */
 export async function callAI(
   promptOrMessages: string | Message[],
@@ -200,20 +212,34 @@ export async function callAI(
   const modelId = options.model ?? DEFAULT_MODEL;
   const config = MODELS[modelId] ?? MODELS[DEFAULT_MODEL];
 
-  const messages: Message[] = typeof promptOrMessages === "string"
-    ? [
-        ...(options.systemPrompt ? [{ role: "system" as const, content: options.systemPrompt }] : []),
-        { role: "user" as const, content: promptOrMessages },
-      ]
-    : promptOrMessages;
+  // BYOK gate
+  const byokCheck = checkByokRequirement(options.callerPlan ?? "free", options.userKeys);
+  if (byokCheck.blocked) {
+    throw new Error(byokCheck.message!);
+  }
+
+  const messages: Message[] =
+    typeof promptOrMessages === "string"
+      ? [
+          ...(options.systemPrompt
+            ? [{ role: "system" as const, content: options.systemPrompt }]
+            : []),
+          { role: "user" as const, content: promptOrMessages },
+        ]
+      : promptOrMessages;
 
   const baseUrl = getBaseUrl(config.provider);
-  const apiKey = getApiKey(config.provider);
+  const apiKey = getApiKey(config.provider, options.callerPlan, options.userKeys);
 
   if (!apiKey) {
+    if (options.callerPlan === "lifetime") {
+      throw new Error(
+        `No ${config.name} API key configured. Add your ${config.provider.toUpperCase()} key in Settings → API Keys.`
+      );
+    }
     throw new Error(
       `No API key configured for provider "${config.provider}". ` +
-      `Set ${config.provider.toUpperCase().replace("XAI", "XAI")}_API_KEY in your Convex environment.`
+        `Set ${config.provider.toUpperCase()}_API_KEY in your Convex environment.`
     );
   }
 
@@ -249,19 +275,41 @@ export async function callAI(
 }
 
 /**
- * callAIWithFallback — tries the requested model, then falls back through
- * a prioritized chain if it fails. Never throws unless ALL models fail.
+ * callAIWithFallback — tries the requested model, then falls back.
+ *
+ * BYOK users (lifetime): fallback only cycles through THEIR available keys.
+ *   If primary model fails and they have no key for the fallback provider,
+ *   that fallback is skipped. If ALL fail, surfaces the error — does NOT
+ *   fall back to platform keys.
+ *
+ * Platform users (weekly/monthly/free): standard fallback chain using platform keys.
  */
 export async function callAIWithFallback(
   promptOrMessages: string | Message[],
   options: AICallOptions = {}
 ): Promise<{ text: string; modelUsed: string }> {
   const requested = options.model ?? DEFAULT_MODEL;
+  const isLifetime = options.callerPlan === "lifetime";
 
-  // Build fallback chain: requested → deepseek-v3 → gpt-4o-mini
-  const chain = [requested, "deepseek-v3", "gpt-4o-mini"].filter(
+  // Build fallback chain
+  const fullChain = [requested, "deepseek-v3", "gpt-4o-mini"].filter(
     (m, i, arr) => arr.indexOf(m) === i && MODELS[m]
   );
+
+  // For lifetime users: filter chain to only models their keys can serve
+  const chain = isLifetime && options.userKeys
+    ? fullChain.filter((modelId) => {
+        const providerSlug = PROVIDER_KEY_MAP[MODELS[modelId].provider];
+        return !!options.userKeys![providerSlug];
+      })
+    : fullChain;
+
+  if (isLifetime && chain.length === 0) {
+    throw new Error(
+      "No API keys configured for any supported model. " +
+        "Add at least one key in Settings → API Keys to use AI features."
+    );
+  }
 
   const errors: string[] = [];
 
@@ -270,7 +318,16 @@ export async function callAIWithFallback(
       const text = await callAI(promptOrMessages, { ...options, model: modelId });
       return { text, modelUsed: modelId };
     } catch (err) {
-      errors.push(`${modelId}: ${err instanceof Error ? err.message : String(err)}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`${modelId}: ${msg}`);
+
+      // For lifetime users: don't swallow auth errors — surface immediately
+      if (isLifetime && (msg.includes("401") || msg.includes("Invalid API key"))) {
+        throw new Error(
+          `Your ${MODELS[modelId].name} API key is invalid. ` +
+            `Please update it in Settings → API Keys.\n\nError: ${msg}`
+        );
+      }
     }
   }
 
@@ -283,4 +340,3 @@ export async function callAIWithFallback(
 export function getModelForRole(role: string): string {
   return AGENT_MODELS[role.toLowerCase()] ?? AGENT_MODELS.default;
 }
-
