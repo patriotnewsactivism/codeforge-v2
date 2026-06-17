@@ -22,7 +22,6 @@ import {
   Save,
   Sun,
   User,
-  Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";

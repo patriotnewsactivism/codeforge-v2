@@ -18,7 +18,9 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
+import type { Doc, Id } from "../../../convex/_generated/dataModel";
+
+type ChangeHistoryDoc = Doc<"changeHistory">;
 
 interface DiffLine {
   type: "add" | "remove" | "unchanged";
@@ -95,7 +97,7 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
   const historyFilePaths = useMemo(() => {
     if (!changeHistory) return [];
     const seen = new Set<string>();
-    return changeHistory.filter(c => {
+    return changeHistory.filter((c: ChangeHistoryDoc) => {
       if (seen.has(c.filePath)) return false;
       seen.add(c.filePath);
       return true;
@@ -169,7 +171,7 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
       {/* File selector */}
       <div className="border-b border-white/5 px-3 py-2 shrink-0">
         <div className="flex gap-1 flex-wrap">
-          {historyFilePaths.slice(0, 12).map(c => {
+          {historyFilePaths.slice(0, 12).map((c: ChangeHistoryDoc) => {
             const name = c.filePath.split("/").pop() ?? c.filePath;
             return (
               <button
@@ -178,7 +180,7 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
                 onClick={() => {
                   setSelectedFile(c.filePath);
                   const idx = changeHistory?.findIndex(
-                    h => h.filePath === c.filePath,
+                    (h: ChangeHistoryDoc) => h.filePath === c.filePath,
                   );
                   if (idx !== undefined && idx >= 0) setHistoryIndex(idx);
                 }}

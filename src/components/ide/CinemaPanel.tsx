@@ -20,7 +20,7 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -119,18 +119,18 @@ function FrameCard({
       </div>
 
       {/* Show relevant payload fields */}
-      {payload.content && (
+      {Boolean(payload.content) && (
         <p className="text-muted-foreground leading-relaxed line-clamp-2">
           {String(payload.content)}
         </p>
       )}
-      {payload.tool && (
+      {Boolean(payload.tool) && (
         <p className="text-yellow-300/80 font-mono">
           {String(payload.tool)}
           {payload.args ? `(${JSON.stringify(payload.args).slice(0, 80)})` : ""}
         </p>
       )}
-      {payload.output && !payload.content && (
+      {Boolean(payload.output) && !payload.content && (
         <p className="text-green-300/80 line-clamp-2">
           {String(payload.output).slice(0, 120)}
         </p>
@@ -183,7 +183,7 @@ export function CinemaPanel({
     missionId ? { missionId } : "skip",
   );
 
-  const agentTree = useQuery(
+  const _agentTree = useQuery(
     api.cinema.getAgentTree,
     missionId ? { missionId } : "skip",
   );
@@ -329,7 +329,7 @@ export function CinemaPanel({
           {Object.entries(summary.byType ?? {}).map(([type, count]) => (
             <div key={type} className="flex items-center gap-1 shrink-0">
               {FRAME_ICONS[type]}
-              <span className="text-[10px] text-muted-foreground">{count}</span>
+              <span className="text-[10px] text-muted-foreground">{String(count)}</span>
             </div>
           ))}
         </div>

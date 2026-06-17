@@ -11,7 +11,6 @@ import {
   GitPullRequest,
   Loader2,
   Plus,
-  RefreshCw,
   X,
   XCircle,
   Zap,
