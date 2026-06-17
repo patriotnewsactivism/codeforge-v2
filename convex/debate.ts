@@ -53,16 +53,14 @@ async function resolveByok(
 export type DebateVerdict = "PROCEED" | "REFINE" | "ESCALATE";
 
 export interface DebateResult {
-  debateId: string;
-  proposal: string;
+  debateId: Id<"debates">;
+  verdict: DebateVerdict;
   proponentArgument: string;
   opponentArgument: string;
   moderatorReasoning: string;
-  verdict: DebateVerdict;
-  refinements?: string[]; // populated when verdict = REFINE
-  escalationReason?: string; // populated when verdict = ESCALATE
-  confidence: number; // 0–100
-  durationMs: number;
+  refinements?: string[];
+  escalationReason?: string;
+  confidence: number;
 }
 
 // ─── DB MUTATIONS & QUERIES ────────────────────────────────────────────────
@@ -160,7 +158,7 @@ export const runDebate = action({
     escalationReason: v.optional(v.string()),
     confidence: v.number(),
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<DebateResult> => {
     const startMs = Date.now();
     const opType = args.operationType ?? "feature";
     const contextBlock = args.context
@@ -358,7 +356,16 @@ export const requireDebate = action({
     message: v.string(),
     refinements: v.optional(v.array(v.string())),
   }),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    allowed: boolean;
+    verdict: "PROCEED" | "REFINE" | "ESCALATE";
+    debateId: Id<"debates">;
+    message: string;
+    refinements?: string[];
+  }> => {
     const result = await ctx.runAction(api.debate.runDebate, {
       projectId: args.projectId,
       proposal: args.proposal,

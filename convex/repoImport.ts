@@ -30,14 +30,7 @@ export const saveImportJob = mutation({
     repoUrl: v.string(),
     repoFullName: v.string(),
     branch: v.string(),
-    status: v.union(
-      v.literal("queued"),
-      v.literal("cloning"),
-      v.literal("indexing"),
-      v.literal("analyzing"),
-      v.literal("ready"),
-      v.literal("failed"),
-    ),
+    status: v.string(), // "queued" | "cloning" | "indexing" | "analyzing" | "ready" | "failed"
     filesImported: v.optional(v.number()),
     detectedStack: v.optional(v.array(v.string())),
     briefGenerated: v.optional(v.boolean()),
@@ -55,16 +48,7 @@ export const saveImportJob = mutation({
 export const updateImportJob = mutation({
   args: {
     jobId: v.id("importJobs"),
-    status: v.optional(
-      v.union(
-        v.literal("queued"),
-        v.literal("cloning"),
-        v.literal("indexing"),
-        v.literal("analyzing"),
-        v.literal("ready"),
-        v.literal("failed"),
-      ),
-    ),
+    status: v.optional(v.string()),
     filesImported: v.optional(v.number()),
     detectedStack: v.optional(v.array(v.string())),
     briefGenerated: v.optional(v.boolean()),

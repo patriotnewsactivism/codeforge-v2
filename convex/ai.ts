@@ -247,6 +247,17 @@ export interface AICallOptions {
   userKeys?: Record<string, string>;
 }
 
+export interface AIUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+export interface AIResponse {
+  text: string;
+  usage?: AIUsage;
+}
+
 // ─── CORE AI CALL ─────────────────────────────────────────────────────────
 
 /**
@@ -258,7 +269,7 @@ export interface AICallOptions {
 export async function callAI(
   promptOrMessages: string | Message[],
   options: AICallOptions = {},
-): Promise<string> {
+): Promise<AIResponse> {
   const modelId = options.model ?? DEFAULT_MODEL;
   const config = MODELS[modelId] ?? MODELS[DEFAULT_MODEL];
 
@@ -323,6 +334,11 @@ export async function callAI(
 
   const json = (await res.json()) as {
     choices?: { message?: { content?: string } }[];
+    usage?: {
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+    };
     error?: { message?: string };
   };
 
@@ -330,7 +346,17 @@ export async function callAI(
 
   const content = json.choices?.[0]?.message?.content;
   if (!content) throw new Error(`${config.name} returned empty response`);
-  return content;
+
+  return {
+    text: content,
+    usage: json.usage
+      ? {
+          promptTokens: json.usage.prompt_tokens,
+          completionTokens: json.usage.completion_tokens,
+          totalTokens: json.usage.total_tokens,
+        }
+      : undefined,
+  };
 }
 
 /**
@@ -346,7 +372,7 @@ export async function callAI(
 export async function callAIWithFallback(
   promptOrMessages: string | Message[],
   options: AICallOptions = {},
-): Promise<{ text: string; modelUsed: string }> {
+): Promise<AIResponse & { modelUsed: string }> {
   const requested = options.model ?? DEFAULT_MODEL;
   const isLifetime = options.callerPlan === "lifetime";
 
@@ -375,11 +401,11 @@ export async function callAIWithFallback(
 
   for (const modelId of chain) {
     try {
-      const text = await callAI(promptOrMessages, {
+      const response = await callAI(promptOrMessages, {
         ...options,
         model: modelId,
       });
-      return { text, modelUsed: modelId };
+      return { ...response, modelUsed: modelId };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`${modelId}: ${msg}`);

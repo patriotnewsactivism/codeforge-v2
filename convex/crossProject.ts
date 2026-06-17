@@ -122,7 +122,7 @@ export const extractGlobalInsights = action({
     });
 
     const memoryBlock = memories
-      .map(m => `[${m.category}] ${m.content}`)
+      .map((m: any) => `[${m.category}] ${m.content}`)
       .join("\n");
 
     const prompt = `You are the Cross-Project Intelligence system in CodeForge.
@@ -223,39 +223,39 @@ export const injectCrossProjectContext = action({
     // Filter by tag relevance to tech stack
     const stack = args.techStack ?? [];
     const relevant = allInsights.filter(
-      i =>
+      (i: any) =>
         !stack.length ||
-        i.tags.some(t =>
-          stack.some(s => s.toLowerCase().includes(t.toLowerCase())),
+        i.tags.some((t: any) =>
+          stack.some((s: any) => s.toLowerCase().includes(t.toLowerCase())),
         ),
     );
 
     // Score by occurrenceCount * confidence
     const ranked = relevant
       .sort(
-        (a, b) =>
+        (a: any, b: any) =>
           b.occurrenceCount * b.confidence - a.occurrenceCount * a.confidence,
       )
       .slice(0, 8);
 
     const warnings = ranked.filter(
-      i =>
+      (i: any) =>
         i.insightType === "anti_pattern" ||
         i.insightType === "gotcha" ||
         i.insightType === "security",
     );
     const bestPractices = ranked.filter(
-      i =>
+      (i: any) =>
         i.insightType === "best_practice" || i.insightType === "architecture",
     );
 
     const injectedInsights = [
       ...warnings.map(
-        i =>
+        (i: any) =>
           `⚠️ KNOWN PITFALL (seen in ${i.occurrenceCount} project${i.occurrenceCount > 1 ? "s" : ""}): ${i.pattern} — ${i.detail}`,
       ),
       ...bestPractices.map(
-        i => `✅ PROVEN PATTERN: ${i.pattern} — ${i.detail}`,
+        (i: any) => `✅ PROVEN PATTERN: ${i.pattern} — ${i.detail}`,
       ),
     ];
 
@@ -306,7 +306,7 @@ Content (first 3000 chars):
 ${args.fileContent.slice(0, 3000)}
 
 Known anti-patterns:
-${antiPatterns.map((p, i) => `[${i + 1}] ${p.pattern}: ${p.detail}${p.exampleCode ? "\nExample: " + p.exampleCode : ""}`).join("\n\n")}
+${antiPatterns.map((p: any, i: number) => `[${i + 1}] ${p.pattern}: ${p.detail}${p.exampleCode ? "\nExample: " + p.exampleCode : ""}`).join("\n\n")}
 
 List ONLY the anti-patterns that are CLEARLY present in this file.
 JSON array (empty if none found):

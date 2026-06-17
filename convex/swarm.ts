@@ -41,12 +41,7 @@ export const getPendingTasks = internalQuery({
 export const updateTaskStatus = internalMutation({
   args: {
     taskId: v.string(),
-    status: v.union(
-      v.literal("queued"),
-      v.literal("running"),
-      v.literal("done"),
-      v.literal("error"),
-    ),
+    status: v.string(),
     errorMessage: v.optional(v.string()),
     totalAgentsSpawned: v.optional(v.number()),
     totalFilesChanged: v.optional(v.number()),
@@ -118,12 +113,7 @@ export const updateAgentStatus = internalMutation({
   args: {
     taskId: v.string(),
     agentUid: v.string(),
-    status: v.union(
-      v.literal("queued"),
-      v.literal("running"),
-      v.literal("done"),
-      v.literal("error"),
-    ),
+    status: v.string(),
     result: v.optional(v.string()),
     errorMessage: v.optional(v.string()),
   },

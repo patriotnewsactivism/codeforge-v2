@@ -14,6 +14,7 @@
 
 import { v } from "convex/values";
 import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback } from "./ai";
 
@@ -170,7 +171,17 @@ export const runBenchmark = action({
     judgeReasoning: v.string(),
     recommendation: v.string(),
   }),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    benchmarkId: Id<"benchmarkRuns">;
+    winner: "A" | "B" | "tie";
+    scoreA: number;
+    scoreB: number;
+    judgeReasoning: string;
+    recommendation: string;
+  }> => {
     const fullPrompt = `${args.systemPrompt}\n\nTask: ${args.taskDescription}`;
 
     // Run A and B in "parallel" (sequential in Convex, but fast enough)

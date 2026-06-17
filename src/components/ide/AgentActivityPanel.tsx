@@ -190,26 +190,27 @@ export function AgentActivityPanel({ projectId }: Props) {
             : 0),
       });
     }
+// Planner first, qa last, rest in middle
+type Lane = (typeof agents extends Map<string, infer T> ? T : never);
+const sorted = Array.from(agents.values()).sort((a: Lane, b: Lane) => {
+  if (a.agentId === "planner") return -1;
+  if (b.agentId === "planner") return 1;
+  if (a.agentId === "qa-agent") return 1;
+  if (b.agentId === "qa-agent") return -1;
+  return 0;
+});
 
-    // Planner first, qa last, rest in middle
-    const sorted = Array.from(agents.values()).sort((a, b) => {
-      if (a.agentId === "planner") return -1;
-      if (b.agentId === "planner") return 1;
-      if (a.agentId === "qa-agent") return 1;
-      if (b.agentId === "qa-agent") return -1;
-      return 0;
-    });
+return sorted;
+}, [thoughts]);
 
-    return sorted;
-  }, [thoughts]);
+// Active tool calls across all agents
+const activeCalls =
+toolCalls?.filter(
+  (c: { status: string; tool: string; args: string; _id: string }) =>
+    c.status === "running" || c.status === "pending",
+) ?? [];
 
-  // Active tool calls across all agents
-  const activeCalls =
-    toolCalls?.filter(
-      (c: { status: string; tool: string; args: string; _id: string }) =>
-        c.status === "running" || c.status === "pending",
-    ) ?? [];
-  const totalCalls = toolCalls?.length ?? 0;
+const activeLanesCount = agentLanes.filter((a: any) => a.isActive).length;
   const isRunning =
     activeCalls.length > 0 ||
     (thoughts?.some((t: { isStreaming?: boolean }) => t.isStreaming) ?? false);

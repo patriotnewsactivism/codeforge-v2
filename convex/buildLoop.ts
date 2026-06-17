@@ -203,8 +203,8 @@ export const runBuildLoop = action({
     });
 
     const fileContext = files
-      .filter(f => !f.isDirectory)
-      .map(f => `--- ${f.path} ---\n${f.content}`)
+      .filter((f: any) => !f.isDirectory)
+      .map((f: any) => `--- ${f.path} ---\n${f.content}`)
       .join("\n\n");
 
     try {
@@ -258,7 +258,7 @@ Plan what files to create or modify. Return ONLY a JSON object (no markdown):
         });
 
         // Ask AI to generate the code
-        const existingFile = files.find(f => f.path === step.path);
+        const existingFile = files.find((f: any) => f.path === step.path);
         const codePrompt =
           step.action === "edit_file" && existingFile
             ? `Edit this file (${step.path}) to: ${step.description}
@@ -270,8 +270,8 @@ ${existingFile.content}
 
 Other project files for context:
 ${files
-  .filter(f => f.path !== step.path && !f.isDirectory)
-  .map(f => `--- ${f.path} ---\n${f.content.slice(0, 300)}`)
+  .filter((f: any) => f.path !== step.path && !f.isDirectory)
+  .map((f: any) => `--- ${f.path} ---\n${f.content.slice(0, 300)}`)
   .join("\n")}
 
 Return ONLY the complete updated file content. No markdown fences, no explanation — just the raw code.`
@@ -279,8 +279,8 @@ Return ONLY the complete updated file content. No markdown fences, no explanatio
 
 Other project files for context:
 ${files
-  .filter(f => !f.isDirectory)
-  .map(f => `--- ${f.path} ---\n${f.content.slice(0, 300)}`)
+  .filter((f: any) => !f.isDirectory)
+  .map((f: any) => `--- ${f.path} ---\n${f.content.slice(0, 300)}`)
   .join("\n")}
 
 Return ONLY the file content. No markdown fences, no explanation — just the raw code.`;
@@ -311,7 +311,7 @@ Return ONLY the file content. No markdown fences, no explanation — just the ra
           const newFiles = await ctx.runQuery(api.files.listByProject, {
             projectId: args.projectId,
           });
-          const newFile = newFiles.find(f => f.path === step.path);
+          const newFile = newFiles.find((f: any) => f.path === step.path);
           if (newFile) {
             await ctx.runMutation(api.files.updateContent, {
               fileId: newFile._id,
