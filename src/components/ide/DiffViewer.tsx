@@ -67,6 +67,7 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
   const undoChange = useMutation(api.changeHistory.undoChange);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [historyIndex, setHistoryIndex] = useState<number>(0);
+  const [comparisonMode, setComparisonMode] = useState<"step" | "cumulative">("step");
 
   const selectedChange =
     changeHistory &&
@@ -82,6 +83,14 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
   const content = currentFile?.content ?? "";
 
   const diffLines = useMemo(() => {
+    if (comparisonMode === "cumulative" && currentTargetPath) {
+      // Find the OLDEST change for this file to get the "original" content
+      const historyForFile = changeHistory?.filter(c => c.filePath === currentTargetPath) ?? [];
+      const oldest = historyForFile[historyForFile.length - 1];
+      const original = oldest?.previousContent ?? "";
+      return computeDiff(original, content);
+    }
+
     if (!selectedChange) {
       return selectedFile && content ? computeDiff("", content) : [];
     }
@@ -89,7 +98,7 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
       selectedChange.previousContent,
       selectedChange.newContent,
     );
-  }, [selectedChange, selectedFile, content]);
+  }, [selectedChange, selectedFile, content, comparisonMode, changeHistory, currentTargetPath]);
 
   const addedCount = diffLines.filter(l => l.type === "add").length;
   const removedCount = diffLines.filter(l => l.type === "remove").length;
@@ -166,6 +175,34 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
             </Button>
           )}
         </div>
+      </div>
+
+      {/* Mode Toggle */}
+      <div className="flex border-b border-white/5 bg-white/[0.01]">
+        <button
+          type="button"
+          onClick={() => setComparisonMode("step")}
+          className={cn(
+            "flex-1 px-3 py-1.5 text-[10px] font-medium transition-colors",
+            comparisonMode === "step"
+              ? "text-rose-400 bg-rose-400/5 border-b border-rose-400"
+              : "text-white/30 hover:text-white/50",
+          )}
+        >
+          Step-by-Step
+        </button>
+        <button
+          type="button"
+          onClick={() => setComparisonMode("cumulative")}
+          className={cn(
+            "flex-1 px-3 py-1.5 text-[10px] font-medium transition-colors",
+            comparisonMode === "cumulative"
+              ? "text-rose-400 bg-rose-400/5 border-b border-rose-400"
+              : "text-white/30 hover:text-white/50",
+          )}
+        >
+          Current vs Original
+        </button>
       </div>
 
       {/* File selector */}

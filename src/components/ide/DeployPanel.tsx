@@ -15,7 +15,7 @@ import {
   Loader2,
   Rocket,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,59 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
 
   const [deployingTo, setDeployingTo] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [activeDeploymentId, setActiveDeploymentId] = useState<string | null>(null);
+  const [deploymentStatus, setDeploymentStatus] = useState<string | null>(null);
+
+  const getVercelStatus = useAction(api.deployVercel.getStatus);
+  const deployToVercel = useAction(api.deployVercel.deploy);
+
+  const handleVercelDeploy = useCallback(async () => {
+    setDeployingTo("vercel");
+    setDeploymentStatus("INITIALIZING");
+    try {
+      const result = await deployToVercel({ projectId: projectId! });
+      setActiveDeploymentId(result.deploymentId);
+      setPreviewUrl(result.url);
+      setDeploymentStatus("QUEUED");
+    } catch (e) {
+      toast.error("Vercel deploy failed", {
+        description: e instanceof Error ? e.message : "Unknown error",
+      });
+      setDeployingTo(null);
+      setDeploymentStatus(null);
+    }
+  }, [deployToVercel, projectId]);
+
+  // Poll Vercel status
+  useEffect(() => {
+    if (!activeDeploymentId || deployingTo !== "vercel") return;
+
+    const interval = setInterval(async () => {
+      try {
+        const status = await getVercelStatus({ deploymentId: activeDeploymentId });
+        setDeploymentStatus(status.readyState);
+
+        if (status.readyState === "READY") {
+          setPreviewUrl(`https://${status.url}`);
+          toast.success("Project is live on Vercel!");
+          clearInterval(interval);
+          setDeployingTo(null);
+          setActiveDeploymentId(null);
+        } else if (status.readyState === "ERROR") {
+          toast.error("Vercel build failed", {
+            description: "Check Vercel dashboard for details",
+          });
+          clearInterval(interval);
+          setDeployingTo(null);
+          setActiveDeploymentId(null);
+        }
+      } catch (e) {
+        console.error("Failed to poll Vercel status", e);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [activeDeploymentId, deployingTo, getVercelStatus]);
 
   const handleInstantPreview = useCallback(() => {
     if (!files) return;
@@ -112,29 +165,6 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
     }
   }, [files, project]);
 
-  const deployToVercel = useAction(api.deployVercel.deploy);
-
-  const handleVercelDeploy = useCallback(async () => {
-    setDeployingTo("vercel");
-    try {
-      const result = await deployToVercel({ projectId: projectId! });
-      setPreviewUrl(result.url);
-      toast.success("Deployed to Vercel!", {
-        description: result.url,
-        action: {
-          label: "Open",
-          onClick: () => window.open(result.url, "_blank"),
-        },
-      });
-    } catch (e) {
-      toast.error("Vercel deploy failed", {
-        description: e instanceof Error ? e.message : "Unknown error",
-      });
-    } finally {
-      setDeployingTo(null);
-    }
-  }, [deployToVercel, projectId]);
-
   if (!projectId) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -192,7 +222,9 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
       id: "vercel",
       label: "Vercel",
       desc:
-        deployingTo === "vercel" ? "Deploying..." : "Deploy directly to Vercel",
+        deployingTo === "vercel" 
+          ? `Status: ${deploymentStatus || 'INITIALIZING'}` 
+          : "Deploy directly to Vercel",
       icon:
         deployingTo === "vercel" ? (
           <Loader2 className="h-4 w-4 text-white animate-spin" />
@@ -200,9 +232,19 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
           <Globe className="h-4 w-4 text-white" />
         ),
       action: handleVercelDeploy,
-      badge: "Live",
-      badgeColor: "bg-white/10 text-white",
+      badge: deploymentStatus || "Live",
+      badgeColor: deploymentStatus === "ERROR" ? "bg-red-500/10 text-red-400" : "bg-white/10 text-white",
       disabled: deployingTo !== null,
+      extra: activeDeploymentId && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 px-2 text-[10px] text-white/40 hover:text-white"
+          onClick={() => window.open(`https://vercel.com/deployments/${activeDeploymentId}`, "_blank")}
+        >
+          Logs
+        </Button>
+      )
     },
   ];
 
@@ -266,19 +308,22 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
                 </div>
                 <p className="text-[10px] text-white/30 truncate">{opt.desc}</p>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-3 text-xs border-white/10 shrink-0"
-                onClick={opt.action}
-                disabled={!!opt.disabled || deployingTo === opt.id}
-              >
-                {deployingTo === opt.id ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  "Deploy"
-                )}
-              </Button>
+              <div className="flex flex-col items-end gap-1">
+                {opt.extra}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-3 text-xs border-white/10 shrink-0"
+                  onClick={opt.action}
+                  disabled={!!opt.disabled || deployingTo === opt.id}
+                >
+                  {deployingTo === opt.id ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    "Deploy"
+                  )}
+                </Button>
+              </div>
             </div>
           ))}
         </div>

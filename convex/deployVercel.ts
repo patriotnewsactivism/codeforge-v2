@@ -41,16 +41,20 @@ export const deploy = action({
       body: JSON.stringify({
         name: deploymentName,
         files: files
-          .filter(f => !f.isDirectory)
-          .map(f => ({
+          .filter((f: any) => !f.isDirectory)
+          .map((f: any) => ({
             file: f.path.startsWith("/") ? f.path : `/${f.path}`,
             data: f.content,
             encoding: "utf-8",
           })),
         projectSettings: {
-          framework: null,
-          buildCommand: "",
-          outputDirectory: "",
+          framework: files.some((f: any) => f.path === "vite.config.ts" || f.path === "vite.config.js") 
+            ? "vite" 
+            : files.some((f: any) => f.path === "package.json") 
+              ? null 
+              : null,
+          buildCommand: files.some((f: any) => f.path === "package.json") ? "npm run build" : "",
+          outputDirectory: files.some((f: any) => f.path === "vite.config.ts" || f.path === "vite.config.js") ? "dist" : "",
         },
       }),
     });
@@ -79,3 +83,33 @@ export const deploy = action({
     };
   },
 });
+
+export const getStatus = action({
+  args: {
+    deploymentId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const vercelToken = process.env.VERCEL_TOKEN;
+    if (!vercelToken) throw new Error("VERCEL_TOKEN not configured");
+
+    const res = await fetch(
+      `https://api.vercel.com/v13/deployments/${args.deploymentId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${vercelToken}`,
+        },
+      },
+    );
+
+    if (!res.ok) {
+      throw new Error(`Failed to fetch Vercel status: ${res.status}`);
+    }
+
+    return (await res.json()) as {
+      readyState: string;
+      url: string;
+      error?: { code: string; message: string };
+    };
+  },
+});
+
