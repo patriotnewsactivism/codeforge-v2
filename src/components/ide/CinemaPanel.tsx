@@ -183,11 +183,6 @@ export function CinemaPanel({
     missionId ? { missionId } : "skip",
   );
 
-  const _agentTree = useQuery(
-    api.cinema.getAgentTree,
-    missionId ? { missionId } : "skip",
-  );
-
   // Auto-scroll to active frame
   useEffect(() => {
     const el = frameRefs.current.get(currentIndex);
