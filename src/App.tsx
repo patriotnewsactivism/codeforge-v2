@@ -7,12 +7,10 @@ import { PublicOnlyRoute } from "./components/PublicOnlyRoute";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { useIdleTimeout } from "./hooks/useIdleTimeout";
-...
-function App() {
-  useIdleTimeout();
-
-  return (
-    <ErrorBoundary>
+import {
+  DashboardPage,
+  IDEPage,
+  LandingPage,
   LoginPage,
   OnboardingPage,
   SettingsPage,
@@ -22,6 +20,8 @@ import { CheckoutSuccess } from "./pages/CheckoutSuccess";
 import { PricingPage } from "./pages/PricingPage";
 
 function App() {
+  useIdleTimeout();
+
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="dark" switchable={false}>

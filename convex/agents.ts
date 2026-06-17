@@ -155,84 +155,11 @@ async function think(
 
 // ─── QUERIES ─────────────────────────────────────────────────────────────────
 
-export const listTasks = query({
-  args: { projectId: v.id("projects") },
-  returns: v.array(
-    v.object({
-      _id: v.id("agentTasks"),
-      _creationTime: v.number(),
-      projectId: v.id("projects"),
-      buildSessionId: v.optional(v.id("buildSessions")),
-      agentId: v.string(),
-      agentName: v.string(),
-      agentIcon: v.string(),
-      task: v.string(),
-      status: v.union(
-        v.literal("queued"),
-        v.literal("running"),
-        v.literal("done"),
-        v.literal("error"),
-      ),
-      result: v.optional(v.string()),
-      filesChanged: v.optional(v.array(v.string())),
-      startedAt: v.number(),
-      finishedAt: v.optional(v.number()),
-    }),
-  ),
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("agentTasks")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
-      .order("desc")
-      .take(50);
-  },
-});
+// listTasks moved to tasks.ts
 
 // ─── MUTATIONS ────────────────────────────────────────────────────────────────
 
-export const createTask = mutation({
-  args: {
-    projectId: v.id("projects"),
-    buildSessionId: v.optional(v.id("buildSessions")),
-    agentId: v.string(),
-    agentName: v.string(),
-    agentIcon: v.string(),
-    task: v.string(),
-  },
-  returns: v.id("agentTasks"),
-  handler: async (ctx, args) => {
-    return await ctx.db.insert("agentTasks", {
-      ...args,
-      status: "queued",
-      startedAt: Date.now(),
-    });
-  },
-});
-
-export const updateTask = mutation({
-  args: {
-    taskId: v.id("agentTasks"),
-    status: v.union(
-      v.literal("queued"),
-      v.literal("running"),
-      v.literal("done"),
-      v.literal("error"),
-    ),
-    result: v.optional(v.string()),
-    filesChanged: v.optional(v.array(v.string())),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const patch: Record<string, unknown> = { status: args.status };
-    if (args.result !== undefined) patch.result = args.result;
-    if (args.filesChanged !== undefined) patch.filesChanged = args.filesChanged;
-    if (args.status === "done" || args.status === "error") {
-      patch.finishedAt = Date.now();
-    }
-    await ctx.db.patch(args.taskId, patch);
-    return null;
-  },
-});
+// createTask and updateTask moved to tasks.ts
 
 // ─── MAIN: AUTONOMOUS MULTI-AGENT ACTION ─────────────────────────────────────
 
@@ -428,7 +355,7 @@ Return ONLY valid JSON (no markdown fences):
     for (const planned of plan.agents) {
       const agentDef =
         AGENT_TYPES.find(a => a.id === planned.agentId) ?? AGENT_TYPES[1]!;
-      const taskId = await ctx.runMutation(api.agents.createTask, {
+      const taskId = await ctx.runMutation(api.tasks.createTask, {
         projectId,
         agentId: agentDef.id,
         agentName: agentDef.name,
@@ -464,7 +391,7 @@ Return ONLY valid JSON (no markdown fences):
       const agentDef =
         AGENT_TYPES.find(a => a.id === t.agentId) ?? AGENT_TYPES[1]!;
 
-      await ctx.runMutation(api.agents.updateTask, {
+      await ctx.runMutation(api.tasks.updateTask, {
         taskId: t.taskId,
         status: "running",
       });
@@ -661,7 +588,7 @@ Return ONLY valid JSON (no markdown fences):
           `${parsed.summary ?? "Done"} — ${changedPaths.length} file(s) changed: ${changedPaths.join(", ") || "none"}`,
         );
 
-        await ctx.runMutation(api.agents.updateTask, {
+        await ctx.runMutation(api.tasks.updateTask, {
           taskId: t.taskId,
           status: "done",
           result: parsed.summary ?? "Completed",
@@ -687,7 +614,7 @@ Return ONLY valid JSON (no markdown fences):
           messageType: "blocker",
           content: `Failed: ${errorMsg}`,
         });
-        await ctx.runMutation(api.agents.updateTask, {
+        await ctx.runMutation(api.tasks.updateTask, {
           taskId: t.taskId,
           status: "error",
           result: errorMsg,

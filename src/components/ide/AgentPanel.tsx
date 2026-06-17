@@ -49,7 +49,7 @@ export function AgentPanel({ projectId }: AgentPanelProps) {
   const [tab, setTab] = useState<"run" | "history">("run");
   const thoughtsEndRef = useRef<HTMLDivElement>(null);
 
-  const tasks = useQuery(api.agents.listTasks, { projectId });
+  const tasks = useQuery(api.tasks.listTasks, { projectId });
   const thoughts = useQuery(api.agentThoughts.listRecent, {
     projectId,
     limit: 100,
