@@ -16,7 +16,6 @@ import { GitHubConnectDialog } from "@/components/ide/GitHubConnectDialog";
 import { GitPanel } from "@/components/ide/GitPanel";
 import { ImportRepoDialog } from "@/components/ide/ImportRepoDialog";
 import { LivePreview } from "@/components/ide/LivePreview";
-import { MemoryTab } from "@/components/ide/MemoryTab";
 import { PanelErrorBoundary } from "@/components/ide/PanelErrorBoundary";
 import { SuggestionsPanel } from "@/components/ide/SuggestionsPanel";
 import {
@@ -39,6 +38,11 @@ const ErrorIngestionPanel = lazy(() =>
 const AnalyticsDashboard = lazy(() =>
   import("@/components/ide/AnalyticsDashboard").then(m => ({
     default: m.AnalyticsDashboard,
+  })),
+);
+const MemoryTab = lazy(() =>
+  import("@/components/ide/MemoryTab").then(m => ({
+    default: m.MemoryTab,
   })),
 );
 
@@ -309,6 +313,37 @@ export function IDEPage() {
     }
   }, [activeFilePath, activeFile, fileBuffers, updateFileContent]);
 
+  // Auto-save debounced
+  useEffect(() => {
+    if (!activeFilePath || !activeFile) return;
+    const content = fileBuffers.get(activeFilePath);
+    if (content === undefined) return;
+
+    const timeout = setTimeout(async () => {
+      // Only auto-save if different from server content
+      if (content !== activeFile.content) {
+        try {
+          await updateFileContent({ fileId: activeFile._id, content });
+          setUnsavedFiles(prev => {
+            const next = new Set(prev);
+            next.delete(activeFilePath);
+            return next;
+          });
+        } catch (e) {
+          console.error("Auto-save failed", e);
+        }
+      }
+    }, 2000);
+
+    return () => clearTimeout(timeout);
+  }, [
+    activeFilePath,
+    activeFile?._id,
+    activeFile?.content,
+    fileBuffers,
+    updateFileContent,
+  ]);
+
   // Keyboard shortcut: Ctrl+S / Cmd+S
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -534,7 +569,9 @@ export function IDEPage() {
         )}
         {rightPanel === "memory" && (
           <PanelErrorBoundary panelName="Memory">
-            <MemoryTab projectId={projectId as Id<"projects">} />
+            <Suspense fallback={<PanelSkeleton />}>
+              <MemoryTab projectId={projectId as Id<"projects">} />
+            </Suspense>
           </PanelErrorBoundary>
         )}
         {rightPanel === "thoughts" && (
