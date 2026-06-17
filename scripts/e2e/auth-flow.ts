@@ -1,6 +1,6 @@
 import { runTest } from "../auth";
 
-runTest("Auth Flow", async (helper) => {
+runTest("Auth Flow", async helper => {
   const { page, browser } = helper;
 
   console.log("Step 1: Landing page at /");
@@ -49,7 +49,7 @@ runTest("Auth Flow", async (helper) => {
   ) {
     await helper.screenshot("e2e-auth-signup-fail.png");
     throw new Error(
-      `Signup form incomplete: heading=${signupHeading} name=${nameField} email=${emailField} password=${passwordField} submit=${submitButton}`
+      `Signup form incomplete: heading=${signupHeading} name=${nameField} email=${emailField} password=${passwordField} submit=${submitButton}`,
     );
   }
   console.log("   ✓ Signup form visible");
@@ -77,7 +77,7 @@ runTest("Auth Flow", async (helper) => {
   if (!loginHeading || !loginEmail || !loginPassword || !loginSubmit) {
     await helper.screenshot("e2e-auth-login-fail.png");
     throw new Error(
-      `Login form incomplete: heading=${loginHeading} email=${loginEmail} password=${loginPassword} submit=${loginSubmit}`
+      `Login form incomplete: heading=${loginHeading} email=${loginEmail} password=${loginPassword} submit=${loginSubmit}`,
     );
   }
   console.log("   ✓ Login form visible");
@@ -100,7 +100,7 @@ runTest("Auth Flow", async (helper) => {
     if (!redirectedToLogin) {
       await helper.screenshot("e2e-auth-redirect-fail.png");
       throw new Error(
-        `Unauthenticated /dashboard did NOT redirect to /login. Current URL: ${currentUrl}`
+        `Unauthenticated /dashboard did NOT redirect to /login. Current URL: ${currentUrl}`,
       );
     }
     console.log("   ✓ Unauth /dashboard redirects to /login");

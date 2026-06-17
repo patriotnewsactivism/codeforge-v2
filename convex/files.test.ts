@@ -8,24 +8,30 @@ import schema from "./schema";
 const modules = import.meta.glob("./**/*.ts");
 
 async function seedUser(t: ReturnType<typeof convexTest>) {
-  const userId = await t.run(async (ctx) => {
+  const userId = await t.run(async ctx => {
     return await ctx.db.insert("users", {
       name: "Test User",
       email: "test@test.local",
       emailVerificationTime: Date.now(),
     });
   });
-  return { userId: userId as Id<"users">, identity: { subject: `${userId}|sess` } };
+  return {
+    userId: userId as Id<"users">,
+    identity: { subject: `${userId}|sess` },
+  };
 }
 
-async function seedProject(t: ReturnType<typeof convexTest>, userId: Id<"users">) {
-  return await t.run(async (ctx) => {
+async function seedProject(
+  t: ReturnType<typeof convexTest>,
+  userId: Id<"users">,
+) {
+  return (await t.run(async ctx => {
     return await ctx.db.insert("projects", {
       name: "Test Project",
       ownerId: userId,
       lastOpenedAt: Date.now(),
     });
-  }) as Id<"projects">;
+  })) as Id<"projects">;
 }
 
 describe("files", () => {
@@ -46,7 +52,7 @@ describe("files", () => {
 
     expect(fileId).toBeTruthy();
 
-    const file = await t.run(async (ctx) => {
+    const file = await t.run(async ctx => {
       return await ctx.db.get(fileId);
     });
     expect(file).toBeTruthy();
@@ -70,7 +76,7 @@ describe("files", () => {
       isDirectory: true,
     });
 
-    const dir = await t.run(async (ctx) => {
+    const dir = await t.run(async ctx => {
       return await ctx.db.get(dirId);
     });
     expect(dir).toBeTruthy();
@@ -90,7 +96,7 @@ describe("files", () => {
       isDirectory: false,
     });
 
-    const file = await t.run(async (ctx) => {
+    const file = await t.run(async ctx => {
       return await ctx.db.get(fileId);
     });
     expect(file!.language).toBe("python");
@@ -115,7 +121,7 @@ describe("files", () => {
         path: "README.md",
         name: "README.md",
         isDirectory: false,
-      })
+      }),
     ).rejects.toThrow("File already exists at this path");
   });
 
@@ -141,7 +147,7 @@ describe("files", () => {
     const files = await asUser.query(api.files.listByProject, { projectId });
     expect(files).toHaveLength(2);
 
-    const paths = files.map((f) => f.path).sort();
+    const paths = files.map(f => f.path).sort();
     expect(paths).toEqual(["file1.ts", "file2.ts"]);
   });
 
@@ -200,7 +206,7 @@ describe("files", () => {
       content: "final version",
     });
 
-    const file = await t.run(async (ctx) => {
+    const file = await t.run(async ctx => {
       return await ctx.db.get(fileId);
     });
     expect(file!.content).toBe("final version");
@@ -226,7 +232,7 @@ describe("files", () => {
       language: "typescript",
     });
 
-    const file = await t.run(async (ctx) => {
+    const file = await t.run(async ctx => {
       return await ctx.db.get(fileId);
     });
     expect(file!.content).toBe("const x: number = 1;");
@@ -252,7 +258,7 @@ describe("files", () => {
       newPath: "new.ts",
     });
 
-    const file = await t.run(async (ctx) => {
+    const file = await t.run(async ctx => {
       return await ctx.db.get(fileId);
     });
     expect(file!.name).toBe("new.ts");
@@ -274,7 +280,7 @@ describe("files", () => {
 
     await asUser.mutation(api.files.remove, { fileId });
 
-    const file = await t.run(async (ctx) => {
+    const file = await t.run(async ctx => {
       return await ctx.db.get(fileId);
     });
     expect(file).toBeNull();
@@ -318,7 +324,12 @@ describe("files", () => {
     await asUser.mutation(api.files.bulkInsert, {
       projectId,
       files: [
-        { path: "config.json", name: "config.json", type: "file" as const, content: '{"v": 2}' },
+        {
+          path: "config.json",
+          name: "config.json",
+          type: "file" as const,
+          content: '{"v": 2}',
+        },
       ],
     });
 
@@ -337,7 +348,7 @@ describe("files", () => {
         path: "test.ts",
         name: "test.ts",
         isDirectory: false,
-      })
+      }),
     ).rejects.toThrow("Not authenticated");
   });
 });

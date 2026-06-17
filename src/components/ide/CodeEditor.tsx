@@ -1,5 +1,5 @@
-import { useCallback, useRef, useEffect } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
+import { useCallback, useEffect, useRef } from "react";
 import type { Doc } from "../../../convex/_generated/dataModel";
 
 interface CodeEditorProps {
@@ -51,7 +51,7 @@ export function CodeEditor({ file, onChange, onSave }: CodeEditorProps) {
       const isMobile = window.innerWidth < 768;
       if (!isMobile) editor.focus();
     },
-    [onSave]
+    [onSave],
   );
 
   useEffect(() => {
@@ -68,14 +68,19 @@ export function CodeEditor({ file, onChange, onSave }: CodeEditorProps) {
       <div className="h-full flex items-center justify-center bg-[oklch(0.13_0.02_260)]">
         <div className="text-center px-4">
           <div className="text-4xl mb-4 opacity-20">{"</>"}</div>
-          <p className="text-muted-foreground text-sm">Select a file to start editing</p>
-          <p className="text-muted-foreground/60 text-xs mt-1">or create a new one from the file tree</p>
+          <p className="text-muted-foreground text-sm">
+            Select a file to start editing
+          </p>
+          <p className="text-muted-foreground/60 text-xs mt-1">
+            or create a new one from the file tree
+          </p>
         </div>
       </div>
     );
   }
 
-  const isMobileScreen = typeof window !== "undefined" && window.innerWidth < 768;
+  const isMobileScreen =
+    typeof window !== "undefined" && window.innerWidth < 768;
 
   return (
     // CRITICAL: overflow-hidden prevents Monaco from expanding the page width on mobile
@@ -85,7 +90,7 @@ export function CodeEditor({ file, onChange, onSave }: CodeEditorProps) {
         width="100%"
         language={file.language ?? "plaintext"}
         value={file.content}
-        onChange={(value) => onChange(value ?? "")}
+        onChange={value => onChange(value ?? "")}
         onMount={handleEditorMount}
         theme="codeforge-dark"
         options={{
@@ -108,7 +113,10 @@ export function CodeEditor({ file, onChange, onSave }: CodeEditorProps) {
           cursorSmoothCaretAnimation: "on",
           smoothScrolling: true,
           bracketPairColorization: { enabled: true },
-          guides: { bracketPairs: !isMobileScreen, indentation: !isMobileScreen },
+          guides: {
+            bracketPairs: !isMobileScreen,
+            indentation: !isMobileScreen,
+          },
           // Mobile: disable heavy features for performance
           renderWhitespace: "none",
           occurrencesHighlight: isMobileScreen ? "off" : "singleFile",

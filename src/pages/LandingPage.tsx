@@ -1,30 +1,30 @@
+import {
+  ArrowRight,
+  BarChart3,
+  Bot,
+  Brain,
+  Code2,
+  DollarSign,
+  Eye,
+  Film,
+  GitBranch,
+  GitPullRequest,
+  Globe,
+  Import,
+  Menu,
+  Monitor,
+  Radio,
+  Shield,
+  Sparkles,
+  Swords,
+  TrendingUp,
+  Users,
+  X,
+  Zap,
+} from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import {
-  Bot,
-  GitBranch,
-  DollarSign,
-  Monitor,
-  Eye,
-  Users,
-  ArrowRight,
-  Code2,
-  Sparkles,
-  Menu,
-  X,
-  Film,
-  Brain,
-  Swords,
-  Radio,
-  BarChart3,
-  Import,
-  Zap,
-  Shield,
-  GitPullRequest,
-  TrendingUp,
-  Globe,
-} from "lucide-react";
 
 const CORE_FEATURES = [
   {
@@ -204,14 +204,20 @@ export function LandingPage() {
             <button
               type="button"
               className="block text-lg text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => { navigate("/login"); setMobileMenuOpen(false); }}
+              onClick={() => {
+                navigate("/login");
+                setMobileMenuOpen(false);
+              }}
             >
               Sign In
             </button>
             <Button
               size="lg"
               className="w-full gap-2"
-              onClick={() => { navigate("/signup"); setMobileMenuOpen(false); }}
+              onClick={() => {
+                navigate("/signup");
+                setMobileMenuOpen(false);
+              }}
             >
               Get Started
               <ArrowRight className="h-4 w-4" />
@@ -264,13 +270,17 @@ export function LandingPage() {
               <Sparkles className="h-3 w-3 text-primary" />
               <span>AI Agent Orchestration Platform — v2 now live</span>
             </div>
-            <h1 className="text-[2.25rem] leading-[1.1] md:text-5xl lg:text-6xl font-bold tracking-tight mb-5">
+            <h1 className="text-3xl sm:text-[2.25rem] leading-[1.1] md:text-5xl lg:text-6xl font-bold tracking-tight mb-5">
               The AI coding platform
               <br />
-              <span className="text-primary">that gets smarter after every failure</span>
+              <span className="text-primary">
+                that gets smarter after every failure
+              </span>
             </h1>
             <p className="text-muted-foreground text-base md:text-lg mb-10 max-w-xl mx-auto leading-relaxed">
-              Multi-agent swarms write, review, and deploy your code. A Learning Loop diagnoses every mistake and injects lessons into future missions. Production errors auto-fix themselves.
+              Multi-agent swarms write, review, and deploy your code. A Learning
+              Loop diagnoses every mistake and injects lessons into future
+              missions. Production errors auto-fix themselves.
             </p>
 
             {/* Prompt input */}
@@ -282,8 +292,8 @@ export function LandingPage() {
                     type="text"
                     placeholder="Build me a SaaS dashboard..."
                     value={promptValue}
-                    onChange={(e) => setPromptValue(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handlePromptSubmit()}
+                    onChange={e => setPromptValue(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handlePromptSubmit()}
                     className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
                   />
                 </div>
@@ -298,12 +308,19 @@ export function LandingPage() {
             </div>
 
             <div className="flex flex-wrap justify-center gap-2 mb-6">
-              {["SaaS dashboard", "Fix production bug", "Import GitHub repo", "Multi-agent task"].map((s) => (
+              {[
+                "SaaS dashboard",
+                "Fix production bug",
+                "Import GitHub repo",
+                "Multi-agent task",
+              ].map(s => (
                 <button
                   key={s}
                   type="button"
                   className="px-3 py-1.5 text-xs rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-                  onClick={() => setPromptValue(`Build me a ${s.toLowerCase()}`)}
+                  onClick={() =>
+                    setPromptValue(`Build me a ${s.toLowerCase()}`)
+                  }
                 >
                   {s}
                 </button>
@@ -319,8 +336,12 @@ export function LandingPage() {
                 { value: "~5 min", label: "bug → PR" },
               ].map(({ value, label }) => (
                 <div key={label} className="text-center">
-                  <div className="text-lg font-bold text-foreground">{value}</div>
-                  <div className="text-[11px] text-muted-foreground">{label}</div>
+                  <div className="text-lg font-bold text-foreground">
+                    {value}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {label}
+                  </div>
                 </div>
               ))}
             </div>
@@ -336,31 +357,42 @@ export function LandingPage() {
               <Zap className="h-3 w-3" />
               What's new in v2
             </div>
-            <h2 className="text-2xl md:text-3xl font-bold mb-3">Six features that change everything</h2>
+            <h2 className="text-2xl md:text-3xl font-bold mb-3">
+              Six features that change everything
+            </h2>
             <p className="text-muted-foreground text-sm md:text-base max-w-xl mx-auto">
-              1,847 lines shipped in one commit. The backend is complete — 40 tables, 28 files, fully wired.
+              1,847 lines shipped in one commit. The backend is complete — 40
+              tables, 28 files, fully wired.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 max-w-6xl mx-auto">
-            {V2_FEATURES.map((feature) => (
+            {V2_FEATURES.map(feature => (
               <div
                 key={feature.title}
                 className="rounded-xl border border-border bg-card p-5 md:p-6 hover:border-primary/30 transition-all hover:-translate-y-0.5 group"
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div className={`w-10 h-10 rounded-lg ${feature.bgColor} flex items-center justify-center`}>
+                  <div
+                    className={`w-10 h-10 rounded-lg ${feature.bgColor} flex items-center justify-center`}
+                  >
                     <feature.icon className={`h-5 w-5 ${feature.color}`} />
                   </div>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${feature.badgeColor}`}>
+                  <span
+                    className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${feature.badgeColor}`}
+                  >
                     {feature.badge}
                   </span>
                 </div>
-                <h3 className="text-sm md:text-base font-semibold mb-2">{feature.title}</h3>
+                <h3 className="text-sm md:text-base font-semibold mb-2">
+                  {feature.title}
+                </h3>
                 <p className="text-xs md:text-sm text-muted-foreground leading-relaxed mb-4">
                   {feature.description}
                 </p>
-                <div className={`text-xs font-medium ${feature.statColor} flex items-center gap-1`}>
+                <div
+                  className={`text-xs font-medium ${feature.statColor} flex items-center gap-1`}
+                >
                   <Zap className="h-3 w-3" />
                   {feature.stat}
                 </div>
@@ -375,26 +407,41 @@ export function LandingPage() {
         <div className="px-5 md:px-8 lg:px-12 max-w-7xl mx-auto">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-10">
-              <p className="text-xs uppercase tracking-widest text-muted-foreground/60 mb-3">The brain behind v2</p>
-              <h2 className="text-2xl md:text-3xl font-bold mb-3">The Learning Loop</h2>
+              <p className="text-xs uppercase tracking-widest text-muted-foreground/60 mb-3">
+                The brain behind v2
+              </p>
+              <h2 className="text-2xl md:text-3xl font-bold mb-3">
+                The Learning Loop
+              </h2>
               <p className="text-muted-foreground text-sm md:text-base max-w-lg mx-auto">
-                Every failure makes the system smarter. Forensic diagnoses it. Mutation patches it. Reflection injects the lesson into every future mission.
+                Every failure makes the system smarter. Forensic diagnoses it.
+                Mutation patches it. Reflection injects the lesson into every
+                future mission.
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {LEARNING_LOOP_STEPS.map((step, i) => (
-                <div key={step.label} className="relative rounded-xl border border-border bg-card p-5 text-center">
+                <div
+                  key={step.label}
+                  className="relative rounded-xl border border-border bg-card p-5 text-center"
+                >
                   {i < LEARNING_LOOP_STEPS.length - 1 && (
                     <div className="hidden md:block absolute -right-2 top-1/2 -translate-y-1/2 z-10">
                       <ArrowRight className="h-4 w-4 text-muted-foreground/40" />
                     </div>
                   )}
-                  <div className={`w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center mx-auto mb-3`}>
+                  <div
+                    className={`w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center mx-auto mb-3`}
+                  >
                     <step.icon className={`h-5 w-5 ${step.color}`} />
                   </div>
-                  <p className="text-xs font-mono text-muted-foreground/60 mb-1">Step {i + 1}</p>
+                  <p className="text-xs font-mono text-muted-foreground/60 mb-1">
+                    Step {i + 1}
+                  </p>
                   <h3 className="text-sm font-semibold mb-2">{step.label}</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {step.desc}
+                  </p>
                 </div>
               ))}
             </div>
@@ -409,18 +456,24 @@ export function LandingPage() {
             <p className="text-xs uppercase tracking-widest text-muted-foreground/60 mb-3">
               Everything you need
             </p>
-            <h2 className="text-2xl md:text-3xl font-bold">Built for real developers</h2>
+            <h2 className="text-2xl md:text-3xl font-bold">
+              Built for real developers
+            </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-w-5xl mx-auto">
-            {CORE_FEATURES.map((feature) => (
+            {CORE_FEATURES.map(feature => (
               <div
                 key={feature.title}
                 className="rounded-xl border border-border bg-card p-5 md:p-6 hover:border-primary/30 transition-colors"
               >
-                <div className={`w-10 h-10 rounded-lg ${feature.bgColor} flex items-center justify-center mb-3`}>
+                <div
+                  className={`w-10 h-10 rounded-lg ${feature.bgColor} flex items-center justify-center mb-3`}
+                >
                   <feature.icon className={`h-5 w-5 ${feature.color}`} />
                 </div>
-                <h3 className="text-sm md:text-base font-semibold mb-1.5">{feature.title}</h3>
+                <h3 className="text-sm md:text-base font-semibold mb-1.5">
+                  {feature.title}
+                </h3>
                 <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
                   {feature.description}
                 </p>
@@ -444,17 +497,25 @@ export function LandingPage() {
             Import your first repo in 60 seconds. The agents take it from there.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button size="lg" className="gap-2" onClick={() => navigate("/signup")}>
+            <Button
+              size="lg"
+              className="gap-2"
+              onClick={() => navigate("/signup")}
+            >
               Start for free
               <ArrowRight className="h-4 w-4" />
             </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate("/login")}>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => navigate("/login")}
+            >
               Sign in
             </Button>
           </div>
           <p className="text-sm text-slate-400 mt-6">
-            * Lifetime plan is Bring Your Own Key — supply your AI provider API key
-            and we'll never charge you for compute.
+            * Lifetime plan is Bring Your Own Key — supply your AI provider API
+            key and we'll never charge you for compute.
           </p>
         </div>
       </section>

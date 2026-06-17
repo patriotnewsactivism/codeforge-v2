@@ -8,15 +8,15 @@ import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import {
   DashboardPage,
+  IDEPage,
   LandingPage,
   LoginPage,
   OnboardingPage,
   SettingsPage,
   SignupPage,
-  IDEPage,
 } from "./pages";
-import { PricingPage } from "./pages/PricingPage";
 import { CheckoutSuccess } from "./pages/CheckoutSuccess";
+import { PricingPage } from "./pages/PricingPage";
 
 function App() {
   return (

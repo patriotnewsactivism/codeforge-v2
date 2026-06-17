@@ -8,14 +8,17 @@ import schema from "./schema";
 const modules = import.meta.glob("./**/*.ts");
 
 async function seedUser(t: ReturnType<typeof convexTest>) {
-  const userId = await t.run(async (ctx) => {
+  const userId = await t.run(async ctx => {
     return await ctx.db.insert("users", {
       name: "Test User",
       email: "test@test.local",
       emailVerificationTime: Date.now(),
     });
   });
-  return { userId: userId as Id<"users">, identity: { subject: `${userId}|sess` } };
+  return {
+    userId: userId as Id<"users">,
+    identity: { subject: `${userId}|sess` },
+  };
 }
 
 describe("projects", () => {
@@ -30,7 +33,7 @@ describe("projects", () => {
     });
     expect(projectId).toBeTruthy();
 
-    const project = await t.run(async (ctx) => {
+    const project = await t.run(async ctx => {
       return await ctx.db.get(projectId);
     });
     expect(project).toBeTruthy();
@@ -50,7 +53,7 @@ describe("projects", () => {
     const files = await asUser.query(api.files.listByProject, { projectId });
     expect(files).toHaveLength(3);
 
-    const paths = files.map((f) => f.path).sort();
+    const paths = files.map(f => f.path).sort();
     expect(paths).toEqual(["index.html", "script.js", "style.css"]);
   });
 
@@ -65,7 +68,7 @@ describe("projects", () => {
     const projects = await asUser.query(api.projects.list, {});
     expect(projects).toHaveLength(2);
 
-    const names = projects.map((p) => p.name).sort();
+    const names = projects.map(p => p.name).sort();
     expect(names).toEqual(["Project A", "Project B"]);
   });
 
@@ -80,7 +83,7 @@ describe("projects", () => {
     });
 
     // Create user B
-    const userIdB = await t.run(async (ctx) => {
+    const userIdB = await t.run(async ctx => {
       return await ctx.db.insert("users", {
         name: "User B",
         email: "userb@test.local",
@@ -103,7 +106,7 @@ describe("projects", () => {
     });
 
     // Create collaborator user
-    const collabUserId = await t.run(async (ctx) => {
+    const collabUserId = await t.run(async ctx => {
       return await ctx.db.insert("users", {
         name: "Collab User",
         email: "collab@test.local",
@@ -112,7 +115,7 @@ describe("projects", () => {
     });
 
     // Add collaborator
-    await t.run(async (ctx) => {
+    await t.run(async ctx => {
       await ctx.db.insert("collaborators", {
         projectId,
         userId: collabUserId as Id<"users">,
@@ -152,25 +155,25 @@ describe("projects", () => {
     await asUser.mutation(api.projects.remove, { projectId });
 
     // Verify project is gone
-    const project = await t.run(async (ctx) => {
+    const project = await t.run(async ctx => {
       return await ctx.db.get(projectId);
     });
     expect(project).toBeNull();
 
     // Verify files are gone
-    const files = await t.run(async (ctx) => {
+    const files = await t.run(async ctx => {
       return await ctx.db
         .query("files")
-        .withIndex("by_project", (q) => q.eq("projectId", projectId))
+        .withIndex("by_project", q => q.eq("projectId", projectId))
         .collect();
     });
     expect(files).toHaveLength(0);
 
     // Verify chat sessions are gone
-    const sessions = await t.run(async (ctx) => {
+    const sessions = await t.run(async ctx => {
       return await ctx.db
         .query("chatSessions")
-        .withIndex("by_project", (q) => q.eq("projectId", projectId))
+        .withIndex("by_project", q => q.eq("projectId", projectId))
         .collect();
     });
     expect(sessions).toHaveLength(0);
@@ -186,7 +189,7 @@ describe("projects", () => {
     });
 
     // Non-owner user
-    const nonOwnerId = await t.run(async (ctx) => {
+    const nonOwnerId = await t.run(async ctx => {
       return await ctx.db.insert("users", {
         name: "Intruder",
         email: "intruder@test.local",
@@ -196,7 +199,7 @@ describe("projects", () => {
     const asIntruder = t.withIdentity({ subject: `${nonOwnerId}|sess` });
 
     await expect(
-      asIntruder.mutation(api.projects.remove, { projectId })
+      asIntruder.mutation(api.projects.remove, { projectId }),
     ).rejects.toThrow("Not authorized");
   });
 
@@ -209,7 +212,7 @@ describe("projects", () => {
   test("throws when creating project without auth", async () => {
     const t = convexTest(schema, modules);
     await expect(
-      t.mutation(api.projects.create, { name: "Unauth" })
+      t.mutation(api.projects.create, { name: "Unauth" }),
     ).rejects.toThrow("Not authenticated");
   });
 
@@ -225,7 +228,7 @@ describe("projects", () => {
     const before = Date.now();
     await asUser.mutation(api.projects.updateLastOpened, { projectId });
 
-    const project = await t.run(async (ctx) => {
+    const project = await t.run(async ctx => {
       return await ctx.db.get(projectId);
     });
     expect(project!.lastOpenedAt).toBeGreaterThanOrEqual(before);

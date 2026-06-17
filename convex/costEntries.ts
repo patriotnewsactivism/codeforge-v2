@@ -1,9 +1,10 @@
 /**
  * COST ENTRIES — Per-call cost tracking
  */
+
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
 
 export const log = mutation({
   args: {
@@ -26,12 +27,12 @@ export const log = mutation({
 
 export const getByUser = query({
   args: {},
-  handler: async (ctx) => {
+  handler: async ctx => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
     return await ctx.db
       .query("costEntries")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", q => q.eq("userId", userId))
       .order("desc")
       .take(100);
   },
@@ -39,12 +40,12 @@ export const getByUser = query({
 
 export const getTotalCost = query({
   args: {},
-  handler: async (ctx) => {
+  handler: async ctx => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return { totalCost: 0, totalEntries: 0 };
     const entries = await ctx.db
       .query("costEntries")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", q => q.eq("userId", userId))
       .collect();
     return {
       totalCost: entries.reduce((sum, e) => sum + e.cost, 0),
@@ -66,11 +67,11 @@ export const listByProject = query({
     const sessionIds = new Set(buildSessions.map((s: any) => s._id.toString()));
     const entries = await ctx.db
       .query("costEntries")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", q => q.eq("userId", userId))
       .collect();
-    return entries.filter((e: any) => e.buildSessionId && sessionIds.has(e.buildSessionId.toString()));
+    return entries.filter(
+      (e: any) =>
+        e.buildSessionId && sessionIds.has(e.buildSessionId.toString()),
+    );
   },
 });
-
-
-

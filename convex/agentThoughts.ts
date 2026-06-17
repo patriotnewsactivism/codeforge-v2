@@ -14,12 +14,12 @@ export const listRecent = query({
   handler: async (ctx, args) => {
     let thoughts = await ctx.db
       .query("agentThoughts")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("asc")
       .take(args.limit ?? 100);
 
     if (args.buildSessionId) {
-      thoughts = thoughts.filter((t) => t.buildSessionId === args.buildSessionId);
+      thoughts = thoughts.filter(t => t.buildSessionId === args.buildSessionId);
     }
 
     return thoughts;
@@ -50,7 +50,7 @@ export const emit = mutation({
       v.literal("error"),
       v.literal("warning"),
       v.literal("thinking"),
-      v.literal("finding")
+      v.literal("finding"),
     ),
     content: v.string(),
     isStreaming: v.optional(v.boolean()),
@@ -75,13 +75,10 @@ export const clearForProject = mutation({
   handler: async (ctx, args) => {
     const thoughts = await ctx.db
       .query("agentThoughts")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
     for (const t of thoughts) {
       await ctx.db.delete(t._id);
     }
   },
 });
-
-
-

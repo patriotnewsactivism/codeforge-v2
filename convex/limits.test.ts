@@ -8,14 +8,17 @@ import schema from "./schema";
 const modules = import.meta.glob("./**/*.ts");
 
 async function seedUser(t: ReturnType<typeof convexTest>) {
-  const userId = await t.run(async (ctx) => {
+  const userId = await t.run(async ctx => {
     return await ctx.db.insert("users", {
       name: "Test User",
       email: "test@test.local",
       emailVerificationTime: Date.now(),
     });
   });
-  return { userId: userId as Id<"users">, identity: { subject: `${userId}|sess` } };
+  return {
+    userId: userId as Id<"users">,
+    identity: { subject: `${userId}|sess` },
+  };
 }
 
 describe("limits", () => {
@@ -93,7 +96,7 @@ describe("limits", () => {
     const { userId, identity } = await seedUser(t);
 
     // Create a free-tier subscription record
-    await t.run(async (ctx) => {
+    await t.run(async ctx => {
       await ctx.db.insert("subscriptions", {
         userId,
         planKey: "free",
@@ -114,7 +117,7 @@ describe("limits", () => {
     const t = convexTest(schema, modules);
     const { userId, identity } = await seedUser(t);
 
-    await t.run(async (ctx) => {
+    await t.run(async ctx => {
       await ctx.db.insert("subscriptions", {
         userId,
         planKey: "free",
@@ -149,7 +152,7 @@ describe("limits", () => {
     const t = convexTest(schema, modules);
     const { userId, identity } = await seedUser(t);
 
-    await t.run(async (ctx) => {
+    await t.run(async ctx => {
       await ctx.db.insert("subscriptions", {
         userId,
         planKey: "free",
@@ -182,7 +185,7 @@ describe("limits", () => {
     const t = convexTest(schema, modules);
     const { userId, identity } = await seedUser(t);
 
-    await t.run(async (ctx) => {
+    await t.run(async ctx => {
       await ctx.db.insert("subscriptions", {
         userId,
         planKey: "free",
@@ -224,7 +227,7 @@ describe("limits", () => {
     const t = convexTest(schema, modules);
     const { userId, identity } = await seedUser(t);
 
-    await t.run(async (ctx) => {
+    await t.run(async ctx => {
       await ctx.db.insert("subscriptions", {
         userId,
         planKey: "monthly",
@@ -263,11 +266,11 @@ describe("limits", () => {
     });
 
     const today = new Date().toISOString().slice(0, 10);
-    const usage = await t.run(async (ctx) => {
+    const usage = await t.run(async ctx => {
       return await ctx.db
         .query("userUsage")
-        .withIndex("by_user_date", (q) =>
-          q.eq("userId", String(userId)).eq("date", today)
+        .withIndex("by_user_date", q =>
+          q.eq("userId", String(userId)).eq("date", today),
         )
         .first();
     });
@@ -286,11 +289,11 @@ describe("limits", () => {
     });
 
     const today = new Date().toISOString().slice(0, 10);
-    const usage = await t.run(async (ctx) => {
+    const usage = await t.run(async ctx => {
       return await ctx.db
         .query("userUsage")
-        .withIndex("by_user_date", (q) =>
-          q.eq("userId", String(userId)).eq("date", today)
+        .withIndex("by_user_date", q =>
+          q.eq("userId", String(userId)).eq("date", today),
         )
         .first();
     });
@@ -309,11 +312,11 @@ describe("limits", () => {
     });
 
     const today = new Date().toISOString().slice(0, 10);
-    const usage = await t.run(async (ctx) => {
+    const usage = await t.run(async ctx => {
       return await ctx.db
         .query("userUsage")
-        .withIndex("by_user_date", (q) =>
-          q.eq("userId", String(userId)).eq("date", today)
+        .withIndex("by_user_date", q =>
+          q.eq("userId", String(userId)).eq("date", today),
         )
         .first();
     });
@@ -331,11 +334,11 @@ describe("limits", () => {
     });
 
     const monthKey = new Date().toISOString().slice(0, 7);
-    const spend = await t.run(async (ctx) => {
+    const spend = await t.run(async ctx => {
       return await ctx.db
         .query("userSpend")
-        .withIndex("by_user_period", (q) =>
-          q.eq("userId", String(userId)).eq("periodKey", monthKey)
+        .withIndex("by_user_period", q =>
+          q.eq("userId", String(userId)).eq("periodKey", monthKey),
         )
         .first();
     });

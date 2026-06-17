@@ -1,7 +1,18 @@
+import { useMutation } from "convex/react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Code2,
+  FolderTree,
+  Github,
+  MessageSquare,
+  Rocket,
+  SkipForward,
+} from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,19 +24,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  ArrowRight,
-  ArrowLeft,
-  Check,
-  Github,
-  Rocket,
-  FolderTree,
-  Code2,
-  MessageSquare,
-  SkipForward,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { api } from "../../convex/_generated/api";
 
 const STEPS = [
   { id: "welcome", title: "Welcome to CodeForge", icon: Rocket },
@@ -94,7 +94,7 @@ export function OnboardingPage() {
 
   const handleSkip = () => {
     if (step < STEPS.length - 1) {
-      setStep((s) => s + 1);
+      setStep(s => s + 1);
     } else {
       handleFinish();
     }
@@ -155,11 +155,7 @@ export function OnboardingPage() {
             {/* Step 0: Welcome */}
             {step === 0 && (
               <div className="flex flex-col items-center gap-4">
-                <Button
-                  size="lg"
-                  onClick={() => setStep(1)}
-                  className="w-full"
-                >
+                <Button size="lg" onClick={() => setStep(1)} className="w-full">
                   Get Started <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
                 <Button
@@ -206,10 +202,8 @@ export function OnboardingPage() {
                     id="name"
                     placeholder="my-awesome-app"
                     value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && handleCreateProject()
-                    }
+                    onChange={e => setProjectName(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleCreateProject()}
                   />
                 </div>
                 <div className="space-y-2">
@@ -218,7 +212,7 @@ export function OnboardingPage() {
                     id="desc"
                     placeholder="A brief description of your project"
                     value={projectDesc}
-                    onChange={(e) => setProjectDesc(e.target.value)}
+                    onChange={e => setProjectDesc(e.target.value)}
                     rows={3}
                   />
                 </div>
@@ -245,7 +239,7 @@ export function OnboardingPage() {
             {/* Step 3: Tour */}
             {step === 3 && (
               <div className="space-y-3">
-                {TOUR_ITEMS.map((item) => (
+                {TOUR_ITEMS.map(item => (
                   <div
                     key={item.title}
                     className="flex gap-3 p-3 rounded-lg bg-muted/50"

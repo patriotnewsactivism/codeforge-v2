@@ -1,18 +1,11 @@
+import { useMutation, useQuery } from "convex/react";
+import { Check, MessageSquare, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
-import {
-  MessageSquare,
-  Plus,
-  Pencil,
-  Trash2,
-  Check,
-  X,
-} from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 interface SessionSidebarProps {
   projectId: Id<"projects">;
@@ -106,17 +99,17 @@ export function SessionSidebar({
                   <Input
                     className="h-6 text-xs px-1"
                     value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    onKeyDown={(e) => {
+                    onChange={e => setEditTitle(e.target.value)}
+                    onKeyDown={e => {
                       if (e.key === "Enter") confirmRename(s._id);
                       if (e.key === "Escape") setEditingId(null);
                     }}
                     autoFocus
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={e => e.stopPropagation()}
                   />
                   <button
                     className="p-0.5 hover:text-green-400"
-                    onClick={(e) => {
+                    onClick={e => {
                       e.stopPropagation();
                       confirmRename(s._id);
                     }}
@@ -125,7 +118,7 @@ export function SessionSidebar({
                   </button>
                   <button
                     className="p-0.5 hover:text-red-400"
-                    onClick={(e) => {
+                    onClick={e => {
                       e.stopPropagation();
                       setEditingId(null);
                     }}
@@ -139,7 +132,7 @@ export function SessionSidebar({
                   <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
                     <button
                       className="p-0.5 hover:text-primary"
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation();
                         startRename(s._id, title);
                       }}
@@ -148,7 +141,7 @@ export function SessionSidebar({
                     </button>
                     <button
                       className="p-0.5 hover:text-destructive"
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation();
                         handleDelete(s._id, title);
                       }}

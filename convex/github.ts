@@ -1,17 +1,15 @@
-import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { v } from "convex/values";
 import { api } from "./_generated/api";
+import { action, mutation, query } from "./_generated/server";
 
 // GitHub API helper
 async function githubFetch(
   path: string,
   token: string,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<Response> {
-  const url = path.startsWith("http")
-    ? path
-    : `https://api.github.com${path}`;
+  const url = path.startsWith("http") ? path : `https://api.github.com${path}`;
   return fetch(url, {
     ...options,
     headers: {
@@ -32,7 +30,7 @@ export const saveToken = mutation({
     if (!userId) throw new Error("Not authenticated");
     const existing = await ctx.db
       .query("githubSettings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", q => q.eq("userId", userId))
       .first();
     if (existing) {
       await ctx.db.patch(existing._id, { token });
@@ -52,14 +50,14 @@ export const getSettings = query({
       username: v.optional(v.string()),
       avatarUrl: v.optional(v.string()),
     }),
-    v.null()
+    v.null(),
   ),
-  handler: async (ctx) => {
+  handler: async ctx => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
     const settings = await ctx.db
       .query("githubSettings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", q => q.eq("userId", userId))
       .first();
     if (!settings) return { connected: false };
     return {
@@ -122,7 +120,7 @@ export const updateProfile = mutation({
     if (!userId) throw new Error("Not authenticated");
     const settings = await ctx.db
       .query("githubSettings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", q => q.eq("userId", userId))
       .first();
     if (settings) {
       await ctx.db.patch(settings._id, { username, avatarUrl });
@@ -145,7 +143,7 @@ export const listRepos = action({
       defaultBranch: v.string(),
       stars: v.number(),
       size: v.number(),
-    })
+    }),
   ),
   handler: async (ctx, { page }) => {
     const userId = await getAuthUserId(ctx);
@@ -155,7 +153,7 @@ export const listRepos = action({
 
     const response = await githubFetch(
       `/user/repos?sort=updated&per_page=30&page=${page || 1}&type=all`,
-      settings.token
+      settings.token,
     );
     if (!response.ok) throw new Error(`GitHub API error: ${response.status}`);
 
@@ -171,7 +169,7 @@ export const listRepos = action({
       size: number;
     };
     const repos = (await response.json()) as GHRepo[];
-    return repos.map((r) => ({
+    return repos.map(r => ({
       fullName: r.full_name,
       name: r.name,
       description: r.description,
@@ -189,12 +187,12 @@ export const listRepos = action({
 export const getTokenInternal = query({
   args: {},
   returns: v.union(v.object({ token: v.string() }), v.null()),
-  handler: async (ctx) => {
+  handler: async ctx => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
     const settings = await ctx.db
       .query("githubSettings")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", q => q.eq("userId", userId))
       .first();
     if (!settings) return null;
     return { token: settings.token };
@@ -224,7 +222,7 @@ export const importRepo = action({
       // Get the tree recursively
       const response = await githubFetch(
         `/repos/${repo}/git/trees/${ref}?recursive=1`,
-        settings.token
+        settings.token,
       );
       if (!response.ok) {
         const text = await response.text();
@@ -278,8 +276,8 @@ export const importRepo = action({
       const MAX_FILES = 200; // Limit total files
 
       const filteredTree = data.tree
-        .filter((item) => {
-          if (skipPatterns.some((p) => p.test(item.path))) return false;
+        .filter(item => {
+          if (skipPatterns.some(p => p.test(item.path))) return false;
           if (item.type === "blob" && (item.size || 0) > MAX_FILE_SIZE)
             return false;
           return true;
@@ -303,7 +301,7 @@ export const importRepo = action({
       // Batch: insert folders first
       const folderFiles = Array.from(folders)
         .sort()
-        .map((p) => ({
+        .map(p => ({
           path: p,
           name: p.split("/").pop() || p,
           type: "folder" as const,
@@ -317,18 +315,18 @@ export const importRepo = action({
       }
 
       // Fetch file contents in batches
-      const blobs = filteredTree.filter((item) => item.type === "blob");
+      const blobs = filteredTree.filter(item => item.type === "blob");
       const BATCH_SIZE = 15;
       let totalFiles = folderFiles.length;
 
       for (let i = 0; i < blobs.length; i += BATCH_SIZE) {
         const batch = blobs.slice(i, i + BATCH_SIZE);
         const fileData = await Promise.all(
-          batch.map(async (item) => {
+          batch.map(async item => {
             try {
               const fileResp = await githubFetch(
                 `/repos/${repo}/contents/${item.path}?ref=${ref}`,
-                settings.token
+                settings.token,
               );
               if (!fileResp.ok) return null;
               const fileJson = (await fileResp.json()) as {
@@ -350,11 +348,11 @@ export const importRepo = action({
             } catch {
               return null;
             }
-          })
+          }),
         );
 
         const validFiles = fileData.filter(
-          (f): f is NonNullable<typeof f> => f !== null
+          (f): f is NonNullable<typeof f> => f !== null,
         );
         if (validFiles.length > 0) {
           await ctx.runMutation(api.files.bulkInsert, {
@@ -401,7 +399,7 @@ export const commitFile = action({
       if (!fileSha) {
         const existingResp = await githubFetch(
           `/repos/${repo}/contents/${path}?ref=${branch || "main"}`,
-          settings.token
+          settings.token,
         );
         if (existingResp.ok) {
           const existing = (await existingResp.json()) as { sha: string };
@@ -420,7 +418,7 @@ export const commitFile = action({
             branch: branch || "main",
             ...(fileSha ? { sha: fileSha } : {}),
           }),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -461,10 +459,13 @@ export const createBranch = action({
       const srcBranch = fromBranch || "main";
       const refResp = await githubFetch(
         `/repos/${repo}/git/ref/heads/${srcBranch}`,
-        settings.token
+        settings.token,
       );
       if (!refResp.ok) {
-        return { success: false, error: `Source branch '${srcBranch}' not found` };
+        return {
+          success: false,
+          error: `Source branch '${srcBranch}' not found`,
+        };
       }
       const refData = (await refResp.json()) as { object: { sha: string } };
       const sha = refData.object.sha;
@@ -479,7 +480,7 @@ export const createBranch = action({
             ref: `refs/heads/${branchName}`,
             sha,
           }),
-        }
+        },
       );
 
       if (!createResp.ok) {
@@ -552,6 +553,3 @@ export const createPullRequest = action({
     }
   },
 });
-
-
-

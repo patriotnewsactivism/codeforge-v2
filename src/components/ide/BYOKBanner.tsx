@@ -9,10 +9,10 @@
  * Non-modal: sticky top notice with CTA → Settings → API Keys.
  */
 import { useQuery } from "convex/react";
+import { ArrowRight, KeyRound, X } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
-import { KeyRound, ArrowRight, X } from "lucide-react";
-import { useState } from "react";
 
 export function BYOKBanner() {
   const navigate = useNavigate();
@@ -31,7 +31,8 @@ export function BYOKBanner() {
     <div
       className="relative w-full flex items-center gap-3 px-4 py-3 text-sm"
       style={{
-        background: "linear-gradient(90deg, rgba(245,158,11,0.12) 0%, rgba(245,158,11,0.06) 100%)",
+        background:
+          "linear-gradient(90deg, rgba(245,158,11,0.12) 0%, rgba(245,158,11,0.06) 100%)",
         borderBottom: "1px solid rgba(245,158,11,0.25)",
       }}
     >
@@ -49,8 +50,8 @@ export function BYOKBanner() {
           Action required:&nbsp;
         </span>
         <span className="text-slate-300">
-          Your Lifetime plan uses Bring Your Own Key (BYOK). Add at least one AI provider
-          key to unlock the IDE and agent system.
+          Your Lifetime plan uses Bring Your Own Key (BYOK). Add at least one AI
+          provider key to unlock the IDE and agent system.
         </span>
       </div>
 

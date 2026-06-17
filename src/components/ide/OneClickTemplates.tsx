@@ -3,7 +3,7 @@
  * CODEFORGE v2 — ONE-CLICK DEPLOY TEMPLATES (UPGRADE #5)
  * ═══════════════════════════════════════════════════════════════════
  *
- * Pick a template → agents customize it to your prompt → 
+ * Pick a template → agents customize it to your prompt →
  * preview is live in 60-90 seconds with a real public URL.
  *
  * Templates are not just starter files — the agent actively
@@ -19,71 +19,92 @@
  * - Community templates from PromptMarketplace
  */
 
+import { motion } from "framer-motion";
+import {
+  ArrowRight,
+  Loader2,
+  Rocket,
+  Search,
+  Star,
+  X,
+  Zap,
+} from "lucide-react";
 // src/components/ide/OneClickTemplates.tsx
 import { useState } from "react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Rocket, Search, X,
-  Zap, Star, ArrowRight, Loader2
-} from "lucide-react";
-import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-type Category = "all" | "saas" | "news" | "legal" | "portfolio" | "ecommerce" | "dashboard" | "wtpnews";
+type Category =
+  | "all"
+  | "saas"
+  | "news"
+  | "legal"
+  | "portfolio"
+  | "ecommerce"
+  | "dashboard"
+  | "wtpnews";
 
 const TEMPLATES: Template[] = [
   {
     id: "news-site",
     name: "News/Media Site",
     category: "news",
-    description: "Full news platform: article listing, categories, search, author pages",
+    description:
+      "Full news platform: article listing, categories, search, author pages",
     techStack: ["React", "Tailwind", "Supabase"],
     deployTime: "~75s",
     stars: 142,
     preview: "https://placehold.co/320x200/111118/e63946?text=News+Site",
     featured: true,
     wtpBranded: false,
-    agentPrompt: "Build a modern news website with dark theme, breaking news ticker, article cards by category, individual article pages with reading time, author bios, and a search bar",
+    agentPrompt:
+      "Build a modern news website with dark theme, breaking news ticker, article cards by category, individual article pages with reading time, author bios, and a search bar",
   },
   {
     id: "civil-rights-intake",
     name: "Civil Rights Intake Form",
     category: "legal",
-    description: "Professional legal intake form for civil rights incidents — WTP News ecosystem",
+    description:
+      "Professional legal intake form for civil rights incidents — WTP News ecosystem",
     techStack: ["React", "Supabase", "PDF export"],
     deployTime: "~60s",
     stars: 89,
     preview: "https://placehold.co/320x200/111118/60a5fa?text=Legal+Intake",
     featured: true,
     wtpBranded: true,
-    agentPrompt: "Build a civil rights incident intake form with sections for: incident description, location, date/time, officer information, witness details, evidence upload, and PDF export. Dark professional theme matching civilrightshub.org",
+    agentPrompt:
+      "Build a civil rights incident intake form with sections for: incident description, location, date/time, officer information, witness details, evidence upload, and PDF export. Dark professional theme matching civilrightshub.org",
   },
   {
     id: "saas-landing",
     name: "SaaS Landing Page",
     category: "saas",
-    description: "High-conversion SaaS landing page with pricing, features, and CTA",
+    description:
+      "High-conversion SaaS landing page with pricing, features, and CTA",
     techStack: ["React", "Tailwind", "Framer Motion"],
     deployTime: "~65s",
     stars: 234,
     preview: "https://placehold.co/320x200/111118/a78bfa?text=SaaS+Landing",
     featured: true,
     wtpBranded: false,
-    agentPrompt: "Build a high-conversion SaaS landing page with: animated hero section, feature grid with icons, social proof section, 3-tier pricing table, FAQ accordion, and sticky CTA header",
+    agentPrompt:
+      "Build a high-conversion SaaS landing page with: animated hero section, feature grid with icons, social proof section, 3-tier pricing table, FAQ accordion, and sticky CTA header",
   },
   {
     id: "activist-hub",
     name: "Activist Organization Hub",
     category: "wtpnews",
-    description: "WTP News ecosystem — full activist org site with events, resources, donate",
+    description:
+      "WTP News ecosystem — full activist org site with events, resources, donate",
     techStack: ["React", "Convex", "Stripe"],
     deployTime: "~90s",
     stars: 67,
     preview: "https://placehold.co/320x200/111118/f4a832?text=Activist+Hub",
     featured: false,
     wtpBranded: true,
-    agentPrompt: "Build an activist organization website with: mission statement hero, events calendar, resource library with downloadable guides, volunteer signup form, secure donate button, and news feed integration",
+    agentPrompt:
+      "Build an activist organization website with: mission statement hero, events calendar, resource library with downloadable guides, volunteer signup form, secure donate button, and news feed integration",
   },
   {
     id: "admin-dashboard",
@@ -96,7 +117,8 @@ const TEMPLATES: Template[] = [
     preview: "https://placehold.co/320x200/111118/34d399?text=Dashboard",
     featured: false,
     wtpBranded: false,
-    agentPrompt: "Build a comprehensive admin dashboard with: KPI stat cards, line/bar/pie charts using Recharts, a searchable sortable data table, sidebar navigation, dark theme, and responsive layout",
+    agentPrompt:
+      "Build a comprehensive admin dashboard with: KPI stat cards, line/bar/pie charts using Recharts, a searchable sortable data table, sidebar navigation, dark theme, and responsive layout",
   },
   {
     id: "portfolio",
@@ -109,7 +131,8 @@ const TEMPLATES: Template[] = [
     preview: "https://placehold.co/320x200/111118/f97316?text=Portfolio",
     featured: false,
     wtpBranded: false,
-    agentPrompt: "Build a modern developer portfolio with: animated hero with typed text effect, project cards with live demo links, tech stack section with icons, timeline/experience section, and a contact form",
+    agentPrompt:
+      "Build a modern developer portfolio with: animated hero with typed text effect, project cards with live demo links, tech stack section with icons, timeline/experience section, and a contact form",
   },
   {
     id: "ecommerce-product",
@@ -122,7 +145,8 @@ const TEMPLATES: Template[] = [
     preview: "https://placehold.co/320x200/111118/f43f5e?text=E-Commerce",
     featured: false,
     wtpBranded: false,
-    agentPrompt: "Build an e-commerce store with: product listing grid with filters, product detail pages with image gallery, shopping cart sidebar, Stripe checkout integration, and order confirmation page",
+    agentPrompt:
+      "Build an e-commerce store with: product listing grid with filters, product detail pages with image gallery, shopping cart sidebar, Stripe checkout integration, and order confirmation page",
   },
   {
     id: "wtpnews-article",
@@ -135,7 +159,8 @@ const TEMPLATES: Template[] = [
     preview: "https://placehold.co/320x200/111118/e63946?text=WTP+News",
     featured: false,
     wtpBranded: true,
-    agentPrompt: "Build a WTP News article page template with: breaking news badge, article header with date/author, estimated read time, body content with pull quotes, related articles sidebar, social sharing buttons, and comment section — matching the WTP News dark red theme",
+    agentPrompt:
+      "Build a WTP News article page template with: breaking news badge, article header with date/author, estimated read time, body content with pull quotes, related articles sidebar, social sharing buttons, and comment section — matching the WTP News dark red theme",
   },
 ];
 
@@ -169,7 +194,10 @@ const CATEGORIES: { id: Category; label: string; emoji: string }[] = [
   { id: "wtpnews", label: "WTP News", emoji: "🔴" },
 ];
 
-export function OneClickTemplates({ onLaunch, onClose }: OneClickTemplatesProps) {
+export function OneClickTemplates({
+  onLaunch,
+  onClose,
+}: OneClickTemplatesProps) {
   const [category, setCategory] = useState<Category>("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Template | null>(null);
@@ -178,7 +206,10 @@ export function OneClickTemplates({ onLaunch, onClose }: OneClickTemplatesProps)
 
   const filtered = TEMPLATES.filter(t => {
     const matchCat = category === "all" || t.category === category;
-    const matchSearch = !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.description.toLowerCase().includes(search.toLowerCase());
+    const matchSearch =
+      !search ||
+      t.name.toLowerCase().includes(search.toLowerCase()) ||
+      t.description.toLowerCase().includes(search.toLowerCase());
     return matchCat && matchSearch;
   });
 
@@ -216,10 +247,15 @@ export function OneClickTemplates({ onLaunch, onClose }: OneClickTemplatesProps)
             </div>
             <div>
               <h2 className="font-bold text-white">Templates</h2>
-              <p className="text-xs text-white/40">Pick a template → agents build & deploy it</p>
+              <p className="text-xs text-white/40">
+                Pick a template → agents build & deploy it
+              </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-white/30 hover:text-white rounded-lg hover:bg-white/10">
+          <button
+            onClick={onClose}
+            className="p-1.5 text-white/30 hover:text-white rounded-lg hover:bg-white/10"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -247,7 +283,7 @@ export function OneClickTemplates({ onLaunch, onClose }: OneClickTemplatesProps)
                       "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all border",
                       category === c.id
                         ? "bg-red-500/15 border-red-500/30 text-red-400"
-                        : "border-white/10 text-white/40 hover:border-white/20 hover:text-white/60"
+                        : "border-white/10 text-white/40 hover:border-white/20 hover:text-white/60",
                     )}
                   >
                     <span>{c.emoji}</span> {c.label}
@@ -263,7 +299,10 @@ export function OneClickTemplates({ onLaunch, onClose }: OneClickTemplatesProps)
                   <motion.button
                     key={template.id}
                     whileHover={{ y: -2 }}
-                    onClick={() => { setSelected(template); setCustomPrompt(""); }}
+                    onClick={() => {
+                      setSelected(template);
+                      setCustomPrompt("");
+                    }}
                     className="text-left bg-[#1a1a24] border border-white/10 hover:border-white/20 rounded-xl overflow-hidden transition-all group"
                   >
                     <div className="relative">
@@ -292,11 +331,17 @@ export function OneClickTemplates({ onLaunch, onClose }: OneClickTemplatesProps)
                           <Star className="w-3 h-3" /> {template.stars}
                         </div>
                       </div>
-                      <p className="text-xs text-white/40 mb-2 line-clamp-2">{template.description}</p>
+                      <p className="text-xs text-white/40 mb-2 line-clamp-2">
+                        {template.description}
+                      </p>
                       <div className="flex items-center justify-between">
                         <div className="flex flex-wrap gap-1">
                           {template.techStack.slice(0, 2).map(t => (
-                            <Badge key={t} variant="outline" className="text-xs border-white/10 text-white/30 py-0">
+                            <Badge
+                              key={t}
+                              variant="outline"
+                              className="text-xs border-white/10 text-white/30 py-0"
+                            >
                               {t}
                             </Badge>
                           ))}
@@ -329,20 +374,38 @@ export function OneClickTemplates({ onLaunch, onClose }: OneClickTemplatesProps)
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <h2 className="text-xl font-bold text-white">{selected.name}</h2>
+                  <h2 className="text-xl font-bold text-white">
+                    {selected.name}
+                  </h2>
                   {selected.wtpBranded && (
-                    <Badge className="bg-red-500/20 text-red-400 border-red-500/30">WTP Ecosystem</Badge>
+                    <Badge className="bg-red-500/20 text-red-400 border-red-500/30">
+                      WTP Ecosystem
+                    </Badge>
                   )}
                 </div>
-                <p className="text-white/50 text-sm mb-3">{selected.description}</p>
+                <p className="text-white/50 text-sm mb-3">
+                  {selected.description}
+                </p>
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   {selected.techStack.map(t => (
-                    <Badge key={t} variant="outline" className="border-white/15 text-white/50">{t}</Badge>
+                    <Badge
+                      key={t}
+                      variant="outline"
+                      className="border-white/15 text-white/50"
+                    >
+                      {t}
+                    </Badge>
                   ))}
                 </div>
                 <div className="flex items-center gap-4 text-sm text-white/40">
-                  <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5 text-emerald-400" /> Deploy: {selected.deployTime}</span>
-                  <span className="flex items-center gap-1"><Star className="w-3.5 h-3.5 text-amber-400" /> {selected.stars} uses</span>
+                  <span className="flex items-center gap-1">
+                    <Zap className="w-3.5 h-3.5 text-emerald-400" /> Deploy:{" "}
+                    {selected.deployTime}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Star className="w-3.5 h-3.5 text-amber-400" />{" "}
+                    {selected.stars} uses
+                  </span>
                 </div>
               </div>
             </div>
@@ -360,13 +423,19 @@ export function OneClickTemplates({ onLaunch, onClose }: OneClickTemplatesProps)
             </div>
 
             <div>
-              <label className="text-xs text-white/40 mb-1.5 block">Add any extra requirements (optional)</label>
+              <label className="text-xs text-white/40 mb-1.5 block">
+                Add any extra requirements (optional)
+              </label>
               <input
                 type="text"
                 placeholder="e.g. Use our red brand color #e63946, add Spanish language support..."
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-white/20"
                 onBlur={e => {
-                  if (e.target.value) setCustomPrompt(prev => prev + "\n\nExtra requirements: " + e.target.value);
+                  if (e.target.value)
+                    setCustomPrompt(
+                      prev =>
+                        prev + "\n\nExtra requirements: " + e.target.value,
+                    );
                 }}
               />
             </div>
@@ -378,9 +447,15 @@ export function OneClickTemplates({ onLaunch, onClose }: OneClickTemplatesProps)
               className="w-full bg-gradient-to-r from-red-600 to-amber-500 hover:from-red-500 hover:to-amber-400 font-bold"
             >
               {launching ? (
-                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Launching agents...</>
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" /> Launching
+                  agents...
+                </>
               ) : (
-                <><Rocket className="w-4 h-4 mr-2" /> Launch & Deploy — {selected.deployTime} <ArrowRight className="w-4 h-4 ml-2" /></>
+                <>
+                  <Rocket className="w-4 h-4 mr-2" /> Launch & Deploy —{" "}
+                  {selected.deployTime} <ArrowRight className="w-4 h-4 ml-2" />
+                </>
               )}
             </Button>
           </div>

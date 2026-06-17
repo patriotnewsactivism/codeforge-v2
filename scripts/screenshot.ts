@@ -1,6 +1,6 @@
 import { runTest } from "./auth";
 
-runTest("Take Screenshots", async (helper) => {
+runTest("Take Screenshots", async helper => {
   const { page } = helper;
 
   // Screenshot landing page
@@ -27,5 +27,4 @@ runTest("Take Screenshots", async (helper) => {
     await page.screenshot({ path: "screenshots/ide.png", fullPage: true });
     console.log("IDE screenshot taken");
   }
-
 }).catch(() => process.exit(1));

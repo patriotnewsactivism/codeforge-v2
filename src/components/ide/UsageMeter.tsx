@@ -5,11 +5,18 @@
  * Near-limit states pulse orange. At-limit shows upgrade CTA.
  */
 import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { useNavigate } from "react-router-dom";
-import { Zap, Bot, TrendingUp, ArrowUpRight, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ArrowUpRight,
+  Bot,
+  ChevronDown,
+  ChevronUp,
+  TrendingUp,
+  Zap,
+} from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { api } from "../../../convex/_generated/api";
 
 const PLAN_COLORS: Record<string, string> = {
   free: "text-muted-foreground",
@@ -25,7 +32,15 @@ const PLAN_LABELS: Record<string, string> = {
   lifetime: "Founder",
 };
 
-function Bar({ used, total, color }: { used: number; total: number; color: string }) {
+function Bar({
+  used,
+  total,
+  color,
+}: {
+  used: number;
+  total: number;
+  color: string;
+}) {
   const pct = Math.min((used / total) * 100, 100);
   const isNearLimit = pct >= 75;
   const isAtLimit = pct >= 100;
@@ -34,7 +49,11 @@ function Bar({ used, total, color }: { used: number; total: number; color: strin
       <div
         className={cn(
           "h-full rounded-full transition-all duration-500",
-          isAtLimit ? "bg-red-500" : isNearLimit ? "bg-amber-400 animate-pulse" : color
+          isAtLimit
+            ? "bg-red-500"
+            : isNearLimit
+              ? "bg-amber-400 animate-pulse"
+              : color,
         )}
         style={{ width: `${pct}%` }}
       />
@@ -84,11 +103,24 @@ export function UsageMeter() {
               : "bg-white/5 text-muted-foreground border border-white/10 hover:bg-white/10",
         )}
       >
-        <Zap className={cn("h-3 w-3", cappedOut ? "text-red-400" : nearAny ? "text-amber-400 animate-pulse" : planColor)} />
+        <Zap
+          className={cn(
+            "h-3 w-3",
+            cappedOut
+              ? "text-red-400"
+              : nearAny
+                ? "text-amber-400 animate-pulse"
+                : planColor,
+          )}
+        />
         <span className={planColor}>{planLabel}</span>
         <span className="opacity-60">·</span>
         <span className={atAiLimit ? "text-red-400" : ""}>{aiLeft} req</span>
-        {expanded ? <ChevronUp className="h-3 w-3 opacity-50" /> : <ChevronDown className="h-3 w-3 opacity-50" />}
+        {expanded ? (
+          <ChevronUp className="h-3 w-3 opacity-50" />
+        ) : (
+          <ChevronDown className="h-3 w-3 opacity-50" />
+        )}
       </button>
 
       {/* Expanded panel */}
@@ -100,12 +132,20 @@ export function UsageMeter() {
               <span className="flex items-center gap-1 text-muted-foreground">
                 <Zap className="h-3 w-3" /> AI Requests
               </span>
-              <span className={cn("font-medium", atAiLimit ? "text-red-400" : "")}>
+              <span
+                className={cn("font-medium", atAiLimit ? "text-red-400" : "")}
+              >
                 {aiUsed} / {l.aiRequestsPerDay}
               </span>
             </div>
-            <Bar used={aiUsed} total={l.aiRequestsPerDay} color="bg-violet-500" />
-            <p className="text-[9px] text-muted-foreground">Resets midnight UTC</p>
+            <Bar
+              used={aiUsed}
+              total={l.aiRequestsPerDay}
+              color="bg-violet-500"
+            />
+            <p className="text-[9px] text-muted-foreground">
+              Resets midnight UTC
+            </p>
           </div>
 
           {/* Missions */}
@@ -114,11 +154,20 @@ export function UsageMeter() {
               <span className="flex items-center gap-1 text-muted-foreground">
                 <Bot className="h-3 w-3" /> Missions
               </span>
-              <span className={cn("font-medium", atMissionLimit ? "text-red-400" : "")}>
+              <span
+                className={cn(
+                  "font-medium",
+                  atMissionLimit ? "text-red-400" : "",
+                )}
+              >
                 {missionsUsed} / {l.missionsPerDay}
               </span>
             </div>
-            <Bar used={missionsUsed} total={l.missionsPerDay} color="bg-blue-500" />
+            <Bar
+              used={missionsUsed}
+              total={l.missionsPerDay}
+              color="bg-blue-500"
+            />
           </div>
 
           {/* Compute spend */}
@@ -127,19 +176,29 @@ export function UsageMeter() {
               <span className="flex items-center gap-1 text-muted-foreground">
                 <TrendingUp className="h-3 w-3" /> Compute
               </span>
-              <span className={cn("font-medium tabular-nums", cappedOut ? "text-red-400" : "")}>
+              <span
+                className={cn(
+                  "font-medium tabular-nums",
+                  cappedOut ? "text-red-400" : "",
+                )}
+              >
                 ${computeUsed.toFixed(3)} / ${computeCap.toFixed(2)}
               </span>
             </div>
             <Bar used={computeUsed} total={computeCap} color="bg-green-500" />
-            <p className="text-[9px] text-muted-foreground">Monthly hard cap — you're always protected</p>
+            <p className="text-[9px] text-muted-foreground">
+              Monthly hard cap — you're always protected
+            </p>
           </div>
 
           {/* Upgrade CTA */}
           {plan !== "lifetime" && (
             <button
               type="button"
-              onClick={() => { navigate("/pricing"); setExpanded(false); }}
+              onClick={() => {
+                navigate("/pricing");
+                setExpanded(false);
+              }}
               className={cn(
                 "w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors",
                 cappedOut || atAiLimit || atMissionLimit

@@ -38,7 +38,7 @@ async function sendEmail({
 
   if (!apiKey) {
     throw new Error(
-      "RESEND_API_KEY is not set. Add it to your Convex environment variables."
+      "RESEND_API_KEY is not set. Add it to your Convex environment variables.",
     );
   }
 
@@ -115,7 +115,10 @@ async function sendEmail({
     throw new Error(`Resend API error ${res.status}: ${body.slice(0, 300)}`);
   }
 
-  const json = await res.json() as { id?: string; error?: { message?: string } };
+  const json = (await res.json()) as {
+    id?: string;
+    error?: { message?: string };
+  };
   if (json.error) throw new Error(`Resend error: ${json.error.message}`);
 }
 
@@ -158,4 +161,3 @@ export const CodeForgePasswordReset = Email({
     });
   },
 });
-

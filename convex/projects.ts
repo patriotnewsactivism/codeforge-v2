@@ -1,6 +1,6 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
 
 export const list = query({
   args: {},
@@ -15,14 +15,14 @@ export const list = query({
       githubToken: v.optional(v.string()),
       language: v.optional(v.string()),
       lastOpenedAt: v.number(),
-    })
+    }),
   ),
-  handler: async (ctx) => {
+  handler: async ctx => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
     return await ctx.db
       .query("projects")
-      .withIndex("by_owner", (q) => q.eq("ownerId", userId))
+      .withIndex("by_owner", q => q.eq("ownerId", userId))
       .collect();
   },
 });
@@ -41,7 +41,7 @@ export const get = query({
       language: v.optional(v.string()),
       lastOpenedAt: v.number(),
     }),
-    v.null()
+    v.null(),
   ),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -52,8 +52,8 @@ export const get = query({
     if (project.ownerId !== userId) {
       const collab = await ctx.db
         .query("collaborators")
-        .withIndex("by_project_and_user", (q) =>
-          q.eq("projectId", args.projectId).eq("userId", userId)
+        .withIndex("by_project_and_user", q =>
+          q.eq("projectId", args.projectId).eq("userId", userId),
         )
         .unique();
       if (!collab) return null;
@@ -161,12 +161,13 @@ export const remove = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
     const project = await ctx.db.get(args.projectId);
-    if (!project || project.ownerId !== userId) throw new Error("Not authorized");
+    if (!project || project.ownerId !== userId)
+      throw new Error("Not authorized");
 
     // Delete all files
     const files = await ctx.db
       .query("files")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
     for (const file of files) {
       await ctx.db.delete(file._id);
@@ -175,12 +176,12 @@ export const remove = mutation({
     // Delete all chat sessions and messages
     const sessions = await ctx.db
       .query("chatSessions")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
     for (const session of sessions) {
       const messages = await ctx.db
         .query("chatMessages")
-        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+        .withIndex("by_session", q => q.eq("sessionId", session._id))
         .collect();
       for (const msg of messages) {
         await ctx.db.delete(msg._id);
@@ -191,7 +192,7 @@ export const remove = mutation({
     // Delete collaborators
     const collabs = await ctx.db
       .query("collaborators")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
     for (const c of collabs) {
       await ctx.db.delete(c._id);
@@ -226,6 +227,3 @@ export const setGithubRepo = mutation({
     return null;
   },
 });
-
-
-

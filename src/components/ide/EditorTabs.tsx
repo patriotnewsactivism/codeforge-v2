@@ -1,4 +1,4 @@
-import { X, FileCode } from "lucide-react";
+import { FileCode, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Doc } from "../../../convex/_generated/dataModel";
 
@@ -44,7 +44,7 @@ export function EditorTabs({
 
   return (
     <div className="flex items-center bg-[oklch(0.11_0.02_260)] border-b border-border overflow-x-auto">
-      {openFiles.map((file) => {
+      {openFiles.map(file => {
         const isActive = activeFilePath === file.path;
         const isUnsaved = unsavedFiles.has(file.path);
         return (
@@ -54,7 +54,7 @@ export function EditorTabs({
               "flex items-center gap-1.5 px-3 py-1.5 cursor-pointer border-r border-border text-sm whitespace-nowrap group",
               isActive
                 ? "bg-[oklch(0.13_0.02_260)] text-foreground border-t-2 border-t-[oklch(0.75_0.18_190)]"
-                : "bg-[oklch(0.11_0.02_260)] text-muted-foreground hover:text-foreground hover:bg-[oklch(0.14_0.02_260)] border-t-2 border-t-transparent"
+                : "bg-[oklch(0.11_0.02_260)] text-muted-foreground hover:text-foreground hover:bg-[oklch(0.14_0.02_260)] border-t-2 border-t-transparent",
             )}
             onClick={() => onSelect(file)}
           >
@@ -66,7 +66,8 @@ export function EditorTabs({
             <button
               type="button"
               className="ml-1 p-0.5 opacity-0 group-hover:opacity-100 hover:bg-[oklch(0.22_0.02_260)] rounded transition-opacity"
-              onClick={(e) => {
+              aria-label={`Close ${file.name}`}
+              onClick={e => {
                 e.stopPropagation();
                 onClose(file.path);
               }}

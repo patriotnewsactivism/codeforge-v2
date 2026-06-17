@@ -1,6 +1,6 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
 
 const PRESENCE_COLORS = [
   "#22d3ee", // cyan
@@ -30,8 +30,8 @@ export const heartbeat = mutation({
 
     const existing = await ctx.db
       .query("collaborators")
-      .withIndex("by_project_and_user", (q) =>
-        q.eq("projectId", args.projectId).eq("userId", userId)
+      .withIndex("by_project_and_user", q =>
+        q.eq("projectId", args.projectId).eq("userId", userId),
       )
       .unique();
 
@@ -47,10 +47,9 @@ export const heartbeat = mutation({
       // Assign a color based on existing count
       const allCollabs = await ctx.db
         .query("collaborators")
-        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .withIndex("by_project", q => q.eq("projectId", args.projectId))
         .collect();
-      const color =
-        PRESENCE_COLORS[allCollabs.length % PRESENCE_COLORS.length];
+      const color = PRESENCE_COLORS[allCollabs.length % PRESENCE_COLORS.length];
 
       await ctx.db.insert("collaborators", {
         projectId: args.projectId,
@@ -76,8 +75,8 @@ export const leave = mutation({
 
     const existing = await ctx.db
       .query("collaborators")
-      .withIndex("by_project_and_user", (q) =>
-        q.eq("projectId", args.projectId).eq("userId", userId)
+      .withIndex("by_project_and_user", q =>
+        q.eq("projectId", args.projectId).eq("userId", userId),
       )
       .unique();
 
@@ -102,16 +101,16 @@ export const listActive = query({
       cursorColumn: v.optional(v.number()),
       lastSeenAt: v.number(),
       color: v.string(),
-    })
+    }),
   ),
   handler: async (ctx, args) => {
     const allCollabs = await ctx.db
       .query("collaborators")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
     // Only return those seen in last 30 seconds
     const cutoff = Date.now() - 30_000;
-    return allCollabs.filter((c) => c.lastSeenAt > cutoff);
+    return allCollabs.filter(c => c.lastSeenAt > cutoff);
   },
 });
 
@@ -146,7 +145,7 @@ export const joinByInvite = mutation({
 
     const invite = await ctx.db
       .query("projectInvites")
-      .withIndex("by_code", (q) => q.eq("inviteCode", args.inviteCode))
+      .withIndex("by_code", q => q.eq("inviteCode", args.inviteCode))
       .unique();
 
     if (!invite || invite.expiresAt < Date.now()) {
@@ -165,6 +164,3 @@ function generateInviteCode(): string {
   }
   return code;
 }
-
-
-

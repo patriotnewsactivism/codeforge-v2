@@ -13,8 +13,8 @@
  */
 
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
+import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback } from "./ai";
 
 // ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
@@ -22,7 +22,7 @@ import { callAIWithFallback } from "./ai";
 // Weekly/monthly/free users use platform process.env keys (no userKeys passed).
 async function resolveByok(
   ctx: any,
-  userId?: string
+  userId?: string,
 ): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
   try {
     const sub = await ctx.runQuery(api.limits.getMyLimits, {});
@@ -32,12 +32,12 @@ async function resolveByok(
 
     const userKeys: Record<string, string> = await ctx.runQuery(
       api.apiKeys.getAllKeysForUser,
-      { userId }
+      { userId },
     );
     if (!userKeys || Object.keys(userKeys).length === 0) {
       throw new Error(
         "⚠️ Lifetime plan requires your own API key. " +
-          "Add one in Settings → API Keys to use AI features."
+          "Add one in Settings → API Keys to use AI features.",
       );
     }
     return { callerPlan, userKeys };
@@ -46,8 +46,6 @@ async function resolveByok(
     return { callerPlan: "free" };
   }
 }
-
-
 
 // ─── DB ──────────────────────────────────────────────────────────────────────
 
@@ -93,10 +91,10 @@ export const listBenchmarks = query({
   handler: async (ctx, args) => {
     const all = await ctx.db
       .query("benchmarkRuns")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .take(args.limit ?? 50);
-    if (args.agentRole) return all.filter((b) => b.agentRole === args.agentRole);
+    if (args.agentRole) return all.filter(b => b.agentRole === args.agentRole);
     return all;
   },
 });
@@ -106,17 +104,38 @@ export const getModelLeaderboard = query({
   handler: async (ctx, args) => {
     const all = await ctx.db
       .query("benchmarkRuns")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
 
     // Aggregate wins per model per role
-    const stats: Record<string, Record<string, { wins: number; losses: number; ties: number; avgScore: number; runs: number }>> = {};
+    const stats: Record<
+      string,
+      Record<
+        string,
+        {
+          wins: number;
+          losses: number;
+          ties: number;
+          avgScore: number;
+          runs: number;
+        }
+      >
+    > = {};
 
     for (const run of all) {
-      for (const [model, side] of [[run.modelA, "A"], [run.modelB, "B"]] as const) {
+      for (const [model, side] of [
+        [run.modelA, "A"],
+        [run.modelB, "B"],
+      ] as const) {
         if (!stats[run.agentRole]) stats[run.agentRole] = {};
         if (!stats[run.agentRole][model]) {
-          stats[run.agentRole][model] = { wins: 0, losses: 0, ties: 0, avgScore: 0, runs: 0 };
+          stats[run.agentRole][model] = {
+            wins: 0,
+            losses: 0,
+            ties: 0,
+            avgScore: 0,
+            runs: 0,
+          };
         }
         const s = stats[run.agentRole][model];
         s.runs++;
@@ -158,21 +177,27 @@ export const runBenchmark = action({
     const startA = Date.now();
     // BYOK: resolve caller plan + keys for lifetime users
     const byok = await resolveByok(ctx);
-    const { text: outputA, usage: usageA } = await callAIWithFallback(fullPrompt, {
-      model: args.modelA,
-      temperature: 0.3,
-      callerPlan: byok?.callerPlan,
-      userKeys: byok?.userKeys,
-    });
+    const { text: outputA, usage: usageA } = await callAIWithFallback(
+      fullPrompt,
+      {
+        model: args.modelA,
+        temperature: 0.3,
+        callerPlan: byok?.callerPlan,
+        userKeys: byok?.userKeys,
+      },
+    );
     const latencyAMs = Date.now() - startA;
 
     const startB = Date.now();
-    const { text: outputB, usage: usageB } = await callAIWithFallback(fullPrompt, {
-      model: args.modelB,
-      temperature: 0.3,
-      callerPlan: byok?.callerPlan,
-      userKeys: byok?.userKeys,
-    });
+    const { text: outputB, usage: usageB } = await callAIWithFallback(
+      fullPrompt,
+      {
+        model: args.modelB,
+        temperature: 0.3,
+        callerPlan: byok?.callerPlan,
+        userKeys: byok?.userKeys,
+      },
+    );
     const latencyBMs = Date.now() - startB;
 
     // Judge: blind scoring (doesn't know which is A or B)
@@ -215,13 +240,14 @@ JSON only:
 }`;
 
     const { text: judgeRaw } = await callAIWithFallback(judgePrompt, {
-      model: "grok-4",   // always use strong model as judge
+      model: "grok-4", // always use strong model as judge
       temperature: 0.1,
       callerPlan: byok?.callerPlan,
       userKeys: byok?.userKeys,
     });
 
-    let scoreA = 5, scoreB = 5;
+    let scoreA = 5,
+      scoreB = 5;
     let winner: "A" | "B" | "tie" = "tie";
     let judgeReasoning = judgeRaw;
     let dimensions = {
@@ -232,19 +258,40 @@ JSON only:
     };
 
     try {
-      const jsonMatch = judgeRaw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? judgeRaw.match(/(\{[\s\S]*\})/);
+      const jsonMatch =
+        judgeRaw.match(/```(?:json)?\s*([\s\S]*?)```/) ??
+        judgeRaw.match(/(\{[\s\S]*\})/);
       const parsed = JSON.parse(jsonMatch ? jsonMatch[1]! : judgeRaw.trim());
       scoreA = parsed.output1?.overall ?? 5;
       scoreB = parsed.output2?.overall ?? 5;
-      winner = parsed.winner === "output1" ? "A" : parsed.winner === "output2" ? "B" : "tie";
+      winner =
+        parsed.winner === "output1"
+          ? "A"
+          : parsed.winner === "output2"
+            ? "B"
+            : "tie";
       judgeReasoning = parsed.reasoning ?? judgeRaw;
       dimensions = {
-        correctness: { a: parsed.output1?.correctness ?? 5, b: parsed.output2?.correctness ?? 5 },
-        codeQuality: { a: parsed.output1?.codeQuality ?? 5, b: parsed.output2?.codeQuality ?? 5 },
-        conciseness: { a: parsed.output1?.conciseness ?? 5, b: parsed.output2?.conciseness ?? 5 },
-        followsInstructions: { a: parsed.output1?.followsInstructions ?? 5, b: parsed.output2?.followsInstructions ?? 5 },
+        correctness: {
+          a: parsed.output1?.correctness ?? 5,
+          b: parsed.output2?.correctness ?? 5,
+        },
+        codeQuality: {
+          a: parsed.output1?.codeQuality ?? 5,
+          b: parsed.output2?.codeQuality ?? 5,
+        },
+        conciseness: {
+          a: parsed.output1?.conciseness ?? 5,
+          b: parsed.output2?.conciseness ?? 5,
+        },
+        followsInstructions: {
+          a: parsed.output1?.followsInstructions ?? 5,
+          b: parsed.output2?.followsInstructions ?? 5,
+        },
       };
-    } catch { /* use defaults */ }
+    } catch {
+      /* use defaults */
+    }
 
     const benchmarkId = await ctx.runMutation(api.benchmark.saveBenchmark, {
       projectId: args.projectId,
@@ -265,7 +312,8 @@ JSON only:
       dimensions,
     });
 
-    const winnerModel = winner === "A" ? args.modelA : winner === "B" ? args.modelB : null;
+    const winnerModel =
+      winner === "A" ? args.modelA : winner === "B" ? args.modelB : null;
     const recommendation = winnerModel
       ? `Use ${winnerModel} for ${args.agentRole} (scored ${winner === "A" ? scoreA : scoreB}/10 vs ${winner === "A" ? scoreB : scoreA}/10)`
       : `Both models are equivalent for ${args.agentRole} — keep current assignment`;
@@ -280,10 +328,13 @@ JSON only:
       isStreaming: false,
     });
 
-    return { benchmarkId, winner, scoreA, scoreB, judgeReasoning, recommendation };
+    return {
+      benchmarkId,
+      winner,
+      scoreA,
+      scoreB,
+      judgeReasoning,
+      recommendation,
+    };
   },
 });
-
-
-
-

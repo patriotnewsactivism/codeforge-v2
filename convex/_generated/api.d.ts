@@ -8,8 +8,13 @@
  * @module
  */
 
-import type * as agentThoughts from "../agentThoughts.js";
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
 import type * as agents from "../agents.js";
+import type * as agentThoughts from "../agentThoughts.js";
 import type * as ai from "../ai.js";
 import type * as apiKeys from "../apiKeys.js";
 import type * as auth from "../auth.js";
@@ -54,12 +59,6 @@ import type * as swarm from "../swarm.js";
 import type * as testAuth from "../testAuth.js";
 import type * as users from "../users.js";
 import type * as vision from "../vision.js";
-
-import type {
-  ApiFromModules,
-  FilterApi,
-  FunctionReference,
-} from "convex/server";
 
 declare const fullApi: ApiFromModules<{
   agentThoughts: typeof agentThoughts;

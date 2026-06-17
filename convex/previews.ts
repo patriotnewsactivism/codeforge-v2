@@ -3,13 +3,14 @@
  * Public URL generation for project previews
  */
 import { v } from "convex/values";
-import { action, mutation, query, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { action, internalMutation, mutation, query } from "./_generated/server";
 
 function generateToken(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
   let token = "";
-  for (let i = 0; i < 12; i++) token += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 12; i++)
+    token += chars[Math.floor(Math.random() * chars.length)];
   return token;
 }
 
@@ -32,12 +33,17 @@ export const createShareLink = action({
   },
   handler: async (ctx, { projectId, expiry, password }) => {
     const token = generateToken();
-    const expiresAt = expiry === "24h" ? Date.now() + 86400000
-      : expiry === "7d" ? Date.now() + 7 * 86400000
-      : null;
+    const expiresAt =
+      expiry === "24h"
+        ? Date.now() + 86400000
+        : expiry === "7d"
+          ? Date.now() + 7 * 86400000
+          : null;
 
     await ctx.runMutation(internal.previews.upsertShare, {
-      projectId, token, expiry,
+      projectId,
+      token,
+      expiry,
       expiresAt: expiresAt || undefined,
       hasPassword: !!password,
       passwordHash: password || undefined,
@@ -62,10 +68,19 @@ export const upsertShare = internalMutation({
       .withIndex("by_project", (q: any) => q.eq("projectId", args.projectId))
       .first();
     if (existing) {
-      await ctx.db.patch(existing._id, { ...args, isActive: true, viewCount: 0, updatedAt: Date.now() });
+      await ctx.db.patch(existing._id, {
+        ...args,
+        isActive: true,
+        viewCount: 0,
+        updatedAt: Date.now(),
+      });
     } else {
       await ctx.db.insert("projectShares" as any, {
-        ...args, isActive: true, viewCount: 0, createdAt: Date.now(), updatedAt: Date.now(),
+        ...args,
+        isActive: true,
+        viewCount: 0,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       });
     }
   },
@@ -101,6 +116,3 @@ export const incrementViewCount = mutation({
     }
   },
 });
-
-
-

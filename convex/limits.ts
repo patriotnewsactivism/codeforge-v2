@@ -4,10 +4,11 @@
  * Free tier hooks users in. Paid tiers unlock exponential agent spawning.
  * Hard cost caps protect from runway compute bills if AI prices spike.
  */
-import { v } from "convex/values";
-import { mutation, query, action } from "./_generated/server";
+
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { v } from "convex/values";
 import { api } from "./_generated/api";
+import { action, mutation, query } from "./_generated/server";
 
 // ─── PLAN DEFINITIONS ────────────────────────────────────────────────────────
 // These are the source of truth — UI and enforcement both read from here.
@@ -15,14 +16,14 @@ import { api } from "./_generated/api";
 export type PlanKey = "free" | "weekly" | "monthly" | "lifetime";
 
 export interface PlanLimits {
-  aiRequestsPerDay: number;       // chat messages / AI calls per day
-  missionsPerDay: number;         // full agent missions per day
-  maxConcurrentAgents: number;    // agents running at once
-  maxSpawnDepth: number;          // how deep agents can recursively spawn sub-agents
-  maxSpawnsPerMission: number;    // total spawns in one mission
+  aiRequestsPerDay: number; // chat messages / AI calls per day
+  missionsPerDay: number; // full agent missions per day
+  maxConcurrentAgents: number; // agents running at once
+  maxSpawnDepth: number; // how deep agents can recursively spawn sub-agents
+  maxSpawnsPerMission: number; // total spawns in one mission
   maxProjects: number;
-  hardCapUsdMonthly: number;      // max compute spend per month — you CANNOT lose money
-  includedComputeUsd: number;     // how much compute is baked into the subscription price
+  hardCapUsdMonthly: number; // max compute spend per month — you CANNOT lose money
+  includedComputeUsd: number; // how much compute is baked into the subscription price
   features: string[];
 }
 
@@ -31,10 +32,10 @@ export const PLAN_LIMITS: Record<PlanKey, PlanLimits> = {
     aiRequestsPerDay: 15,
     missionsPerDay: 2,
     maxConcurrentAgents: 1,
-    maxSpawnDepth: 1,       // can spawn 1 level deep — teaser of the power
+    maxSpawnDepth: 1, // can spawn 1 level deep — teaser of the power
     maxSpawnsPerMission: 3, // tiny swarm: planner + 2 workers
     maxProjects: 2,
-    hardCapUsdMonthly: 0.25,    // cover with ads/loss-leader, $0.25 max
+    hardCapUsdMonthly: 0.25, // cover with ads/loss-leader, $0.25 max
     includedComputeUsd: 0,
     features: [
       "15 AI requests / day",
@@ -49,11 +50,11 @@ export const PLAN_LIMITS: Record<PlanKey, PlanLimits> = {
     aiRequestsPerDay: 250,
     missionsPerDay: 20,
     maxConcurrentAgents: 5,
-    maxSpawnDepth: 3,        // 3^3 = up to 27 agents in a mission
+    maxSpawnDepth: 3, // 3^3 = up to 27 agents in a mission
     maxSpawnsPerMission: 30,
     maxProjects: 15,
-    hardCapUsdMonthly: 6.00, // $9.99 revenue, $6 max compute = guaranteed profit
-    includedComputeUsd: 5.00,
+    hardCapUsdMonthly: 6.0, // $9.99 revenue, $6 max compute = guaranteed profit
+    includedComputeUsd: 5.0,
     features: [
       "250 AI requests / day",
       "20 missions / day",
@@ -68,11 +69,11 @@ export const PLAN_LIMITS: Record<PlanKey, PlanLimits> = {
     aiRequestsPerDay: 600,
     missionsPerDay: 60,
     maxConcurrentAgents: 12,
-    maxSpawnDepth: 4,        // 4^4 = up to 256 agents in a cascade
+    maxSpawnDepth: 4, // 4^4 = up to 256 agents in a cascade
     maxSpawnsPerMission: 80,
     maxProjects: 30,
-    hardCapUsdMonthly: 18.00, // $29.99 revenue, $18 max compute = >40% margin
-    includedComputeUsd: 15.00,
+    hardCapUsdMonthly: 18.0, // $29.99 revenue, $18 max compute = >40% margin
+    includedComputeUsd: 15.0,
     features: [
       "600 AI requests / day",
       "60 missions / day",
@@ -88,11 +89,11 @@ export const PLAN_LIMITS: Record<PlanKey, PlanLimits> = {
     aiRequestsPerDay: 1500,
     missionsPerDay: 150,
     maxConcurrentAgents: 32,
-    maxSpawnDepth: 5,        // 5^5 = up to 3125 agents — insane parallelism
+    maxSpawnDepth: 5, // 5^5 = up to 3125 agents — insane parallelism
     maxSpawnsPerMission: 250,
     maxProjects: 200,
-    hardCapUsdMonthly: 50.00, // $420 one-time / 12 months = $35/mo revenue equiv, $50 cap with $420 buffer
-    includedComputeUsd: 50.00,
+    hardCapUsdMonthly: 50.0, // $420 one-time / 12 months = $35/mo revenue equiv, $50 cap with $420 buffer
+    includedComputeUsd: 50.0,
     features: [
       "1,500 AI requests / day",
       "150 missions / day",
@@ -121,13 +122,19 @@ function monthKey(): string {
 
 export const getMyLimits = query({
   args: {},
-  handler: async (ctx) => {
+  handler: async ctx => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) return { plan: "free" as PlanKey, limits: PLAN_LIMITS.free, usage: null, spend: null };
+    if (!userId)
+      return {
+        plan: "free" as PlanKey,
+        limits: PLAN_LIMITS.free,
+        usage: null,
+        spend: null,
+      };
 
     const sub = await ctx.db
       .query("subscriptions")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", q => q.eq("userId", userId))
       .first();
 
     const plan = (sub?.planKey as PlanKey) ?? "free";
@@ -135,12 +142,16 @@ export const getMyLimits = query({
 
     const usage = await ctx.db
       .query("userUsage")
-      .withIndex("by_user_date", (q) => q.eq("userId", String(userId)).eq("date", todayKey()))
+      .withIndex("by_user_date", q =>
+        q.eq("userId", String(userId)).eq("date", todayKey()),
+      )
       .first();
 
     const spend = await ctx.db
       .query("userSpend")
-      .withIndex("by_user_period", (q) => q.eq("userId", String(userId)).eq("periodKey", monthKey()))
+      .withIndex("by_user_period", q =>
+        q.eq("userId", String(userId)).eq("periodKey", monthKey()),
+      )
       .first();
 
     return { plan, limits, usage: usage ?? null, spend: spend ?? null };
@@ -152,7 +163,7 @@ export const checkCanRun = query({
     action: v.union(
       v.literal("ai_request"),
       v.literal("start_mission"),
-      v.literal("spawn_agent")
+      v.literal("spawn_agent"),
     ),
   },
   handler: async (ctx, args) => {
@@ -161,7 +172,7 @@ export const checkCanRun = query({
 
     const sub = await ctx.db
       .query("subscriptions")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", q => q.eq("userId", userId))
       .first();
 
     const plan = (sub?.planKey as PlanKey) ?? "free";
@@ -170,12 +181,16 @@ export const checkCanRun = query({
 
     const usage = await ctx.db
       .query("userUsage")
-      .withIndex("by_user_date", (q) => q.eq("userId", String(userId)).eq("date", today))
+      .withIndex("by_user_date", q =>
+        q.eq("userId", String(userId)).eq("date", today),
+      )
       .first();
 
     const spend = await ctx.db
       .query("userSpend")
-      .withIndex("by_user_period", (q) => q.eq("userId", String(userId)).eq("periodKey", monthKey()))
+      .withIndex("by_user_period", q =>
+        q.eq("userId", String(userId)).eq("periodKey", monthKey()),
+      )
       .first();
 
     // Hard cost cap check
@@ -184,7 +199,8 @@ export const checkCanRun = query({
         allowed: false,
         reason: `Monthly compute cap ($${spend.capUsd.toFixed(2)}) reached. Resets next month.`,
         cappedAt: spend.cappedAt,
-        upgradeHint: plan === "free" ? "Upgrade to unlock more compute." : undefined,
+        upgradeHint:
+          plan === "free" ? "Upgrade to unlock more compute." : undefined,
       };
     }
 
@@ -194,7 +210,10 @@ export const checkCanRun = query({
           return {
             allowed: false,
             reason: `Daily AI request limit reached (${limits.aiRequestsPerDay}/day on ${plan} plan). Resets midnight UTC.`,
-            upgradeHint: plan !== "lifetime" ? "Upgrade for more requests per day." : undefined,
+            upgradeHint:
+              plan !== "lifetime"
+                ? "Upgrade for more requests per day."
+                : undefined,
           };
         }
         break;
@@ -203,7 +222,8 @@ export const checkCanRun = query({
           return {
             allowed: false,
             reason: `Daily mission limit reached (${limits.missionsPerDay}/day on ${plan} plan). Resets midnight UTC.`,
-            upgradeHint: plan !== "lifetime" ? "Upgrade to run more missions." : undefined,
+            upgradeHint:
+              plan !== "lifetime" ? "Upgrade to run more missions." : undefined,
           };
         }
         break;
@@ -224,7 +244,7 @@ export const trackUsage = mutation({
     action: v.union(
       v.literal("ai_request"),
       v.literal("start_mission"),
-      v.literal("spawn_agent")
+      v.literal("spawn_agent"),
     ),
     costUsd: v.optional(v.number()),
   },
@@ -235,15 +255,21 @@ export const trackUsage = mutation({
     // Upsert daily usage
     const existing = await ctx.db
       .query("userUsage")
-      .withIndex("by_user_date", (q) => q.eq("userId", args.userId).eq("date", today))
+      .withIndex("by_user_date", q =>
+        q.eq("userId", args.userId).eq("date", today),
+      )
       .first();
 
     if (existing) {
       const patch: Record<string, number> = {};
-      if (args.action === "ai_request") patch.aiRequests = existing.aiRequests + 1;
-      if (args.action === "start_mission") patch.missions = existing.missions + 1;
-      if (args.action === "spawn_agent") patch.agentsSpawned = existing.agentsSpawned + 1;
-      if (args.costUsd) patch.computeCostUsd = existing.computeCostUsd + args.costUsd;
+      if (args.action === "ai_request")
+        patch.aiRequests = existing.aiRequests + 1;
+      if (args.action === "start_mission")
+        patch.missions = existing.missions + 1;
+      if (args.action === "spawn_agent")
+        patch.agentsSpawned = existing.agentsSpawned + 1;
+      if (args.costUsd)
+        patch.computeCostUsd = existing.computeCostUsd + args.costUsd;
       await ctx.db.patch(existing._id, patch);
     } else {
       await ctx.db.insert("userUsage", {
@@ -262,21 +288,26 @@ export const trackUsage = mutation({
       const period = monthKey();
       const sub = await ctx.db
         .query("subscriptions")
-        .withIndex("by_user", (q) => q.eq("userId", args.userId as any))
+        .withIndex("by_user", q => q.eq("userId", args.userId as any))
         .first();
       const plan = (sub?.planKey as PlanKey) ?? "free";
       const cap = PLAN_LIMITS[plan].hardCapUsdMonthly;
 
       const spendRec = await ctx.db
         .query("userSpend")
-        .withIndex("by_user_period", (q) => q.eq("userId", args.userId).eq("periodKey", period))
+        .withIndex("by_user_period", q =>
+          q.eq("userId", args.userId).eq("periodKey", period),
+        )
         .first();
 
       if (spendRec) {
         const newTotal = spendRec.totalCostUsd + args.costUsd;
         await ctx.db.patch(spendRec._id, {
           totalCostUsd: newTotal,
-          cappedAt: newTotal >= cap && !spendRec.cappedAt ? Date.now() : spendRec.cappedAt,
+          cappedAt:
+            newTotal >= cap && !spendRec.cappedAt
+              ? Date.now()
+              : spendRec.cappedAt,
         });
       } else {
         await ctx.db.insert("userSpend", {
@@ -305,8 +336,20 @@ export const getUserPlanLimits = action({
     hardCapUsdMonthly: v.number(),
     cappedOut: v.boolean(),
   }),
-  handler: async (ctx, args): Promise<{ plan: string; maxSpawnDepth: number; maxSpawnsPerMission: number; maxConcurrentAgents: number; hardCapUsdMonthly: number; cappedOut: boolean }> => {
-    const sub = await ctx.runQuery(api.limits.getUserSub, { userId: args.userId });
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    plan: string;
+    maxSpawnDepth: number;
+    maxSpawnsPerMission: number;
+    maxConcurrentAgents: number;
+    hardCapUsdMonthly: number;
+    cappedOut: boolean;
+  }> => {
+    const sub = await ctx.runQuery(api.limits.getUserSub, {
+      userId: args.userId,
+    });
     const plan = (sub?.planKey as PlanKey) ?? "free";
     const limits = PLAN_LIMITS[plan];
 
@@ -334,7 +377,7 @@ export const getUserSub = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("subscriptions")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId as any))
+      .withIndex("by_user", q => q.eq("userId", args.userId as any))
       .first();
   },
 });
@@ -344,12 +387,9 @@ export const getSpend = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("userSpend")
-      .withIndex("by_user_period", (q) =>
-        q.eq("userId", args.userId).eq("periodKey", args.periodKey)
+      .withIndex("by_user_period", q =>
+        q.eq("userId", args.userId).eq("periodKey", args.periodKey),
       )
       .first();
   },
 });
-
-
-

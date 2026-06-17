@@ -7,8 +7,8 @@
  * All endpoints are authenticated via the RAILWAY_ORCHESTRATOR_SECRET header.
  */
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { internalMutation, internalQuery } from "./_generated/server";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -28,10 +28,10 @@ export function verifySecret(req: Request): boolean {
 /** GET /api/swarm/tasks/pending — list queued swarm tasks */
 export const getPendingTasks = internalQuery({
   args: {},
-  handler: async (ctx) => {
+  handler: async ctx => {
     return await ctx.db
       .query("agentTasks")
-      .filter((q) => q.eq(q.field("status"), "queued"))
+      .filter(q => q.eq(q.field("status"), "queued"))
       .order("asc")
       .take(10);
   },
@@ -45,7 +45,7 @@ export const updateTaskStatus = internalMutation({
       v.literal("queued"),
       v.literal("running"),
       v.literal("done"),
-      v.literal("error")
+      v.literal("error"),
     ),
     errorMessage: v.optional(v.string()),
     totalAgentsSpawned: v.optional(v.number()),
@@ -99,7 +99,9 @@ export const spawnAgent = internalMutation({
     const agentId = await ctx.db.insert("agentTasks", {
       projectId,
       agentId: `swarm:${args.taskId}:${args.role}:${args.agentUid}`,
-      agentName: args.role.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      agentName: args.role
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, c => c.toUpperCase()),
       agentIcon: iconMap[args.role] ?? "🤖",
       task: args.assignment,
       status: "running",
@@ -120,7 +122,7 @@ export const updateAgentStatus = internalMutation({
       v.literal("queued"),
       v.literal("running"),
       v.literal("done"),
-      v.literal("error")
+      v.literal("error"),
     ),
     result: v.optional(v.string()),
     errorMessage: v.optional(v.string()),
@@ -129,18 +131,21 @@ export const updateAgentStatus = internalMutation({
     // Find the agent task by agentId prefix
     const tasks = await ctx.db
       .query("agentTasks")
-      .filter((q) =>
-        q.eq(q.field("agentId"), `swarm:${args.taskId}:${args.agentUid}`)
+      .filter(q =>
+        q.eq(q.field("agentId"), `swarm:${args.taskId}:${args.agentUid}`),
       )
       .take(5);
 
     // Try partial match if exact fails
-    const all = tasks.length > 0 ? tasks : await ctx.db
-      .query("agentTasks")
-      .filter((q) =>
-        q.eq(q.field("agentId"), `swarm:${args.taskId}:${args.agentUid}`)
-      )
-      .take(1);
+    const all =
+      tasks.length > 0
+        ? tasks
+        : await ctx.db
+            .query("agentTasks")
+            .filter(q =>
+              q.eq(q.field("agentId"), `swarm:${args.taskId}:${args.agentUid}`),
+            )
+            .take(1);
 
     for (const t of all) {
       const patch: Record<string, unknown> = { status: args.status };
@@ -161,13 +166,13 @@ export const getTaskAgents = internalQuery({
   handler: async (ctx, args) => {
     const agents = await ctx.db
       .query("agentTasks")
-      .filter((q) =>
-        q.eq(q.field("agentId"), `swarm:${args.taskId}`)
-      )
+      .filter(q => q.eq(q.field("agentId"), `swarm:${args.taskId}`))
       .collect();
     // Also get by prefix since agentId is "swarm:taskId:role:uid"
     const all = await ctx.db.query("agentTasks").collect();
-    const filtered = all.filter((a) => a.agentId.startsWith(`swarm:${args.taskId}:`));
+    const filtered = all.filter(a =>
+      a.agentId.startsWith(`swarm:${args.taskId}:`),
+    );
     return filtered;
   },
 });
@@ -188,16 +193,44 @@ export const logEvent = internalMutation({
   handler: async (ctx, args) => {
     const projectId = args.projectId as Id<"projects">;
     const iconMap: Record<string, string> = {
-      planner: "🗺️", "ui-agent": "🎨", "logic-agent": "⚙️",
-      "debug-agent": "🔍", reviewer: "🔎", "qa-agent": "✅",
+      planner: "🗺️",
+      "ui-agent": "🎨",
+      "logic-agent": "⚙️",
+      "debug-agent": "🔍",
+      reviewer: "🔎",
+      "qa-agent": "✅",
     };
 
     await ctx.db.insert("agentThoughts", {
       projectId,
       agentId: args.agentUid,
-      agentName: args.agentRole.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-      type: (["plan","analyze","code","debug","review","memory","search","commit","broadcast","done"].includes(args.type)
-        ? args.type : "analyze") as "plan"|"analyze"|"code"|"debug"|"review"|"memory"|"search"|"commit"|"broadcast"|"done",
+      agentName: args.agentRole
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, c => c.toUpperCase()),
+      type: ([
+        "plan",
+        "analyze",
+        "code",
+        "debug",
+        "review",
+        "memory",
+        "search",
+        "commit",
+        "broadcast",
+        "done",
+      ].includes(args.type)
+        ? args.type
+        : "analyze") as
+        | "plan"
+        | "analyze"
+        | "code"
+        | "debug"
+        | "review"
+        | "memory"
+        | "search"
+        | "commit"
+        | "broadcast"
+        | "done",
       content: args.content,
       isStreaming: false,
       timestamp: Date.now(),
@@ -209,15 +242,17 @@ export const logEvent = internalMutation({
 /** POST /api/swarm/events/batch — log multiple events */
 export const logEventsBatch = internalMutation({
   args: {
-    events: v.array(v.object({
-      taskId: v.string(),
-      projectId: v.string(),
-      agentUid: v.string(),
-      agentRole: v.string(),
-      type: v.string(),
-      content: v.string(),
-      metadata: v.optional(v.string()),
-    })),
+    events: v.array(
+      v.object({
+        taskId: v.string(),
+        projectId: v.string(),
+        agentUid: v.string(),
+        agentRole: v.string(),
+        type: v.string(),
+        content: v.string(),
+        metadata: v.optional(v.string()),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
     for (const ev of args.events) {
@@ -225,9 +260,33 @@ export const logEventsBatch = internalMutation({
       await ctx.db.insert("agentThoughts", {
         projectId,
         agentId: ev.agentUid,
-        agentName: ev.agentRole.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-        type: (["plan","analyze","code","debug","review","memory","search","commit","broadcast","done"].includes(ev.type)
-          ? ev.type : "analyze") as "plan"|"analyze"|"code"|"debug"|"review"|"memory"|"search"|"commit"|"broadcast"|"done",
+        agentName: ev.agentRole
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, c => c.toUpperCase()),
+        type: ([
+          "plan",
+          "analyze",
+          "code",
+          "debug",
+          "review",
+          "memory",
+          "search",
+          "commit",
+          "broadcast",
+          "done",
+        ].includes(ev.type)
+          ? ev.type
+          : "analyze") as
+          | "plan"
+          | "analyze"
+          | "code"
+          | "debug"
+          | "review"
+          | "memory"
+          | "search"
+          | "commit"
+          | "broadcast"
+          | "done",
         content: ev.content,
         isStreaming: false,
         timestamp: Date.now(),
@@ -246,7 +305,7 @@ export const getProjectFiles = internalQuery({
     const projectId = args.projectId as Id<"projects">;
     return await ctx.db
       .query("files")
-      .withIndex("by_project", (q) => q.eq("projectId", projectId))
+      .withIndex("by_project", q => q.eq("projectId", projectId))
       .collect();
   },
 });
@@ -262,8 +321,8 @@ export const writeFile = internalMutation({
     const projectId = args.projectId as Id<"projects">;
     const existing = await ctx.db
       .query("files")
-      .withIndex("by_project_and_path", (q) =>
-        q.eq("projectId", projectId).eq("path", args.path)
+      .withIndex("by_project_and_path", q =>
+        q.eq("projectId", projectId).eq("path", args.path),
       )
       .first();
 
@@ -271,11 +330,18 @@ export const writeFile = internalMutation({
       await ctx.db.patch(existing._id, { content: args.content });
     } else {
       const name = args.path.split("/").pop() ?? args.path;
-      const ext = name.includes(".") ? name.split(".").pop() ?? "" : "";
+      const ext = name.includes(".") ? (name.split(".").pop() ?? "") : "";
       const langMap: Record<string, string> = {
-        ts: "typescript", tsx: "typescript", js: "javascript",
-        jsx: "javascript", css: "css", html: "html", json: "json",
-        md: "markdown", py: "python", sh: "bash",
+        ts: "typescript",
+        tsx: "typescript",
+        js: "javascript",
+        jsx: "javascript",
+        css: "css",
+        html: "html",
+        json: "json",
+        md: "markdown",
+        py: "python",
+        sh: "bash",
       };
       await ctx.db.insert("files", {
         projectId,
@@ -336,11 +402,13 @@ export const getTopMemories = internalQuery({
     const projectId = args.projectId as Id<"projects">;
     let mems = await ctx.db
       .query("agentMemories")
-      .withIndex("by_project", (q) => q.eq("projectId", projectId))
+      .withIndex("by_project", q => q.eq("projectId", projectId))
       .collect();
 
-    if (args.category) mems = mems.filter((m) => m.category === args.category);
-    mems.sort((a, b) => (b.importance * b.decayFactor) - (a.importance * a.decayFactor));
+    if (args.category) mems = mems.filter(m => m.category === args.category);
+    mems.sort(
+      (a, b) => b.importance * b.decayFactor - a.importance * a.decayFactor,
+    );
     return { memories: mems.slice(0, args.limit ?? 20) };
   },
 });
@@ -358,12 +426,33 @@ export const createMemory = internalMutation({
   },
   handler: async (ctx, args) => {
     const projectId = args.projectId as Id<"projects">;
-    const validCategories = ["pattern","anti_pattern","preference","architecture","dependency","bugfix","convention","tool","insight"];
-    const cat = validCategories.includes(args.category) ? args.category : "insight";
+    const validCategories = [
+      "pattern",
+      "anti_pattern",
+      "preference",
+      "architecture",
+      "dependency",
+      "bugfix",
+      "convention",
+      "tool",
+      "insight",
+    ];
+    const cat = validCategories.includes(args.category)
+      ? args.category
+      : "insight";
 
     const memoryId = await ctx.db.insert("agentMemories", {
       projectId,
-      category: cat as "pattern"|"anti_pattern"|"preference"|"architecture"|"dependency"|"bugfix"|"convention"|"tool"|"insight",
+      category: cat as
+        | "pattern"
+        | "anti_pattern"
+        | "preference"
+        | "architecture"
+        | "dependency"
+        | "bugfix"
+        | "convention"
+        | "tool"
+        | "insight",
       content: `[${args.title}] ${args.content}`,
       importance: args.importance ?? 0.7,
       usageCount: 0,
@@ -443,25 +532,48 @@ export const sendAgentMessage = internalMutation({
   },
   handler: async (ctx, args) => {
     const projectId = args.projectId as Id<"projects">;
-    const validTypes = ["warning","context","request","finding","blocker","resolved"];
-    const msgType = validTypes.includes(args.messageType) ? args.messageType : "context";
+    const validTypes = [
+      "warning",
+      "context",
+      "request",
+      "finding",
+      "blocker",
+      "resolved",
+    ];
+    const msgType = validTypes.includes(args.messageType)
+      ? args.messageType
+      : "context";
 
     const iconMap: Record<string, string> = {
-      planner: "🗺️", "ui-agent": "🎨", "logic-agent": "⚙️",
-      "debug-agent": "🔍", reviewer: "🔎", "qa-agent": "✅",
+      planner: "🗺️",
+      "ui-agent": "🎨",
+      "logic-agent": "⚙️",
+      "debug-agent": "🔍",
+      reviewer: "🔎",
+      "qa-agent": "✅",
     };
     const toName = args.toAgentRole
-      ? args.toAgentRole.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+      ? args.toAgentRole
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, c => c.toUpperCase())
       : undefined;
 
     const messageId = await ctx.db.insert("agentMessages", {
       projectId,
       fromAgentId: args.fromAgentUid,
-      fromAgentName: args.fromAgentRole.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      fromAgentName: args.fromAgentRole
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, c => c.toUpperCase()),
       fromAgentIcon: iconMap[args.fromAgentRole] ?? "🤖",
       toAgentId: args.toAgentUid,
       toAgentName: toName,
-      messageType: msgType as "warning"|"context"|"request"|"finding"|"blocker"|"resolved",
+      messageType: msgType as
+        | "warning"
+        | "context"
+        | "request"
+        | "finding"
+        | "blocker"
+        | "resolved",
       content: args.content,
       timestamp: Date.now(),
       acknowledged: false,
@@ -480,11 +592,11 @@ export const getMessagesForAgent = internalQuery({
   handler: async (ctx, args) => {
     const msgs = await ctx.db
       .query("agentMessages")
-      .filter((q) =>
+      .filter(q =>
         q.or(
           q.eq(q.field("toAgentId"), args.agentUid),
-          q.eq(q.field("toAgentId"), undefined) // broadcasts
-        )
+          q.eq(q.field("toAgentId"), undefined), // broadcasts
+        ),
       )
       .order("desc")
       .take(50);
@@ -507,8 +619,8 @@ export const ragIndexFile = internalMutation({
     // Find existing RAG chunks for this file and replace them
     const existing = await ctx.db
       .query("ragChunks")
-      .withIndex("by_project_and_file", (q) =>
-        q.eq("projectId", projectId).eq("filePath", args.path)
+      .withIndex("by_project_and_file", q =>
+        q.eq("projectId", projectId).eq("filePath", args.path),
       )
       .collect();
     for (const chunk of existing) await ctx.db.delete(chunk._id);
@@ -536,7 +648,11 @@ export const ragIndexFile = internalMutation({
 });
 
 function buildSimpleEmbedding(text: string): Record<string, number> {
-  const tokens = text.toLowerCase().replace(/[^a-z0-9\s_]/g, " ").split(/\s+/).filter((t) => t.length > 2);
+  const tokens = text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s_]/g, " ")
+    .split(/\s+/)
+    .filter(t => t.length > 2);
   const tf: Record<string, number> = {};
   for (const t of tokens) tf[t] = (tf[t] ?? 0) + 1;
   return tf;
@@ -553,14 +669,16 @@ export const ragSearch = internalQuery({
     const projectId = args.projectId as Id<"projects">;
     const chunks = await ctx.db
       .query("ragChunks")
-      .withIndex("by_project", (q) => q.eq("projectId", projectId))
+      .withIndex("by_project", q => q.eq("projectId", projectId))
       .collect();
 
     const queryEmb = buildSimpleEmbedding(args.query);
 
     // Score each chunk
-    const scored = chunks.map((c) => {
-      const emb = c.embedding ? JSON.parse(c.embedding) as Record<string, number> : {};
+    const scored = chunks.map(c => {
+      const emb = c.embedding
+        ? (JSON.parse(c.embedding) as Record<string, number>)
+        : {};
       let score = 0;
       for (const [k, v] of Object.entries(queryEmb)) {
         score += (emb[k] ?? 0) * v;
@@ -614,6 +732,3 @@ export const setGitPR = internalMutation({
     return { ok: true };
   },
 });
-
-
-

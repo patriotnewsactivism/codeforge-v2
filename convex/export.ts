@@ -1,6 +1,6 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
 
 // Export all project files as a JSON bundle (frontend converts to zip)
 export const getProjectBundle = query({
@@ -14,15 +14,15 @@ export const getProjectBundle = query({
 
     const files = await ctx.db
       .query("files")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
 
     return {
       name: project.name,
       description: project.description,
       files: files
-        .filter((f) => !f.isDirectory)
-        .map((f) => ({
+        .filter(f => !f.isDirectory)
+        .map(f => ({
           path: f.path,
           content: f.content,
           language: f.language,
@@ -30,6 +30,3 @@ export const getProjectBundle = query({
     };
   },
 });
-
-
-

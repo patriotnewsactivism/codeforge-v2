@@ -10,9 +10,9 @@
  */
 
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { action, mutation, query } from "./_generated/server";
 
 // ─── MUTATIONS ───────────────────────────────────────────────────────────────
 
@@ -39,7 +39,7 @@ export const recordFrame = mutation({
     agentRole: v.optional(v.string()),
     parentAgentId: v.optional(v.string()),
     spawnDepth: v.optional(v.number()),
-    payload: v.string(),            // JSON — type-specific data
+    payload: v.string(), // JSON — type-specific data
     durationMs: v.optional(v.number()),
     success: v.optional(v.boolean()),
   },
@@ -86,19 +86,22 @@ export const finalizeReplay = mutation({
 export const getFrames = query({
   args: {
     missionId: v.id("buildSessions"),
-    fromTs: v.optional(v.number()),    // for pagination / scrubbing
+    fromTs: v.optional(v.number()), // for pagination / scrubbing
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const all = await ctx.db
       .query("cinemaFrames")
-      .withIndex("by_mission", (q) => q.eq("missionId", args.missionId))
+      .withIndex("by_mission", q => q.eq("missionId", args.missionId))
       .order("asc")
       .take(2000);
 
     if (args.fromTs) {
-      const idx = all.findIndex((f) => f.ts >= args.fromTs!);
-      return all.slice(idx >= 0 ? idx : 0, (idx >= 0 ? idx : 0) + (args.limit ?? 200));
+      const idx = all.findIndex(f => f.ts >= args.fromTs!);
+      return all.slice(
+        idx >= 0 ? idx : 0,
+        (idx >= 0 ? idx : 0) + (args.limit ?? 200),
+      );
     }
     return all.slice(0, args.limit ?? 200);
   },
@@ -109,12 +112,21 @@ export const getAgentTree = query({
   handler: async (ctx, args) => {
     const spawnFrames = await ctx.db
       .query("cinemaFrames")
-      .withIndex("by_mission", (q) => q.eq("missionId", args.missionId))
-      .filter((q) => q.eq(q.field("frameType"), "spawn"))
+      .withIndex("by_mission", q => q.eq("missionId", args.missionId))
+      .filter(q => q.eq(q.field("frameType"), "spawn"))
       .collect();
 
     // Build adjacency list: parentAgentId → children
-    const tree: Record<string, { agentId: string; agentName: string; role: string; depth: number; ts: number }[]> = {};
+    const tree: Record<
+      string,
+      {
+        agentId: string;
+        agentName: string;
+        role: string;
+        depth: number;
+        ts: number;
+      }[]
+    > = {};
     for (const f of spawnFrames) {
       const parent = f.parentAgentId ?? "root";
       if (!tree[parent]) tree[parent] = [];
@@ -135,18 +147,21 @@ export const getTimelineSummary = query({
   handler: async (ctx, args) => {
     const all = await ctx.db
       .query("cinemaFrames")
-      .withIndex("by_mission", (q) => q.eq("missionId", args.missionId))
+      .withIndex("by_mission", q => q.eq("missionId", args.missionId))
       .collect();
 
     if (!all.length) return null;
 
-    const byType = all.reduce((acc, f) => {
-      acc[f.frameType] = (acc[f.frameType] ?? 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const byType = all.reduce(
+      (acc, f) => {
+        acc[f.frameType] = (acc[f.frameType] ?? 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
-    const agents = [...new Set(all.map((f) => f.agentId))];
-    const peakDepth = Math.max(...all.map((f) => f.spawnDepth ?? 0));
+    const agents = [...new Set(all.map(f => f.agentId))];
+    const peakDepth = Math.max(...all.map(f => f.spawnDepth ?? 0));
 
     return {
       totalFrames: all.length,
@@ -186,7 +201,12 @@ export const buildCinemaFromExisting = action({
       await ctx.runMutation(api.cinema.recordFrame, {
         projectId: args.projectId,
         missionId: args.missionId,
-        frameType: t.type === "error" ? "error" : t.type === "complete" ? "complete" : "thought",
+        frameType:
+          t.type === "error"
+            ? "error"
+            : t.type === "complete"
+              ? "complete"
+              : "thought",
         agentId: t.agentId,
         agentName: t.agentName,
         payload: JSON.stringify({ content: t.content }),
@@ -202,7 +222,12 @@ export const buildCinemaFromExisting = action({
         frameType: "tool_call",
         agentId: tc.agentId ?? "unknown",
         agentName: tc.agentName ?? "Agent",
-        payload: JSON.stringify({ tool: tc.tool, args: tc.args, status: tc.status, output: tc.output }),
+        payload: JSON.stringify({
+          tool: tc.tool,
+          args: tc.args,
+          status: tc.status,
+          output: tc.output,
+        }),
         success: tc.status === "completed",
       });
       created++;
@@ -211,6 +236,3 @@ export const buildCinemaFromExisting = action({
     return { framesCreated: created };
   },
 });
-
-
-

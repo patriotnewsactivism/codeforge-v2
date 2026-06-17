@@ -1,15 +1,15 @@
-import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { v } from "convex/values";
 import { api } from "./_generated/api";
-import { callAIWithFallback, estimateCost, MODELS, DEFAULT_MODEL } from "./ai";
+import { action, mutation, query } from "./_generated/server";
+import { callAIWithFallback, DEFAULT_MODEL, estimateCost, MODELS } from "./ai";
 
 // ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
 // Lifetime users get their stored keys injected into AI calls.
 // Weekly/monthly/free users use platform process.env keys (no userKeys passed).
 async function resolveByok(
   ctx: any,
-  userId?: string
+  userId?: string,
 ): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
   try {
     const sub = await ctx.runQuery(api.limits.getMyLimits, {});
@@ -19,12 +19,12 @@ async function resolveByok(
 
     const userKeys: Record<string, string> = await ctx.runQuery(
       api.apiKeys.getAllKeysForUser,
-      { userId }
+      { userId },
     );
     if (!userKeys || Object.keys(userKeys).length === 0) {
       throw new Error(
         "⚠️ Lifetime plan requires your own API key. " +
-          "Add one in Settings → API Keys to use AI features."
+          "Add one in Settings → API Keys to use AI features.",
       );
     }
     return { callerPlan, userKeys };
@@ -33,8 +33,6 @@ async function resolveByok(
     return { callerPlan: "free" };
   }
 }
-
-
 
 // ─── Session Management ──────────────────────────────────────────────────────
 
@@ -47,10 +45,12 @@ export const getOrCreateSession = mutation({
 
     const existing = await ctx.db
       .query("chatSessions")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
 
-    const userSession = existing.find((s) => s.userId === userId && !s.isArchived);
+    const userSession = existing.find(
+      s => s.userId === userId && !s.isArchived,
+    );
     if (userSession) return userSession._id;
 
     return await ctx.db.insert("chatSessions", {
@@ -95,12 +95,15 @@ export const listSessions = query({
 
     const sessions = await ctx.db
       .query("chatSessions")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
 
     return sessions
-      .filter((s) => s.userId === userId && !s.isArchived)
-      .sort((a, b) => (b.createdAt ?? b._creationTime) - (a.createdAt ?? a._creationTime));
+      .filter(s => s.userId === userId && !s.isArchived)
+      .sort(
+        (a, b) =>
+          (b.createdAt ?? b._creationTime) - (a.createdAt ?? a._creationTime),
+      );
   },
 });
 
@@ -111,7 +114,8 @@ export const renameSession = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
     const session = await ctx.db.get(args.sessionId);
-    if (!session || session.userId !== userId) throw new Error("Not your session");
+    if (!session || session.userId !== userId)
+      throw new Error("Not your session");
     await ctx.db.patch(args.sessionId, { title: args.title });
     return null;
   },
@@ -124,11 +128,12 @@ export const deleteSession = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
     const session = await ctx.db.get(args.sessionId);
-    if (!session || session.userId !== userId) throw new Error("Not your session");
+    if (!session || session.userId !== userId)
+      throw new Error("Not your session");
 
     const messages = await ctx.db
       .query("chatMessages")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .withIndex("by_session", q => q.eq("sessionId", args.sessionId))
       .collect();
     for (const msg of messages) await ctx.db.delete(msg._id);
     await ctx.db.delete(args.sessionId);
@@ -143,7 +148,8 @@ export const archiveSession = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
     const session = await ctx.db.get(args.sessionId);
-    if (!session || session.userId !== userId) throw new Error("Not your session");
+    if (!session || session.userId !== userId)
+      throw new Error("Not your session");
     await ctx.db.patch(args.sessionId, { isArchived: true });
     return null;
   },
@@ -172,7 +178,7 @@ export const listMessages = query({
   handler: async (ctx, args) =>
     ctx.db
       .query("chatMessages")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .withIndex("by_session", q => q.eq("sessionId", args.sessionId))
       .collect(),
 });
 
@@ -180,7 +186,11 @@ export const addMessage = mutation({
   args: {
     sessionId: v.id("chatSessions"),
     projectId: v.id("projects"),
-    role: v.union(v.literal("user"), v.literal("assistant"), v.literal("system")),
+    role: v.union(
+      v.literal("user"),
+      v.literal("assistant"),
+      v.literal("system"),
+    ),
     content: v.string(),
     model: v.optional(v.string()),
     tokensUsed: v.optional(v.number()),
@@ -188,7 +198,7 @@ export const addMessage = mutation({
     isError: v.optional(v.boolean()),
     userId: v.optional(v.id("users")),
     fileContexts: v.optional(
-      v.array(v.object({ path: v.string(), content: v.string() }))
+      v.array(v.object({ path: v.string(), content: v.string() })),
     ),
   },
   returns: v.id("chatMessages"),
@@ -227,7 +237,7 @@ export const sendMessage = action({
     model: v.string(),
     fileContext: v.optional(v.string()),
     fileContexts: v.optional(
-      v.array(v.object({ path: v.string(), content: v.string() }))
+      v.array(v.object({ path: v.string(), content: v.string() })),
     ),
     userId: v.id("users"),
   },
@@ -237,7 +247,7 @@ export const sendMessage = action({
     let combinedContext = "";
     if (args.fileContexts?.length) {
       combinedContext = args.fileContexts
-        .map((f) => `--- ${f.path} ---\n${f.content}`)
+        .map(f => `--- ${f.path} ---\n${f.content}`)
         .join("\n\n");
     } else if (args.fileContext) {
       combinedContext = args.fileContext;
@@ -245,7 +255,9 @@ export const sendMessage = action({
 
     // Usage gate
     try {
-      const gate = await ctx.runQuery(api.limits.checkCanRun, { action: "ai_request" });
+      const gate = await ctx.runQuery(api.limits.checkCanRun, {
+        action: "ai_request",
+      });
       if (!gate.allowed) {
         const hint = (gate as any).upgradeHint ?? "";
         throw new Error(`🚫 ${gate.reason}${hint ? " " + hint : ""}`);
@@ -272,7 +284,7 @@ export const sendMessage = action({
     // Questions/explanations → direct AI response (fast, cheap)
     const isCodeRequest =
       /\b(build|create|add|make|implement|fix|refactor|update|write|generate|change|edit|delete|remove|style|design|migrate|rename|move|replace|convert|upgrade|optimize|improve|debug|deploy)\b/i.test(
-        args.content
+        args.content,
       );
 
     // ── PATH A: Direct AI (questions, explanations, reviews) ───────────────
@@ -287,14 +299,21 @@ export const sendMessage = action({
         : args.content;
 
       try {
-        const { text: result, modelUsed } = await callAIWithFallback(userMessage, {
-          model: args.model,
-          systemPrompt,
-          callerPlan: byok.callerPlan,
-          userKeys: byok.userKeys,
-        });
+        const { text: result, modelUsed } = await callAIWithFallback(
+          userMessage,
+          {
+            model: args.model,
+            systemPrompt,
+            callerPlan: byok.callerPlan,
+            userKeys: byok.userKeys,
+          },
+        );
 
-        const inputEst  = estimateCost(args.content + combinedContext, modelUsed, false);
+        const inputEst = estimateCost(
+          args.content + combinedContext,
+          modelUsed,
+          false,
+        );
         const outputEst = estimateCost(result, modelUsed, true);
 
         await ctx.runMutation(api.chat.addMessage, {
@@ -386,8 +405,8 @@ export const sendMessage = action({
 
 export const listModels = query({
   args: {},
-  handler: async (_ctx) => {
-    return Object.values(MODELS).map((m) => ({
+  handler: async _ctx => {
+    return Object.values(MODELS).map(m => ({
       id: m.id,
       name: m.name,
       tier: m.tier,
@@ -396,7 +415,3 @@ export const listModels = query({
     }));
   },
 });
-
-
-
-

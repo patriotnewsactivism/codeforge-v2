@@ -1,27 +1,27 @@
-import { useState, useEffect } from "react";
 import { useAction, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
+import {
+  Download,
+  Github,
+  Globe,
+  Loader2,
+  Lock,
+  Search,
+  Star,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { toast } from "sonner";
-import {
-  Github,
-  Loader2,
-  Search,
-  Lock,
-  Globe,
-  Star,
-  Download,
-} from "lucide-react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 interface Repo {
   fullName: string;
@@ -102,10 +102,10 @@ export function ImportRepoDialog({
   };
 
   const filtered = repos.filter(
-    (r) =>
+    r =>
       r.name.toLowerCase().includes(search.toLowerCase()) ||
       r.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      (r.description || "").toLowerCase().includes(search.toLowerCase())
+      (r.description || "").toLowerCase().includes(search.toLowerCase()),
   );
 
   const langColors: Record<string, string> = {
@@ -140,7 +140,7 @@ export function ImportRepoDialog({
           <Input
             placeholder="Search repos..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={e => setSearch(e.target.value)}
             className="pl-8 h-8 text-sm"
           />
         </div>
@@ -152,7 +152,7 @@ export function ImportRepoDialog({
             </div>
           ) : (
             <div className="space-y-1">
-              {filtered.map((repo) => (
+              {filtered.map(repo => (
                 <div
                   key={repo.fullName}
                   className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-accent/30 transition-colors"
@@ -189,9 +189,7 @@ export function ImportRepoDialog({
                         </span>
                       )}
                       <span>{repo.fullName}</span>
-                      <span>
-                        {(repo.size / 1024).toFixed(0)}MB
-                      </span>
+                      <span>{(repo.size / 1024).toFixed(0)}MB</span>
                     </div>
                   </div>
                   <Button

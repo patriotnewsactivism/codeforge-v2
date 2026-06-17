@@ -1,6 +1,6 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
 
 export const listByProject = query({
   args: { projectId: v.id("projects") },
@@ -15,14 +15,14 @@ export const listByProject = query({
       language: v.optional(v.string()),
       isDirectory: v.boolean(),
       parentPath: v.optional(v.string()),
-    })
+    }),
   ),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
     return await ctx.db
       .query("files")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
   },
 });
@@ -41,15 +41,15 @@ export const getByPath = query({
       isDirectory: v.boolean(),
       parentPath: v.optional(v.string()),
     }),
-    v.null()
+    v.null(),
   ),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
     return await ctx.db
       .query("files")
-      .withIndex("by_project_and_path", (q) =>
-        q.eq("projectId", args.projectId).eq("path", args.path)
+      .withIndex("by_project_and_path", q =>
+        q.eq("projectId", args.projectId).eq("path", args.path),
       )
       .unique();
   },
@@ -87,8 +87,8 @@ export const create = mutation({
     // Check if file already exists
     const existing = await ctx.db
       .query("files")
-      .withIndex("by_project_and_path", (q) =>
-        q.eq("projectId", args.projectId).eq("path", args.path)
+      .withIndex("by_project_and_path", q =>
+        q.eq("projectId", args.projectId).eq("path", args.path),
       )
       .unique();
     if (existing) throw new Error("File already exists at this path");
@@ -187,13 +187,15 @@ function detectLanguage(filename: string): string {
 export const bulkInsert = mutation({
   args: {
     projectId: v.id("projects"),
-    files: v.array(v.object({
-      path: v.string(),
-      name: v.string(),
-      type: v.union(v.literal("file"), v.literal("folder")),
-      content: v.optional(v.string()),
-      language: v.optional(v.string()),
-    })),
+    files: v.array(
+      v.object({
+        path: v.string(),
+        name: v.string(),
+        type: v.union(v.literal("file"), v.literal("folder")),
+        content: v.optional(v.string()),
+        language: v.optional(v.string()),
+      }),
+    ),
   },
   handler: async (ctx, { projectId, files }) => {
     const { getAuthUserId } = await import("@convex-dev/auth/server");
@@ -204,8 +206,8 @@ export const bulkInsert = mutation({
     for (const f of files) {
       const existing = await ctx.db
         .query("files")
-        .withIndex("by_project_and_path", (q) =>
-          q.eq("projectId", projectId).eq("path", f.path)
+        .withIndex("by_project_and_path", q =>
+          q.eq("projectId", projectId).eq("path", f.path),
         )
         .first();
 
@@ -234,6 +236,3 @@ export const bulkInsert = mutation({
     return { inserted: count };
   },
 });
-
-
-

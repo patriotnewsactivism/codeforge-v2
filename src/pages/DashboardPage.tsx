@@ -1,22 +1,41 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useMutation, useQuery, useAction } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
-import { Button } from "@/components/ui/button";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter,
-  DialogHeader, DialogTitle} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Plus, FolderOpen, Trash2, Clock, Code2, Sparkles,
-  Github, Download, Loader2, CheckCircle2, AlertCircle
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Code2,
+  Download,
+  FolderOpen,
+  Github,
+  Loader2,
+  Plus,
+  Sparkles,
+  Trash2,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { BYOKBanner } from "@/components/ide/BYOKBanner";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
 type ModalMode = "none" | "create" | "import";
 
@@ -36,7 +55,9 @@ export function DashboardPage() {
   // Import state
   const [repoUrl, setRepoUrl] = useState("");
   const [importName, setImportName] = useState("");
-  const [importStatus, setImportStatus] = useState<"idle" | "importing" | "done" | "error">("idle");
+  const [importStatus, setImportStatus] = useState<
+    "idle" | "importing" | "done" | "error"
+  >("idle");
   const [importMsg, setImportMsg] = useState("");
 
   // Redirect to onboarding if user hasn't completed it
@@ -65,7 +86,8 @@ export function DashboardPage() {
     try {
       const projectId = await createProject({
         name: newProjectName.trim(),
-        description: newProjectDesc.trim() || undefined});
+        description: newProjectDesc.trim() || undefined,
+      });
       toast.success(`Created ${newProjectName}`);
       closeModal();
       navigate(`/project/${projectId}`);
@@ -82,7 +104,9 @@ export function DashboardPage() {
     // "owner/repo" short form
     if (/^[\w.-]+\/[\w.-]+$/.test(input)) return input;
     // Full URL: https://github.com/owner/repo(.git)?
-    const match = input.match(/github\.com\/([^/]+\/[^/\s]+?)(?:\.git)?(?:\/.*)?$/);
+    const match = input.match(
+      /github\.com\/([^/]+\/[^/\s]+?)(?:\.git)?(?:\/.*)?$/,
+    );
     return match ? match[1]! : null;
   };
 
@@ -92,7 +116,8 @@ export function DashboardPage() {
       toast.error("Enter a valid GitHub URL or owner/repo");
       return;
     }
-    const name = importName.trim() || repoFullName.split("/")[1] || repoFullName;
+    const name =
+      importName.trim() || repoFullName.split("/")[1] || repoFullName;
 
     setImportStatus("importing");
     setImportMsg("Creating project...");
@@ -102,14 +127,16 @@ export function DashboardPage() {
       const projectId = await createProject({
         name,
         description: `Imported from github.com/${repoFullName}`,
-        githubRepo: repoFullName});
+        githubRepo: repoFullName,
+      });
 
       setImportMsg(`Fetching files from ${repoFullName}...`);
 
       // Import files
       const result = await importFromGitHub({
         projectId,
-        repoFullName});
+        repoFullName,
+      });
 
       if (!result.success) {
         setImportStatus("error");
@@ -132,7 +159,11 @@ export function DashboardPage() {
     }
   };
 
-  const handleDelete = async (projectId: string, name: string, e: React.MouseEvent) => {
+  const handleDelete = async (
+    projectId: string,
+    name: string,
+    e: React.MouseEvent,
+  ) => {
     e.stopPropagation();
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
     try {
@@ -143,7 +174,9 @@ export function DashboardPage() {
     }
   };
 
-  const sortedProjects = [...projects].sort((a, b) => b.lastOpenedAt - a.lastOpenedAt);
+  const sortedProjects = [...projects].sort(
+    (a, b) => b.lastOpenedAt - a.lastOpenedAt,
+  );
 
   return (
     <div className="min-h-[calc(100dvh-64px)] p-3 sm:p-6">
@@ -192,7 +225,11 @@ export function DashboardPage() {
               Create a new project or import an existing repo from GitHub
             </p>
             <div className="flex gap-2 flex-wrap justify-center">
-              <Button variant="outline" onClick={() => setModal("import")} className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setModal("import")}
+                className="gap-2"
+              >
                 <Github className="h-4 w-4" /> Import from GitHub
               </Button>
               <Button onClick={() => setModal("create")} className="gap-2">
@@ -202,7 +239,7 @@ export function DashboardPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-            {sortedProjects.map((project) => (
+            {sortedProjects.map(project => (
               <Card
                 key={project._id}
                 className="group cursor-pointer hover:border-primary/50 transition-colors bg-card active:scale-[0.98]"
@@ -211,9 +248,11 @@ export function DashboardPage() {
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      {project.githubRepo
-                        ? <Github className="h-4 w-4 text-primary shrink-0" />
-                        : <FolderOpen className="h-4 w-4 text-primary shrink-0" />}
+                      {project.githubRepo ? (
+                        <Github className="h-4 w-4 text-primary shrink-0" />
+                      ) : (
+                        <FolderOpen className="h-4 w-4 text-primary shrink-0" />
+                      )}
                       <CardTitle className="text-sm sm:text-base truncate">
                         {project.name}
                       </CardTitle>
@@ -221,7 +260,7 @@ export function DashboardPage() {
                     <button
                       type="button"
                       className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-all shrink-0"
-                      onClick={(e) => handleDelete(project._id, project.name, e)}
+                      onClick={e => handleDelete(project._id, project.name, e)}
                       aria-label="Delete project"
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
@@ -259,7 +298,7 @@ export function DashboardPage() {
       </div>
 
       {/* ── CREATE PROJECT MODAL ── */}
-      <Dialog open={modal === "create"} onOpenChange={(o) => !o && closeModal()}>
+      <Dialog open={modal === "create"} onOpenChange={o => !o && closeModal()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Create New Project</DialogTitle>
@@ -274,8 +313,8 @@ export function DashboardPage() {
                 id="name"
                 placeholder="my-awesome-project"
                 value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                onChange={e => setNewProjectName(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleCreate()}
                 autoFocus
               />
             </div>
@@ -285,28 +324,44 @@ export function DashboardPage() {
                 id="desc"
                 placeholder="A brief description"
                 value={newProjectDesc}
-                onChange={(e) => setNewProjectDesc(e.target.value)}
+                onChange={e => setNewProjectDesc(e.target.value)}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={closeModal}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={!newProjectName.trim() || creating}>
-              {creating ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Creating...</> : "Create Project"}
+            <Button variant="ghost" onClick={closeModal}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={!newProjectName.trim() || creating}
+            >
+              {creating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Creating...
+                </>
+              ) : (
+                "Create Project"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* ── IMPORT FROM GITHUB MODAL ── */}
-      <Dialog open={modal === "import"} onOpenChange={(o) => !o && importStatus !== "importing" && closeModal()}>
+      <Dialog
+        open={modal === "import"}
+        onOpenChange={o => !o && importStatus !== "importing" && closeModal()}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Github className="h-5 w-5" /> Import from GitHub
             </DialogTitle>
             <DialogDescription>
-              Paste a GitHub repo URL or enter <code className="text-primary">owner/repo</code>
+              Paste a GitHub repo URL or enter{" "}
+              <code className="text-primary">owner/repo</code>
             </DialogDescription>
           </DialogHeader>
 
@@ -318,7 +373,7 @@ export function DashboardPage() {
                   id="repo-url"
                   placeholder="https://github.com/owner/repo  or  owner/repo"
                   value={repoUrl}
-                  onChange={(e) => {
+                  onChange={e => {
                     setRepoUrl(e.target.value);
                     // Auto-fill name from URL
                     const parsed = parseRepo(e.target.value);
@@ -335,12 +390,16 @@ export function DashboardPage() {
                   id="import-name"
                   placeholder="Auto-detected from repo"
                   value={importName}
-                  onChange={(e) => setImportName(e.target.value)}
+                  onChange={e => setImportName(e.target.value)}
                 />
               </div>
               <div className="rounded-md bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-300 space-y-1">
                 <p className="font-semibold">What gets imported:</p>
-                <p>Code files up to 100KB each — TypeScript, JavaScript, Python, Go, Rust, CSS, HTML, JSON, Markdown, and 20+ more extensions. Up to 250 files. Excludes node_modules and .git.</p>
+                <p>
+                  Code files up to 100KB each — TypeScript, JavaScript, Python,
+                  Go, Rust, CSS, HTML, JSON, Markdown, and 20+ more extensions.
+                  Up to 250 files. Excludes node_modules and .git.
+                </p>
               </div>
             </div>
           )}
@@ -349,7 +408,9 @@ export function DashboardPage() {
             <div className="flex flex-col items-center gap-4 py-8">
               <Loader2 className="h-10 w-10 text-primary animate-spin" />
               <p className="text-sm font-medium">{importMsg}</p>
-              <p className="text-xs text-muted-foreground">This may take a moment for large repos...</p>
+              <p className="text-xs text-muted-foreground">
+                This may take a moment for large repos...
+              </p>
             </div>
           )}
 
@@ -357,7 +418,9 @@ export function DashboardPage() {
             <div className="flex flex-col items-center gap-3 py-8">
               <CheckCircle2 className="h-10 w-10 text-green-400" />
               <p className="text-sm font-medium text-green-300">{importMsg}</p>
-              <p className="text-xs text-muted-foreground">Redirecting to editor...</p>
+              <p className="text-xs text-muted-foreground">
+                Redirecting to editor...
+              </p>
             </div>
           )}
 
@@ -365,15 +428,21 @@ export function DashboardPage() {
             <div className="space-y-4">
               <div className="flex flex-col items-center gap-3 py-4">
                 <AlertCircle className="h-10 w-10 text-red-400" />
-                <p className="text-sm font-medium text-red-300">Import failed</p>
-                <p className="text-xs text-muted-foreground text-center">{importMsg}</p>
+                <p className="text-sm font-medium text-red-300">
+                  Import failed
+                </p>
+                <p className="text-xs text-muted-foreground text-center">
+                  {importMsg}
+                </p>
               </div>
               <div className="rounded-md bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-300">
                 <p className="font-semibold mb-1">Common causes:</p>
                 <ul className="list-disc list-inside space-y-0.5">
                   <li>Private repo — add a GitHub token in project settings</li>
                   <li>Repo doesn't exist or the URL is wrong</li>
-                  <li>GitHub API rate limit hit — try again in a few minutes</li>
+                  <li>
+                    GitHub API rate limit hit — try again in a few minutes
+                  </li>
                   <li>Repo has no code files matching supported extensions</li>
                 </ul>
               </div>
@@ -382,9 +451,14 @@ export function DashboardPage() {
 
           {(importStatus === "idle" || importStatus === "error") && (
             <DialogFooter>
-              <Button variant="ghost" onClick={closeModal}>Cancel</Button>
+              <Button variant="ghost" onClick={closeModal}>
+                Cancel
+              </Button>
               <Button
-                onClick={() => { setImportStatus("idle"); setImportMsg(""); }}
+                onClick={() => {
+                  setImportStatus("idle");
+                  setImportMsg("");
+                }}
                 style={{ display: importStatus === "error" ? "flex" : "none" }}
                 variant="outline"
               >

@@ -1,7 +1,7 @@
-import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { v } from "convex/values";
 import { api } from "./_generated/api";
+import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback } from "./ai";
 
 // ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
@@ -9,7 +9,7 @@ import { callAIWithFallback } from "./ai";
 // Weekly/monthly/free users use platform process.env keys (no userKeys passed).
 async function resolveByok(
   ctx: any,
-  userId?: string
+  userId?: string,
 ): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
   try {
     const sub = await ctx.runQuery(api.limits.getMyLimits, {});
@@ -19,12 +19,12 @@ async function resolveByok(
 
     const userKeys: Record<string, string> = await ctx.runQuery(
       api.apiKeys.getAllKeysForUser,
-      { userId }
+      { userId },
     );
     if (!userKeys || Object.keys(userKeys).length === 0) {
       throw new Error(
         "⚠️ Lifetime plan requires your own API key. " +
-          "Add one in Settings → API Keys to use AI features."
+          "Add one in Settings → API Keys to use AI features.",
       );
     }
     return { callerPlan, userKeys };
@@ -34,10 +34,7 @@ async function resolveByok(
   }
 }
 
-
-
 declare const process: { env: Record<string, string | undefined> };
-
 
 // ── Queries ──
 
@@ -53,7 +50,7 @@ export const getActiveSession = query({
         v.literal("running"),
         v.literal("paused"),
         v.literal("completed"),
-        v.literal("error")
+        v.literal("error"),
       ),
       currentStep: v.optional(v.string()),
       totalSteps: v.optional(v.number()),
@@ -61,14 +58,14 @@ export const getActiveSession = query({
       startedAt: v.number(),
       finishedAt: v.optional(v.number()),
     }),
-    v.null()
+    v.null(),
   ),
   handler: async (ctx, args) => {
     const sessions = await ctx.db
       .query("buildSessions")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
-    return sessions.find((s) => s.status === "running") ?? null;
+    return sessions.find(s => s.status === "running") ?? null;
   },
 });
 
@@ -84,16 +81,20 @@ export const listSteps = query({
       action: v.string(),
       description: v.string(),
       filesChanged: v.array(v.string()),
-      status: v.union(v.literal("running"), v.literal("done"), v.literal("error")),
+      status: v.union(
+        v.literal("running"),
+        v.literal("done"),
+        v.literal("error"),
+      ),
       errorMessage: v.optional(v.string()),
       timestamp: v.number(),
-    })
+    }),
   ),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("buildSteps")
-      .withIndex("by_build_session", (q) =>
-        q.eq("buildSessionId", args.buildSessionId)
+      .withIndex("by_build_session", q =>
+        q.eq("buildSessionId", args.buildSessionId),
       )
       .collect();
   },
@@ -125,7 +126,11 @@ export const addStep = mutation({
     action: v.string(),
     description: v.string(),
     filesChanged: v.array(v.string()),
-    status: v.union(v.literal("running"), v.literal("done"), v.literal("error")),
+    status: v.union(
+      v.literal("running"),
+      v.literal("done"),
+      v.literal("error"),
+    ),
     errorMessage: v.optional(v.string()),
   },
   returns: v.id("buildSteps"),
@@ -145,7 +150,11 @@ export const addStep = mutation({
 export const finishSession = mutation({
   args: {
     buildSessionId: v.id("buildSessions"),
-    status: v.union(v.literal("completed"), v.literal("error"), v.literal("paused")),
+    status: v.union(
+      v.literal("completed"),
+      v.literal("error"),
+      v.literal("paused"),
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -170,7 +179,10 @@ export const runBuildLoop = action({
   handler: async (ctx, args) => {
     // Resolve BYOK (lifetime users supply their own keys)
     const currentUser = await ctx.runQuery(api.auth.currentUser, {});
-    const byok = await resolveByok(ctx, currentUser?._id ? String(currentUser._id) : undefined);
+    const byok = await resolveByok(
+      ctx,
+      currentUser?._id ? String(currentUser._id) : undefined,
+    );
 
     // Create build session
     const buildSessionId = await ctx.runMutation(api.buildLoop.createSession, {
@@ -191,8 +203,8 @@ export const runBuildLoop = action({
     });
 
     const fileContext = files
-      .filter((f) => !f.isDirectory)
-      .map((f) => `--- ${f.path} ---\n${f.content}`)
+      .filter(f => !f.isDirectory)
+      .map(f => `--- ${f.path} ---\n${f.content}`)
       .join("\n\n");
 
     try {
@@ -246,9 +258,10 @@ Plan what files to create or modify. Return ONLY a JSON object (no markdown):
         });
 
         // Ask AI to generate the code
-        const existingFile = files.find((f) => f.path === step.path);
-        const codePrompt = step.action === "edit_file" && existingFile
-          ? `Edit this file (${step.path}) to: ${step.description}
+        const existingFile = files.find(f => f.path === step.path);
+        const codePrompt =
+          step.action === "edit_file" && existingFile
+            ? `Edit this file (${step.path}) to: ${step.description}
 
 Current content:
 \`\`\`
@@ -256,20 +269,29 @@ ${existingFile.content}
 \`\`\`
 
 Other project files for context:
-${files.filter((f) => f.path !== step.path && !f.isDirectory).map((f) => `--- ${f.path} ---\n${f.content.slice(0, 300)}`).join("\n")}
+${files
+  .filter(f => f.path !== step.path && !f.isDirectory)
+  .map(f => `--- ${f.path} ---\n${f.content.slice(0, 300)}`)
+  .join("\n")}
 
 Return ONLY the complete updated file content. No markdown fences, no explanation — just the raw code.`
-          : `Create a new file at ${step.path}: ${step.description}
+            : `Create a new file at ${step.path}: ${step.description}
 
 Other project files for context:
-${files.filter((f) => !f.isDirectory).map((f) => `--- ${f.path} ---\n${f.content.slice(0, 300)}`).join("\n")}
+${files
+  .filter(f => !f.isDirectory)
+  .map(f => `--- ${f.path} ---\n${f.content.slice(0, 300)}`)
+  .join("\n")}
 
 Return ONLY the file content. No markdown fences, no explanation — just the raw code.`;
 
         const code = await callAI(codePrompt, undefined, undefined, byok);
 
         // Strip any code fences the AI might have added
-        const cleanCode = code.replace(/^```[\w]*\n?/, "").replace(/\n?```$/, "").trim();
+        const cleanCode = code
+          .replace(/^```[\w]*\n?/, "")
+          .replace(/\n?```$/, "")
+          .trim();
 
         // Write to files
         if (existingFile) {
@@ -289,7 +311,7 @@ Return ONLY the file content. No markdown fences, no explanation — just the ra
           const newFiles = await ctx.runQuery(api.files.listByProject, {
             projectId: args.projectId,
           });
-          const newFile = newFiles.find((f) => f.path === step.path);
+          const newFile = newFiles.find(f => f.path === step.path);
           if (newFile) {
             await ctx.runMutation(api.files.updateContent, {
               fileId: newFile._id,
@@ -328,7 +350,7 @@ async function callAI(
   prompt: string,
   model?: string,
   _maxTokens?: number,
-  byok?: { callerPlan: string; userKeys?: Record<string, string> }
+  byok?: { callerPlan: string; userKeys?: Record<string, string> },
 ): Promise<string> {
   const { text } = await callAIWithFallback(prompt, {
     model,
@@ -337,7 +359,3 @@ async function callAI(
   });
   return text;
 }
-
-
-
-

@@ -1,6 +1,6 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
 
 // ─── Change History (undo/rollback for suggestions & build steps) ───
 
@@ -9,7 +9,7 @@ export const listByProject = query({
   handler: async (ctx, args) => {
     const changes = await ctx.db
       .query("changeHistory")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .collect();
     return args.limit ? changes.slice(0, args.limit) : changes;
@@ -21,7 +21,7 @@ export const listBySuggestion = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("changeHistory")
-      .withIndex("by_suggestion", (q) => q.eq("suggestionId", args.suggestionId))
+      .withIndex("by_suggestion", q => q.eq("suggestionId", args.suggestionId))
       .collect();
   },
 });
@@ -34,7 +34,11 @@ export const recordChange = mutation({
     filePath: v.string(),
     previousContent: v.string(),
     newContent: v.string(),
-    action: v.union(v.literal("create"), v.literal("edit"), v.literal("delete")),
+    action: v.union(
+      v.literal("create"),
+      v.literal("edit"),
+      v.literal("delete"),
+    ),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -60,8 +64,8 @@ export const undoChange = mutation({
     // Restore the file to its previous state
     const files = await ctx.db
       .query("files")
-      .withIndex("by_project_and_path", (q) =>
-        q.eq("projectId", change.projectId).eq("path", change.filePath)
+      .withIndex("by_project_and_path", q =>
+        q.eq("projectId", change.projectId).eq("path", change.filePath),
       )
       .collect();
 
@@ -106,7 +110,7 @@ export const undoSuggestion = mutation({
 
     const changes = await ctx.db
       .query("changeHistory")
-      .withIndex("by_suggestion", (q) => q.eq("suggestionId", args.suggestionId))
+      .withIndex("by_suggestion", q => q.eq("suggestionId", args.suggestionId))
       .order("desc")
       .collect();
 
@@ -115,8 +119,8 @@ export const undoSuggestion = mutation({
 
       const files = await ctx.db
         .query("files")
-        .withIndex("by_project_and_path", (q) =>
-          q.eq("projectId", change.projectId).eq("path", change.filePath)
+        .withIndex("by_project_and_path", q =>
+          q.eq("projectId", change.projectId).eq("path", change.filePath),
         )
         .collect();
 
@@ -134,7 +138,8 @@ export const undoSuggestion = mutation({
         });
       } else {
         const file = files[0];
-        if (file) await ctx.db.patch(file._id, { content: change.previousContent });
+        if (file)
+          await ctx.db.patch(file._id, { content: change.previousContent });
       }
 
       await ctx.db.patch(change._id, { undone: true });
@@ -145,6 +150,3 @@ export const undoSuggestion = mutation({
     return null;
   },
 });
-
-
-

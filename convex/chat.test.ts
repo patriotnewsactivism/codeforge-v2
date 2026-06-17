@@ -8,24 +8,30 @@ import schema from "./schema";
 const modules = import.meta.glob("./**/*.ts");
 
 async function seedUser(t: ReturnType<typeof convexTest>) {
-  const userId = await t.run(async (ctx) => {
+  const userId = await t.run(async ctx => {
     return await ctx.db.insert("users", {
       name: "Test User",
       email: "test@test.local",
       emailVerificationTime: Date.now(),
     });
   });
-  return { userId: userId as Id<"users">, identity: { subject: `${userId}|sess` } };
+  return {
+    userId: userId as Id<"users">,
+    identity: { subject: `${userId}|sess` },
+  };
 }
 
-async function seedProject(t: ReturnType<typeof convexTest>, userId: Id<"users">) {
-  return await t.run(async (ctx) => {
+async function seedProject(
+  t: ReturnType<typeof convexTest>,
+  userId: Id<"users">,
+) {
+  return (await t.run(async ctx => {
     return await ctx.db.insert("projects", {
       name: "Test Project",
       ownerId: userId,
       lastOpenedAt: Date.now(),
     });
-  }) as Id<"projects">;
+  })) as Id<"projects">;
 }
 
 describe("chat", () => {
@@ -237,7 +243,7 @@ describe("chat", () => {
       t.mutation(api.chat.createSession, {
         projectId: "none" as Id<"projects">,
         title: "Test",
-      })
+      }),
     ).rejects.toThrow("Not authenticated");
   });
 

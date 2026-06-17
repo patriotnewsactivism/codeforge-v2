@@ -14,8 +14,14 @@
  */
 
 import { v } from "convex/values";
-import { action, internalAction, mutation, query, httpAction } from "./_generated/server";
 import { api } from "./_generated/api";
+import {
+  action,
+  httpAction,
+  internalAction,
+  mutation,
+  query,
+} from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
 
 // ─── DB ──────────────────────────────────────────────────────────────────────
@@ -36,10 +42,10 @@ export const recordIncident = mutation({
     stackTrace: v.optional(v.string()),
     affectedFile: v.optional(v.string()),
     affectedFunction: v.optional(v.string()),
-    environment: v.optional(v.string()),  // "production", "staging"
+    environment: v.optional(v.string()), // "production", "staging"
     occurrenceCount: v.number(),
-    rawPayload: v.optional(v.string()),   // raw webhook body
-    fingerprint: v.string(),              // for deduplication
+    rawPayload: v.optional(v.string()), // raw webhook body
+    fingerprint: v.string(), // for deduplication
   },
   returns: v.id("errorIncidents"),
   handler: async (ctx, args) => {
@@ -47,10 +53,10 @@ export const recordIncident = mutation({
     const tenMinAgo = Date.now() - 10 * 60 * 1000;
     const existing = await ctx.db
       .query("errorIncidents")
-      .withIndex("by_project_fingerprint", (q) =>
-        q.eq("projectId", args.projectId).eq("fingerprint", args.fingerprint)
+      .withIndex("by_project_fingerprint", q =>
+        q.eq("projectId", args.projectId).eq("fingerprint", args.fingerprint),
       )
-      .filter((q) => q.gte(q.field("createdAt"), tenMinAgo))
+      .filter(q => q.gte(q.field("createdAt"), tenMinAgo))
       .first();
 
     if (existing) {
@@ -90,7 +96,9 @@ export const updateIncidentStatus = mutation({
   handler: async (ctx, args) => {
     const { incidentId, ...patch } = args;
     await ctx.db.patch(incidentId, {
-      ...Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)),
+      ...Object.fromEntries(
+        Object.entries(patch).filter(([, v]) => v !== undefined),
+      ),
       updatedAt: Date.now(),
     });
     return null;
@@ -106,10 +114,10 @@ export const listIncidents = query({
   handler: async (ctx, args) => {
     const all = await ctx.db
       .query("errorIncidents")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .take(args.limit ?? 50);
-    if (args.status) return all.filter((i) => i.status === args.status);
+    if (args.status) return all.filter(i => i.status === args.status);
     return all;
   },
 });
@@ -154,15 +162,19 @@ export const autoFix = action({
         projectId: args.projectId,
         path: incident.affectedFile,
       });
-      if (file) codeContext = `\nAffected file content:\n\`\`\`\n${(file as any).content?.slice(0, 3000) ?? ""}\n\`\`\``;
+      if (file)
+        codeContext = `\nAffected file content:\n\`\`\`\n${(file as any).content?.slice(0, 3000) ?? ""}\n\`\`\``;
     }
 
     // ── Step 2: Forensic analysis ─────────────────────────────────────────
-    const forensicResult = await ctx.runAction(api.forensic.runForensicAnalysis, {
-      projectId: args.projectId,
-      failureSummary: `Production error [${incident.source}]: ${incident.errorType}\n${incident.errorMessage}`,
-      toolCallErrors: incident.stackTrace ? [incident.stackTrace] : undefined,
-    });
+    const forensicResult = await ctx.runAction(
+      api.forensic.runForensicAnalysis,
+      {
+        projectId: args.projectId,
+        failureSummary: `Production error [${incident.source}]: ${incident.errorType}\n${incident.errorMessage}`,
+        toolCallErrors: incident.stackTrace ? [incident.stackTrace] : undefined,
+      },
+    );
 
     await ctx.runMutation(api.errorIngestion.updateIncidentStatus, {
       incidentId: args.incidentId,
@@ -215,7 +227,10 @@ Output the complete fixed code block.`;
     // ── Step 5: Open a PR via GitOps bridge ───────────────────────────────
     let prUrl: string | undefined;
     if (args.repoFullName) {
-      const branch = `fix/auto-${incident.errorType.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 30)}-${Date.now()}`;
+      const branch = `fix/auto-${incident.errorType
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "-")
+        .slice(0, 30)}-${Date.now()}`;
       const pipelineResult = await ctx.runAction(api.gitops.launchPipeline, {
         projectId: args.projectId,
         repoFullName: args.repoFullName,
@@ -282,50 +297,63 @@ export const ingestFromWebhook = action({
       // Sentry webhook format
       const event = payload.event ?? payload;
       errorType = event.exception?.values?.[0]?.type ?? event.level ?? "Error";
-      errorMessage = event.exception?.values?.[0]?.value ?? event.message ?? "Unknown";
+      errorMessage =
+        event.exception?.values?.[0]?.value ?? event.message ?? "Unknown";
       stackTrace = event.exception?.values?.[0]?.stacktrace?.frames
         ?.map((f: any) => `  at ${f.function} (${f.filename}:${f.lineno})`)
         ?.join("\n");
-      affectedFile = event.exception?.values?.[0]?.stacktrace?.frames?.slice(-1)?.[0]?.filename;
+      affectedFile =
+        event.exception?.values?.[0]?.stacktrace?.frames?.slice(-1)?.[0]
+          ?.filename;
     } else if (args.source === "datadog") {
       errorType = payload.title ?? "DatadogAlert";
       errorMessage = payload.body ?? payload.text ?? "No message";
     } else if (args.source === "bugsnag") {
       errorType = payload.error?.errorClass ?? "Error";
       errorMessage = payload.error?.message ?? "Unknown";
-      stackTrace = payload.error?.stacktrace?.map((f: any) => `  at ${f.method} (${f.file}:${f.lineNumber})`).join("\n");
+      stackTrace = payload.error?.stacktrace
+        ?.map((f: any) => `  at ${f.method} (${f.file}:${f.lineNumber})`)
+        .join("\n");
       affectedFile = payload.error?.stacktrace?.[0]?.file;
     } else {
       // Generic webhook
       errorType = payload.type ?? payload.name ?? "Error";
-      errorMessage = payload.message ?? payload.description ?? JSON.stringify(payload).slice(0, 200);
+      errorMessage =
+        payload.message ??
+        payload.description ??
+        JSON.stringify(payload).slice(0, 200);
       stackTrace = payload.stackTrace ?? payload.stack;
       affectedFile = payload.file ?? payload.filename;
     }
 
     const fingerprint = `${args.projectId}:${errorType}:${affectedFile ?? ""}`;
 
-    const incidentId = await ctx.runMutation(api.errorIngestion.recordIncident, {
-      projectId: args.projectId,
-      source: args.source as any,
-      errorType,
-      errorMessage,
-      stackTrace,
-      affectedFile,
-      environment: payload.environment ?? payload.env ?? "production",
-      occurrenceCount: 1,
-      rawPayload: args.rawPayload.slice(0, 5000),
-      fingerprint,
-    });
+    const incidentId = await ctx.runMutation(
+      api.errorIngestion.recordIncident,
+      {
+        projectId: args.projectId,
+        source: args.source as any,
+        errorType,
+        errorMessage,
+        stackTrace,
+        affectedFile,
+        environment: payload.environment ?? payload.env ?? "production",
+        occurrenceCount: 1,
+        rawPayload: args.rawPayload.slice(0, 5000),
+        fingerprint,
+      },
+    );
 
     let autoFixTriggered = false;
     if (args.autoFix) {
       // Fire and forget — don't await (let it run async)
-      ctx.runAction(api.errorIngestion.autoFix, {
-        projectId: args.projectId,
-        incidentId,
-        repoFullName: args.repoFullName,
-      }).catch(() => {});
+      ctx
+        .runAction(api.errorIngestion.autoFix, {
+          projectId: args.projectId,
+          incidentId,
+          repoFullName: args.repoFullName,
+        })
+        .catch(() => {});
       autoFixTriggered = true;
     }
 
@@ -353,6 +381,3 @@ export const ingestFromWebhookInternal = internalAction({
     return await ctx.runAction(api.errorIngestion.ingestFromWebhook, args);
   },
 });
-
-
-

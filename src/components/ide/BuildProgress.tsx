@@ -1,18 +1,18 @@
 import { useQuery } from "convex/react";
-import { useEffect, useRef } from "react";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
 import {
-  Loader2,
-  Check,
   AlertCircle,
-  Hammer,
+  Bug,
+  Check,
   FileCode,
   FilePlus,
-  Bug,
+  Hammer,
+  Loader2,
   Sparkles,
 } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 const ACTION_ICONS: Record<string, React.ElementType> = {
   plan: Sparkles,
@@ -27,7 +27,10 @@ interface BuildProgressProps {
   onMissionActive?: (missionId: Id<"buildSessions">) => void;
 }
 
-export function BuildProgress({ projectId, onMissionActive }: BuildProgressProps) {
+export function BuildProgress({
+  projectId,
+  onMissionActive,
+}: BuildProgressProps) {
   const activeSession = useQuery(api.buildLoop.getActiveSession, { projectId });
 
   // Notify parent when a mission becomes active (for Cinema panel)
@@ -95,7 +98,7 @@ function BuildSessionView({
               key={step._id}
               className={cn(
                 "flex items-center gap-2 px-2 py-1 rounded text-xs",
-                step.status === "running" && "bg-primary/5"
+                step.status === "running" && "bg-primary/5",
               )}
             >
               {step.status === "running" ? (

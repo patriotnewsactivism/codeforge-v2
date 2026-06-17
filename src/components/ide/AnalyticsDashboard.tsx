@@ -3,40 +3,74 @@
  * 8-panel analytics view powered by api.dashboard.getDashboard
  */
 import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
+import {
+  Activity,
+  AlertTriangle,
+  BarChart3,
+  Brain,
+  CheckCircle2,
+  DollarSign,
+  GitPullRequest,
+  Loader2,
+  Shield,
+  Swords,
+  TrendingUp,
+  Trophy,
+  XCircle,
+  Zap,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  BarChart3, CheckCircle2, XCircle, Loader2, GitPullRequest,
-  Shield, Swords, Brain, TrendingUp, AlertTriangle, Trophy,
-  Zap, DollarSign, Activity
-} from "lucide-react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 // ── Mini bar component ────────────────────────────────────────────────────────
-function MiniBar({ value, max, color = "bg-primary" }: { value: number; max: number; color?: string }) {
+function MiniBar({
+  value,
+  max,
+  color = "bg-primary",
+}: {
+  value: number;
+  max: number;
+  color?: string;
+}) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+        <div
+          className={`h-full rounded-full ${color}`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
-      <span className="text-[10px] text-muted-foreground w-6 text-right">{value}</span>
+      <span className="text-[10px] text-muted-foreground w-6 text-right">
+        {value}
+      </span>
     </div>
   );
 }
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
 function StatCard({
-  icon, label, value, sub, color = "text-primary",
+  icon,
+  label,
+  value,
+  sub,
+  color = "text-primary",
 }: {
-  icon: React.ReactNode; label: string; value: string | number; sub?: string; color?: string;
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  sub?: string;
+  color?: string;
 }) {
   return (
     <div className="bg-card border border-border rounded-lg p-3">
       <div className="flex items-center gap-2 mb-1">
         <span className={color}>{icon}</span>
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</span>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+          {label}
+        </span>
       </div>
       <p className="text-xl font-bold text-foreground">{value}</p>
       {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
@@ -60,8 +94,14 @@ export function AnalyticsDashboard({ projectId }: AnalyticsDashboardProps) {
   }
 
   const {
-    missionStats, deployStats, violationStats, debateStats,
-    learningStats, memoryStats, incidentStats, benchmarkStats,
+    missionStats,
+    deployStats,
+    violationStats,
+    debateStats,
+    learningStats,
+    memoryStats,
+    incidentStats,
+    benchmarkStats,
     costStats,
   } = data as any;
 
@@ -70,13 +110,16 @@ export function AnalyticsDashboard({ projectId }: AnalyticsDashboardProps) {
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-[oklch(0.10_0.02_260)] shrink-0">
         <BarChart3 className="h-4 w-4 text-primary" />
-        <span className="text-xs font-semibold text-foreground">Analytics Dashboard</span>
-        <Badge variant="outline" className="ml-auto text-[10px]">Live</Badge>
+        <span className="text-xs font-semibold text-foreground">
+          Analytics Dashboard
+        </span>
+        <Badge variant="outline" className="ml-auto text-[10px]">
+          Live
+        </Badge>
       </div>
 
       <ScrollArea className="flex-1 px-3 py-3">
         <div className="space-y-4 max-w-2xl mx-auto">
-
           {/* ── Panel 1: Mission Stats ──────────────────────────────────── */}
           <section>
             <h3 className="text-[11px] font-semibold text-foreground mb-2 flex items-center gap-2">
@@ -154,22 +197,31 @@ export function AnalyticsDashboard({ projectId }: AnalyticsDashboardProps) {
                   <div
                     key={d.id}
                     className={`flex items-center gap-2 px-3 py-1.5 text-xs ${
-                      i < deployStats.recent.length - 1 ? "border-b border-border" : ""
+                      i < deployStats.recent.length - 1
+                        ? "border-b border-border"
+                        : ""
                     }`}
                   >
                     <Badge
                       variant="outline"
                       className={`text-[9px] px-1 shrink-0 ${
-                        d.status === "deployed" ? "text-green-400 border-green-500/30" :
-                        d.status === "ci_failed" ? "text-red-400 border-red-500/30" :
-                        "text-muted-foreground"
+                        d.status === "deployed"
+                          ? "text-green-400 border-green-500/30"
+                          : d.status === "ci_failed"
+                            ? "text-red-400 border-red-500/30"
+                            : "text-muted-foreground"
                       }`}
                     >
                       {d.status}
                     </Badge>
-                    <span className="font-mono text-[10px] truncate text-muted-foreground">{d.branch}</span>
+                    <span className="font-mono text-[10px] truncate text-muted-foreground">
+                      {d.branch}
+                    </span>
                     {d.prUrl && (
-                      <a href={d.prUrl} target="_blank" rel="noopener noreferrer"
+                      <a
+                        href={d.prUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="ml-auto text-violet-400 text-[9px] shrink-0 hover:underline"
                       >
                         PR ↗
@@ -205,15 +257,19 @@ export function AnalyticsDashboard({ projectId }: AnalyticsDashboardProps) {
             {/* Severity breakdown */}
             {violationStats?.bySeverity && (
               <div className="border border-border rounded-lg p-3 space-y-1.5">
-                <p className="text-[10px] text-muted-foreground mb-2">By severity</p>
+                <p className="text-[10px] text-muted-foreground mb-2">
+                  By severity
+                </p>
                 {[
                   { key: "critical", color: "bg-red-500" },
-                  { key: "high",     color: "bg-orange-500" },
-                  { key: "medium",   color: "bg-yellow-500" },
-                  { key: "low",      color: "bg-blue-500" },
+                  { key: "high", color: "bg-orange-500" },
+                  { key: "medium", color: "bg-yellow-500" },
+                  { key: "low", color: "bg-blue-500" },
                 ].map(({ key, color }) => (
                   <div key={key} className="flex items-center gap-2">
-                    <span className="text-[10px] text-muted-foreground w-14 capitalize">{key}</span>
+                    <span className="text-[10px] text-muted-foreground w-14 capitalize">
+                      {key}
+                    </span>
                     <MiniBar
                       value={violationStats.bySeverity[key] ?? 0}
                       max={violationStats.total || 1}
@@ -253,8 +309,16 @@ export function AnalyticsDashboard({ projectId }: AnalyticsDashboardProps) {
             </div>
             {debateStats?.avgConfidence !== undefined && (
               <div className="border border-border rounded-lg px-3 py-2 text-xs text-muted-foreground">
-                Avg confidence: <span className="text-foreground font-semibold">{debateStats.avgConfidence}%</span>
-                <span className="ml-4">Total debates: <span className="text-foreground font-semibold">{debateStats.total ?? 0}</span></span>
+                Avg confidence:{" "}
+                <span className="text-foreground font-semibold">
+                  {debateStats.avgConfidence}%
+                </span>
+                <span className="ml-4">
+                  Total debates:{" "}
+                  <span className="text-foreground font-semibold">
+                    {debateStats.total ?? 0}
+                  </span>
+                </span>
               </div>
             )}
           </section>
@@ -269,7 +333,11 @@ export function AnalyticsDashboard({ projectId }: AnalyticsDashboardProps) {
               <StatCard
                 icon={<TrendingUp className="h-4 w-4" />}
                 label="Health score"
-                value={learningStats?.latestHealthScore ? `${learningStats.latestHealthScore}/10` : "—"}
+                value={
+                  learningStats?.latestHealthScore
+                    ? `${learningStats.latestHealthScore}/10`
+                    : "—"
+                }
                 color="text-green-400"
               />
               <StatCard
@@ -302,12 +370,20 @@ export function AnalyticsDashboard({ projectId }: AnalyticsDashboardProps) {
                 Memory ({memoryStats.total ?? 0} total)
               </h3>
               <div className="border border-border rounded-lg p-3 space-y-1.5">
-                {Object.entries(memoryStats.byCategory as Record<string, number>)
+                {Object.entries(
+                  memoryStats.byCategory as Record<string, number>,
+                )
                   .sort(([, a], [, b]) => b - a)
                   .map(([cat, count]) => (
                     <div key={cat} className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground w-24 truncate capitalize">{cat}</span>
-                      <MiniBar value={count} max={memoryStats.total || 1} color="bg-purple-500" />
+                      <span className="text-[10px] text-muted-foreground w-24 truncate capitalize">
+                        {cat}
+                      </span>
+                      <MiniBar
+                        value={count}
+                        max={memoryStats.total || 1}
+                        color="bg-purple-500"
+                      />
                     </div>
                   ))}
               </div>
@@ -362,17 +438,29 @@ export function AnalyticsDashboard({ projectId }: AnalyticsDashboardProps) {
                   <div
                     key={entry.model}
                     className={`flex items-center gap-3 px-3 py-2 text-xs ${
-                      i < benchmarkStats.leaderboard.length - 1 ? "border-b border-border" : ""
+                      i < benchmarkStats.leaderboard.length - 1
+                        ? "border-b border-border"
+                        : ""
                     }`}
                   >
-                    <span className={`text-[10px] font-bold w-4 ${i === 0 ? "text-yellow-400" : i === 1 ? "text-slate-300" : "text-amber-600"}`}>
+                    <span
+                      className={`text-[10px] font-bold w-4 ${i === 0 ? "text-yellow-400" : i === 1 ? "text-slate-300" : "text-amber-600"}`}
+                    >
                       #{i + 1}
                     </span>
-                    <span className="font-mono text-[10px] text-foreground flex-1 truncate">{entry.model}</span>
+                    <span className="font-mono text-[10px] text-foreground flex-1 truncate">
+                      {entry.model}
+                    </span>
                     <div className="flex items-center gap-3 shrink-0">
-                      <span className="text-green-400 text-[10px]">{entry.wins}W</span>
-                      <span className="text-red-400 text-[10px]">{entry.losses}L</span>
-                      <span className="text-muted-foreground text-[10px]">{entry.winRate}%</span>
+                      <span className="text-green-400 text-[10px]">
+                        {entry.wins}W
+                      </span>
+                      <span className="text-red-400 text-[10px]">
+                        {entry.losses}L
+                      </span>
+                      <span className="text-muted-foreground text-[10px]">
+                        {entry.winRate}%
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -401,24 +489,40 @@ export function AnalyticsDashboard({ projectId }: AnalyticsDashboardProps) {
                   color="text-blue-400"
                 />
               </div>
-              {costStats.byModel && Object.keys(costStats.byModel).length > 0 && (
-                <div className="border border-border rounded-lg p-3 mt-2 space-y-1.5">
-                  <p className="text-[10px] text-muted-foreground mb-2">By model</p>
-                  {Object.entries(costStats.byModel as Record<string, { cost: number; tokens: number }>)
-                    .sort(([, a], [, b]) => b.cost - a.cost)
-                    .slice(0, 6)
-                    .map(([model, { cost, tokens }]) => (
-                      <div key={model} className="flex items-center gap-2 text-[10px]">
-                        <span className="font-mono text-muted-foreground truncate flex-1">{model}</span>
-                        <span className="text-foreground shrink-0">${cost.toFixed(4)}</span>
-                        <span className="text-muted-foreground shrink-0">{tokens.toLocaleString()}t</span>
-                      </div>
-                    ))}
-                </div>
-              )}
+              {costStats.byModel &&
+                Object.keys(costStats.byModel).length > 0 && (
+                  <div className="border border-border rounded-lg p-3 mt-2 space-y-1.5">
+                    <p className="text-[10px] text-muted-foreground mb-2">
+                      By model
+                    </p>
+                    {Object.entries(
+                      costStats.byModel as Record<
+                        string,
+                        { cost: number; tokens: number }
+                      >,
+                    )
+                      .sort(([, a], [, b]) => b.cost - a.cost)
+                      .slice(0, 6)
+                      .map(([model, { cost, tokens }]) => (
+                        <div
+                          key={model}
+                          className="flex items-center gap-2 text-[10px]"
+                        >
+                          <span className="font-mono text-muted-foreground truncate flex-1">
+                            {model}
+                          </span>
+                          <span className="text-foreground shrink-0">
+                            ${cost.toFixed(4)}
+                          </span>
+                          <span className="text-muted-foreground shrink-0">
+                            {tokens.toLocaleString()}t
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                )}
             </section>
           )}
-
         </div>
       </ScrollArea>
     </div>

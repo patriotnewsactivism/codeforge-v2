@@ -1,3 +1,5 @@
+import { useAuthActions } from "@convex-dev/auth/react";
+import { Code2, LayoutDashboard, LogOut, Settings } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -8,8 +10,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { Code2, LayoutDashboard, Settings, LogOut } from "lucide-react";
-import { useAuthActions } from "@convex-dev/auth/react";
 import { APP_NAME } from "@/lib/constants";
 
 export function AppSidebar() {
@@ -31,7 +31,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent className="px-2 py-2">
         <SidebarMenu>
-          {navItems.map((item) => (
+          {navItems.map(item => (
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild

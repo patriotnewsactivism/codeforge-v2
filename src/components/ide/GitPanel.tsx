@@ -2,27 +2,28 @@
  * CODEFORGE v2 — GIT PANEL
  * Push/Pull from GitHub. Import repos. Shows build session history.
  */
-import type { Id } from "../../../convex/_generated/dataModel";
-import { useQuery, useAction } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+
+import { useAction, useQuery } from "convex/react";
+import {
+  AlertTriangle,
+  Check,
+  Download,
+  FolderDown,
+  GitBranch,
+  Github,
+  KeyRound,
+  Loader2,
+  RefreshCw,
+  Upload,
+} from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import {
-  GitBranch,
-  Github,
-  Upload,
-  Download,
-  Loader2,
-  RefreshCw,
-  Check,
-  AlertTriangle,
-  FolderDown,
-  KeyRound,
-} from "lucide-react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { GitHubConnectDialog } from "./GitHubConnectDialog";
 import { ImportRepoDialog } from "./ImportRepoDialog";
 
@@ -34,15 +35,15 @@ export function GitPanel({ projectId }: GitPanelProps) {
   const githubSettings = useQuery(api.github.getSettings);
   const buildSessions = useQuery(
     api.missions.listByProject,
-    projectId ? { projectId } : "skip"
+    projectId ? { projectId } : "skip",
   );
   const activeProject = useQuery(
     api.projects.get,
-    projectId ? { projectId } : "skip"
+    projectId ? { projectId } : "skip",
   );
   const allFiles = useQuery(
     api.files.listByProject,
-    projectId ? { projectId } : "skip"
+    projectId ? { projectId } : "skip",
   );
 
   const commitFile = useAction(api.github.commitFile);
@@ -60,11 +61,16 @@ export function GitPanel({ projectId }: GitPanelProps) {
 
   const handlePush = async () => {
     if (!repo || !allFiles || !projectId) return;
-    const msg = commitMessage.trim() || `CodeForge update — ${new Date().toLocaleString()}`;
+    const msg =
+      commitMessage.trim() ||
+      `CodeForge update — ${new Date().toLocaleString()}`;
     setIsPushing(true);
-    const filesToPush = allFiles.filter((f: NonNullable<typeof allFiles>[number]) => !f.isDirectory && f.content);
+    const filesToPush = allFiles.filter(
+      (f: NonNullable<typeof allFiles>[number]) => !f.isDirectory && f.content,
+    );
     setPushProgress({ done: 0, total: filesToPush.length });
-    let successCount = 0, failCount = 0;
+    let successCount = 0,
+      failCount = 0;
     for (let i = 0; i < filesToPush.length; i++) {
       const file = filesToPush[i];
       try {
@@ -75,7 +81,10 @@ export function GitPanel({ projectId }: GitPanelProps) {
           message: `${msg}\n\nFile: ${file.path}`,
         });
         if (result.success) successCount++;
-        else { failCount++; console.error(`Failed: ${file.path}`, result.error); }
+        else {
+          failCount++;
+          console.error(`Failed: ${file.path}`, result.error);
+        }
       } catch (e) {
         failCount++;
       }
@@ -83,7 +92,8 @@ export function GitPanel({ projectId }: GitPanelProps) {
     }
     setIsPushing(false);
     setCommitMessage("");
-    if (failCount === 0) toast.success(`Pushed ${successCount} files to ${repo}`);
+    if (failCount === 0)
+      toast.success(`Pushed ${successCount} files to ${repo}`);
     else toast.error(`Pushed ${successCount} files, ${failCount} failed`);
   };
 
@@ -92,7 +102,8 @@ export function GitPanel({ projectId }: GitPanelProps) {
     setIsPulling(true);
     try {
       const result = await importRepo({ projectId, repo });
-      if (result.success) toast.success(`Pulled ${result.fileCount} files from ${repo}`);
+      if (result.success)
+        toast.success(`Pulled ${result.fileCount} files from ${repo}`);
       else toast.error(result.error || "Failed to pull from GitHub");
     } catch {
       toast.error("Failed to pull from GitHub");
@@ -103,7 +114,9 @@ export function GitPanel({ projectId }: GitPanelProps) {
   if (!projectId) {
     return (
       <div className="flex h-full items-center justify-center p-4 bg-[#0a0a0f]">
-        <p className="text-xs text-white/30">Select a project to view git activity</p>
+        <p className="text-xs text-white/30">
+          Select a project to view git activity
+        </p>
       </div>
     );
   }
@@ -128,14 +141,17 @@ export function GitPanel({ projectId }: GitPanelProps) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
-
         {/* — NOT CONNECTED — */}
         {!isConnected && (
           <div className="flex flex-col items-center justify-center py-8 gap-3">
             <Github className="h-10 w-10 text-white/10" />
             <div className="text-center">
-              <p className="text-xs text-white/40 font-medium">GitHub not connected</p>
-              <p className="text-[10px] text-white/20 mt-1">Add your GitHub token to enable push/pull and repo import</p>
+              <p className="text-xs text-white/40 font-medium">
+                GitHub not connected
+              </p>
+              <p className="text-[10px] text-white/20 mt-1">
+                Add your GitHub token to enable push/pull and repo import
+              </p>
             </div>
             <Button
               size="sm"
@@ -179,11 +195,13 @@ export function GitPanel({ projectId }: GitPanelProps) {
               <div className="rounded-lg border border-white/5 p-3 bg-white/[0.02] space-y-3">
                 <div className="flex items-center gap-2">
                   <Github className="h-3.5 w-3.5 text-white/40" />
-                  <span className="text-[11px] text-white/60 font-mono truncate flex-1">{repo}</span>
+                  <span className="text-[11px] text-white/60 font-mono truncate flex-1">
+                    {repo}
+                  </span>
                 </div>
                 <Input
                   value={commitMessage}
-                  onChange={(e) => setCommitMessage(e.target.value)}
+                  onChange={e => setCommitMessage(e.target.value)}
                   placeholder="Commit message (optional)..."
                   className="h-7 text-xs bg-white/5 border-white/10"
                 />
@@ -195,9 +213,15 @@ export function GitPanel({ projectId }: GitPanelProps) {
                     disabled={isPushing || isPulling || !allFiles?.length}
                   >
                     {isPushing ? (
-                      <><Loader2 className="h-3 w-3 animate-spin" />Pushing {pushProgress.done}/{pushProgress.total}</>
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Pushing {pushProgress.done}/{pushProgress.total}
+                      </>
                     ) : (
-                      <><Upload className="h-3 w-3" />Push</>
+                      <>
+                        <Upload className="h-3 w-3" />
+                        Push
+                      </>
                     )}
                   </Button>
                   <Button
@@ -208,21 +232,34 @@ export function GitPanel({ projectId }: GitPanelProps) {
                     disabled={isPulling || isPushing}
                   >
                     {isPulling ? (
-                      <><Loader2 className="h-3 w-3 animate-spin" />Pulling...</>
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Pulling...
+                      </>
                     ) : (
-                      <><Download className="h-3 w-3" />Pull</>
+                      <>
+                        <Download className="h-3 w-3" />
+                        Pull
+                      </>
                     )}
                   </Button>
                 </div>
                 <div className="text-[10px] text-white/20">
-                  {allFiles?.filter((f: NonNullable<typeof allFiles>[number]) => !f.isDirectory).length || 0} files in project
+                  {allFiles?.filter(
+                    (f: NonNullable<typeof allFiles>[number]) => !f.isDirectory,
+                  ).length || 0}{" "}
+                  files in project
                 </div>
               </div>
             ) : (
               <div className="rounded-lg border border-dashed border-white/10 p-4 text-center">
                 <AlertTriangle className="h-5 w-5 mx-auto mb-2 text-yellow-400/40" />
-                <p className="text-[11px] text-white/40">No GitHub repo linked to this project.</p>
-                <p className="text-[10px] text-white/20 mt-1">Import a repo to enable push/pull.</p>
+                <p className="text-[11px] text-white/40">
+                  No GitHub repo linked to this project.
+                </p>
+                <p className="text-[10px] text-white/20 mt-1">
+                  Import a repo to enable push/pull.
+                </p>
               </div>
             )}
 
@@ -232,42 +269,50 @@ export function GitPanel({ projectId }: GitPanelProps) {
                 Build Sessions
               </div>
               {!buildSessions || buildSessions.length === 0 ? (
-                <p className="text-center text-[10px] text-white/15 py-4">No sessions yet</p>
+                <p className="text-center text-[10px] text-white/15 py-4">
+                  No sessions yet
+                </p>
               ) : (
                 <div className="space-y-1.5">
-                  {buildSessions.map((session: NonNullable<typeof buildSessions>[number]) => (
-                    <div
-                      key={session._id}
-                      className={cn(
-                        "rounded-lg border border-white/5 p-2.5 bg-white/[0.02]",
-                        session.status === "running" && "border-emerald-500/20"
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] text-white/50 truncate flex-1">
-                          {(session as any).description?.slice(0, 60) ?? session._id}
-                        </span>
-                        <Badge
-                          className={cn(
-                            "text-[8px] h-3.5 px-1 border-0 shrink-0",
-                            session.status === "completed"
-                              ? "bg-emerald-500/10 text-emerald-400"
-                              : session.status === "running"
-                              ? "bg-blue-500/10 text-blue-400"
-                              : session.status === "error"
-                              ? "bg-red-500/10 text-red-400"
-                              : "bg-white/5 text-white/40"
-                          )}
-                        >
-                          {session.status === "completed" && <Check className="h-2 w-2 mr-0.5" />}
-                          {session.status}
-                        </Badge>
+                  {buildSessions.map(
+                    (session: NonNullable<typeof buildSessions>[number]) => (
+                      <div
+                        key={session._id}
+                        className={cn(
+                          "rounded-lg border border-white/5 p-2.5 bg-white/[0.02]",
+                          session.status === "running" &&
+                            "border-emerald-500/20",
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-white/50 truncate flex-1">
+                            {(session as any).description?.slice(0, 60) ??
+                              session._id}
+                          </span>
+                          <Badge
+                            className={cn(
+                              "text-[8px] h-3.5 px-1 border-0 shrink-0",
+                              session.status === "completed"
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : session.status === "running"
+                                  ? "bg-blue-500/10 text-blue-400"
+                                  : session.status === "error"
+                                    ? "bg-red-500/10 text-red-400"
+                                    : "bg-white/5 text-white/40",
+                            )}
+                          >
+                            {session.status === "completed" && (
+                              <Check className="h-2 w-2 mr-0.5" />
+                            )}
+                            {session.status}
+                          </Badge>
+                        </div>
+                        <div className="text-[9px] text-white/20 mt-1">
+                          {new Date(session._creationTime).toLocaleString()}
+                        </div>
                       </div>
-                      <div className="text-[9px] text-white/20 mt-1">
-                        {new Date(session._creationTime).toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               )}
             </div>
@@ -284,7 +329,7 @@ export function GitPanel({ projectId }: GitPanelProps) {
         open={showImportDialog}
         onOpenChange={setShowImportDialog}
         activeProjectId={projectId}
-        onSelectProject={(_id) => setShowImportDialog(false)}
+        onSelectProject={_id => setShowImportDialog(false)}
       />
     </div>
   );

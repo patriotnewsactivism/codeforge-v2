@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
+import { action, mutation, query } from "./_generated/server";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -23,7 +23,7 @@ export const listCommits = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("gitCommits")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .take(30);
   },
@@ -34,7 +34,7 @@ export const listBranches = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("gitBranches")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
   },
 });
@@ -44,9 +44,9 @@ export const getActiveBranch = query({
   handler: async (ctx, args) => {
     const branches = await ctx.db
       .query("gitBranches")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
-    return branches.find((b) => b.isActive) ?? null;
+    return branches.find(b => b.isActive) ?? null;
   },
 });
 
@@ -84,15 +84,15 @@ export const upsertBranch = mutation({
       v.literal("open"),
       v.literal("merged"),
       v.literal("closed"),
-      v.literal("local")
+      v.literal("local"),
     ),
   },
   returns: v.id("gitBranches"),
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("gitBranches")
-      .withIndex("by_project_and_name", (q) =>
-        q.eq("projectId", args.projectId).eq("name", args.name)
+      .withIndex("by_project_and_name", q =>
+        q.eq("projectId", args.projectId).eq("name", args.name),
       )
       .first();
 
@@ -100,7 +100,7 @@ export const upsertBranch = mutation({
       // Deactivate all other branches for this project
       const others = await ctx.db
         .query("gitBranches")
-        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .withIndex("by_project", q => q.eq("projectId", args.projectId))
         .collect();
       for (const b of others) {
         if (b._id !== existing?._id) {
@@ -139,8 +139,8 @@ export const upsertBranch = mutation({
 export const pushToGitHub = action({
   args: {
     projectId: v.id("projects"),
-    repoFullName: v.string(),    // "owner/repo"
-    branchName: v.string(),      // e.g. "agent/add-auth-modal"
+    repoFullName: v.string(), // "owner/repo"
+    branchName: v.string(), // e.g. "agent/add-auth-modal"
     commitMessage: v.string(),
     agentId: v.optional(v.string()),
     buildSessionId: v.optional(v.id("buildSessions")),
@@ -158,13 +158,16 @@ export const pushToGitHub = action({
   }),
   handler: async (ctx, args) => {
     if (!GITHUB_TOKEN) {
-      return { success: false, error: "GITHUB_TOKEN not configured. Add it in project settings." };
+      return {
+        success: false,
+        error: "GITHUB_TOKEN not configured. Add it in project settings.",
+      };
     }
 
     const ghHeaders = {
-      "Authorization": `Bearer ${GITHUB_TOKEN}`,
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
       "Content-Type": "application/json",
-      "Accept": "application/vnd.github+json",
+      Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
       "User-Agent": "CodeForge-Agent",
     };
@@ -180,11 +183,13 @@ export const pushToGitHub = action({
 
       // 2. Get default branch SHA
       const repoRes = await fetch(apiBase, { headers: ghHeaders });
-      const repoData = await repoRes.json() as { default_branch: string };
+      const repoData = (await repoRes.json()) as { default_branch: string };
       const defaultBranch = repoData.default_branch ?? "main";
 
-      const refRes = await fetch(`${apiBase}/git/refs/heads/${defaultBranch}`, { headers: ghHeaders });
-      const refData = await refRes.json() as { object: { sha: string } };
+      const refRes = await fetch(`${apiBase}/git/refs/heads/${defaultBranch}`, {
+        headers: ghHeaders,
+      });
+      const refData = (await refRes.json()) as { object: { sha: string } };
       const baseSha = refData.object?.sha;
       if (!baseSha) throw new Error(`Could not get SHA for ${defaultBranch}`);
 
@@ -196,7 +201,7 @@ export const pushToGitHub = action({
           headers: ghHeaders,
           body: JSON.stringify({ content: file.content, encoding: "utf-8" }),
         });
-        const blob = await blobRes.json() as { sha: string };
+        const blob = (await blobRes.json()) as { sha: string };
         treeItems.push({
           path: file.path,
           mode: "100644",
@@ -211,7 +216,7 @@ export const pushToGitHub = action({
         headers: ghHeaders,
         body: JSON.stringify({ base_tree: baseSha, tree: treeItems }),
       });
-      const treeData = await treeRes.json() as { sha: string };
+      const treeData = (await treeRes.json()) as { sha: string };
 
       // 5. Create commit
       const commitRes = await fetch(`${apiBase}/git/commits`, {
@@ -228,11 +233,14 @@ export const pushToGitHub = action({
           },
         }),
       });
-      const commitData = await commitRes.json() as { sha: string };
+      const commitData = (await commitRes.json()) as { sha: string };
       const commitSha = commitData.sha;
 
       // 6. Create or update branch
-      const branchCheckRes = await fetch(`${apiBase}/git/refs/heads/${args.branchName}`, { headers: ghHeaders });
+      const branchCheckRes = await fetch(
+        `${apiBase}/git/refs/heads/${args.branchName}`,
+        { headers: ghHeaders },
+      );
       const branchExists = branchCheckRes.ok;
 
       if (branchExists) {
@@ -245,7 +253,10 @@ export const pushToGitHub = action({
         await fetch(`${apiBase}/git/refs`, {
           method: "POST",
           headers: ghHeaders,
-          body: JSON.stringify({ ref: `refs/heads/${args.branchName}`, sha: commitSha }),
+          body: JSON.stringify({
+            ref: `refs/heads/${args.branchName}`,
+            sha: commitSha,
+          }),
         });
       }
 
@@ -261,12 +272,18 @@ export const pushToGitHub = action({
           headers: ghHeaders,
           body: JSON.stringify({
             title: args.prTitle ?? args.commitMessage,
-            body: args.prBody ?? `Automated changes by CodeForge Agent\n\nCommit: ${commitSha}`,
+            body:
+              args.prBody ??
+              `Automated changes by CodeForge Agent\n\nCommit: ${commitSha}`,
             head: args.branchName,
             base: defaultBranch,
           }),
         });
-        const prData = await prRes.json() as { html_url?: string; number?: number; errors?: unknown };
+        const prData = (await prRes.json()) as {
+          html_url?: string;
+          number?: number;
+          errors?: unknown;
+        };
         if (prData.html_url) {
           prUrl = prData.html_url;
           prNumber = prData.number;
@@ -317,12 +334,16 @@ export const importFromGitHub = action({
   }),
   handler: async (ctx, args) => {
     if (!GITHUB_TOKEN) {
-      return { success: false, filesImported: 0, error: "GITHUB_TOKEN not configured" };
+      return {
+        success: false,
+        filesImported: 0,
+        error: "GITHUB_TOKEN not configured",
+      };
     }
 
     const ghHeaders = {
-      "Authorization": `Bearer ${GITHUB_TOKEN}`,
-      "Accept": "application/vnd.github+json",
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: "application/vnd.github+json",
       "User-Agent": "CodeForge-Agent",
     };
 
@@ -333,33 +354,69 @@ export const importFromGitHub = action({
       let branch = args.branch;
       if (!branch) {
         const repoRes = await fetch(apiBase, { headers: ghHeaders });
-        const repoData = await repoRes.json() as { default_branch: string };
+        const repoData = (await repoRes.json()) as { default_branch: string };
         branch = repoData.default_branch ?? "main";
       }
 
       // Get tree recursively
-      const treeRes = await fetch(`${apiBase}/git/trees/${branch}?recursive=1`, { headers: ghHeaders });
-      const treeData = await treeRes.json() as { tree: Array<{ path: string; type: string; url: string; size?: number }> };
+      const treeRes = await fetch(
+        `${apiBase}/git/trees/${branch}?recursive=1`,
+        { headers: ghHeaders },
+      );
+      const treeData = (await treeRes.json()) as {
+        tree: Array<{ path: string; type: string; url: string; size?: number }>;
+      };
 
       const CODE_EXTENSIONS = [
-        ".ts", ".tsx", ".js", ".jsx", ".css", ".scss", ".html", ".json",
-        ".md", ".mdx", ".py", ".go", ".rs", ".toml", ".yaml", ".yml", ".sh",
-        ".env.example", ".prisma", ".graphql", ".sql", ".swift", ".kt", ".rb",
-        ".php", ".c", ".cpp", ".h", ".vue", ".svelte", ".astro",
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx",
+        ".css",
+        ".scss",
+        ".html",
+        ".json",
+        ".md",
+        ".mdx",
+        ".py",
+        ".go",
+        ".rs",
+        ".toml",
+        ".yaml",
+        ".yml",
+        ".sh",
+        ".env.example",
+        ".prisma",
+        ".graphql",
+        ".sql",
+        ".swift",
+        ".kt",
+        ".rb",
+        ".php",
+        ".c",
+        ".cpp",
+        ".h",
+        ".vue",
+        ".svelte",
+        ".astro",
       ];
 
       const codeFiles = treeData.tree.filter(
-        (f) => f.type === "blob" &&
+        f =>
+          f.type === "blob" &&
           (f.size ?? 0) < 100_000 &&
-          CODE_EXTENSIONS.some((ext) => f.path.endsWith(ext)) &&
+          CODE_EXTENSIONS.some(ext => f.path.endsWith(ext)) &&
           !f.path.includes("node_modules") &&
-          !f.path.includes(".git")
+          !f.path.includes(".git"),
       );
 
       let imported = 0;
       for (const file of codeFiles.slice(0, 250)) {
         const contentRes = await fetch(file.url, { headers: ghHeaders });
-        const contentData = await contentRes.json() as { content: string; encoding: string };
+        const contentData = (await contentRes.json()) as {
+          content: string;
+          encoding: string;
+        };
         let content = "";
         if (contentData.encoding === "base64") {
           content = atob(contentData.content.replace(/\n/g, ""));
@@ -376,7 +433,10 @@ export const importFromGitHub = action({
         });
 
         if (existing) {
-          await ctx.runMutation(api.files.updateContent, { fileId: existing._id, content });
+          await ctx.runMutation(api.files.updateContent, {
+            fileId: existing._id,
+            content,
+          });
         } else {
           await ctx.runMutation(api.files.create, {
             projectId: args.projectId,
@@ -407,6 +467,3 @@ export const importFromGitHub = action({
     }
   },
 });
-
-
-

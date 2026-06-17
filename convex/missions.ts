@@ -9,7 +9,7 @@ export const listByProject = query({
   handler: async (ctx, { projectId }) => {
     return await ctx.db
       .query("buildSessions")
-      .withIndex("by_project", (q) => q.eq("projectId", projectId))
+      .withIndex("by_project", q => q.eq("projectId", projectId))
       .order("desc")
       .take(20);
   },
@@ -21,6 +21,3 @@ export const get = query({
     return await ctx.db.get(missionId);
   },
 });
-
-
-

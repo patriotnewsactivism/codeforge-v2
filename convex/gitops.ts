@@ -14,10 +14,10 @@
  * No agent can approve its own output.
  */
 
-import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { v } from "convex/values";
 import { api } from "./_generated/api";
+import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
 
 declare const process: { env: Record<string, string | undefined> };
@@ -87,7 +87,7 @@ export const updateDeploymentStatus = mutation({
   handler: async (ctx, args) => {
     const { deploymentId, ...patch } = args;
     const filtered = Object.fromEntries(
-      Object.entries(patch).filter(([, v]) => v !== undefined)
+      Object.entries(patch).filter(([, v]) => v !== undefined),
     );
     await ctx.db.patch(deploymentId, filtered);
     return null;
@@ -102,7 +102,7 @@ export const listDeployments = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("deployments")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .take(args.limit ?? 20);
   },
@@ -118,9 +118,9 @@ export const listPendingApprovals = query({
   handler: async (ctx, args) => {
     const all = await ctx.db
       .query("deployments")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
-    return all.filter((d) => d.status === "awaiting_human" && !d.humanApproved);
+    return all.filter(d => d.status === "awaiting_human" && !d.humanApproved);
   },
 });
 
@@ -148,7 +148,8 @@ export const generateDeploymentCertificate = action({
     if (args.triggeredByAgentId === "reviewer-agent") {
       return {
         approved: false,
-        rejectionReason: "Self-approval not allowed: reviewer cannot certify its own output.",
+        rejectionReason:
+          "Self-approval not allowed: reviewer cannot certify its own output.",
         reviewerNotes: "Security policy: no agent may approve its own output.",
       };
     }
@@ -193,13 +194,15 @@ Respond with JSON only:
       concerns = parsed.concerns ?? [];
     } catch {
       approved = false;
-      reviewerNotes = "Could not parse reviewer response — defaulting to reject.";
+      reviewerNotes =
+        "Could not parse reviewer response — defaulting to reject.";
     }
 
     if (!approved) {
       return {
         approved: false,
-        rejectionReason: concerns.join("; ") || "Reviewer rejected without specific reason.",
+        rejectionReason:
+          concerns.join("; ") || "Reviewer rejected without specific reason.",
         reviewerNotes,
       };
     }
@@ -242,7 +245,11 @@ export const pollPRStatus = action({
   }),
   handler: async (ctx, args) => {
     if (!GITHUB_TOKEN) {
-      return { ciStatus: "unknown", checkSummary: "GITHUB_TOKEN not configured", readyForDeploy: false };
+      return {
+        ciStatus: "unknown",
+        checkSummary: "GITHUB_TOKEN not configured",
+        readyForDeploy: false,
+      };
     }
 
     const headers = ghHeaders();
@@ -251,9 +258,9 @@ export const pollPRStatus = action({
       // Fetch check runs for the commit
       const checksRes = await fetch(
         `https://api.github.com/repos/${args.repoFullName}/commits/${args.commitSha}/check-runs`,
-        { headers }
+        { headers },
       );
-      const checksData = await checksRes.json() as {
+      const checksData = (await checksRes.json()) as {
         total_count: number;
         check_runs: Array<{
           name: string;
@@ -278,14 +285,17 @@ export const pollPRStatus = action({
         };
       }
 
-      const allDone = runs.every((r) => r.status === "completed");
+      const allDone = runs.every(r => r.status === "completed");
       const anyFailed = runs.some(
-        (r) => r.conclusion === "failure" || r.conclusion === "cancelled"
+        r => r.conclusion === "failure" || r.conclusion === "cancelled",
       );
       const allPassed = allDone && !anyFailed;
 
       const summary = runs
-        .map((r) => `${r.name}: ${r.status}${r.conclusion ? ` (${r.conclusion})` : ""}`)
+        .map(
+          r =>
+            `${r.name}: ${r.status}${r.conclusion ? ` (${r.conclusion})` : ""}`,
+        )
         .join(", ");
 
       if (!allDone) {
@@ -294,7 +304,11 @@ export const pollPRStatus = action({
           status: "ci_running",
           ciSummary: summary,
         });
-        return { ciStatus: "running", checkSummary: summary, readyForDeploy: false };
+        return {
+          ciStatus: "running",
+          checkSummary: summary,
+          readyForDeploy: false,
+        };
       }
 
       if (anyFailed) {
@@ -303,7 +317,11 @@ export const pollPRStatus = action({
           status: "ci_failed",
           ciSummary: summary,
         });
-        return { ciStatus: "failure", checkSummary: summary, readyForDeploy: false };
+        return {
+          ciStatus: "failure",
+          checkSummary: summary,
+          readyForDeploy: false,
+        };
       }
 
       // All passed → move to awaiting human
@@ -312,8 +330,11 @@ export const pollPRStatus = action({
         status: "awaiting_human",
         ciSummary: summary,
       });
-      return { ciStatus: "success", checkSummary: summary, readyForDeploy: true };
-
+      return {
+        ciStatus: "success",
+        checkSummary: summary,
+        readyForDeploy: true,
+      };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return { ciStatus: "unknown", checkSummary: msg, readyForDeploy: false };
@@ -345,7 +366,9 @@ export const approveDeploy = action({
 
     if (!deployment) throw new Error("Deployment not found");
     if (deployment.status !== "awaiting_human") {
-      throw new Error(`Cannot approve: deployment is in status "${deployment.status}"`);
+      throw new Error(
+        `Cannot approve: deployment is in status "${deployment.status}"`,
+      );
     }
 
     if (!GITHUB_TOKEN) {
@@ -364,10 +387,10 @@ export const approveDeploy = action({
             commit_message: `Approved by human gate. Deployment certificate: ${deployment.deploymentCertificate ? "✅ signed" : "⚠️ unsigned"}`,
             merge_method: "squash",
           }),
-        }
+        },
       );
 
-      const mergeData = await mergeRes.json() as {
+      const mergeData = (await mergeRes.json()) as {
         merged?: boolean;
         sha?: string;
         message?: string;
@@ -478,23 +501,32 @@ export const launchPipeline = action({
       });
 
       if (!pushResult.success) {
-        return { success: false, certificateIssued: false, error: pushResult.error };
+        return {
+          success: false,
+          certificateIssued: false,
+          error: pushResult.error,
+        };
       }
 
       // 2. Get list of changed files for certificate
       const files = await ctx.runQuery(api.files.listByProject, {
         projectId: args.projectId,
       });
-      const fileList = files.filter((f: any) => !f.isDirectory).map((f: any) => f.path);
+      const fileList = files
+        .filter((f: any) => !f.isDirectory)
+        .map((f: any) => f.path);
 
       // 3. Generate Deployment Certificate (Reviewer signs off)
-      const certResult = await ctx.runAction(api.gitops.generateDeploymentCertificate, {
-        projectId: args.projectId,
-        commitMessage: args.commitMessage,
-        branchName: args.branchName,
-        filesChanged: fileList,
-        triggeredByAgentId: args.agentId,
-      });
+      const certResult = await ctx.runAction(
+        api.gitops.generateDeploymentCertificate,
+        {
+          projectId: args.projectId,
+          commitMessage: args.commitMessage,
+          branchName: args.branchName,
+          filesChanged: fileList,
+          triggeredByAgentId: args.agentId,
+        },
+      );
 
       // 4. Create deployment record
       const deploymentId = await ctx.runMutation(api.gitops.createDeployment, {
@@ -561,4 +593,3 @@ export const recordDeployment = mutation({
     });
   },
 });
-

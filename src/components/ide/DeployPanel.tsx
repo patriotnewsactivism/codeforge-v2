@@ -2,33 +2,40 @@
  * DEPLOY PANEL — Inline IDE tab for deployment options
  * Instant preview, share link, ZIP export, GitHub Pages, Vercel/Netlify.
  */
-import type { Id } from "../../../convex/_generated/dataModel";
+
 import { useAction, useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { useState, useCallback } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { toast } from "sonner";
 import {
-  Rocket,
-  Eye,
-  Link2,
-  Download,
-  Github,
-  ExternalLink,
-  Loader2,
   Check,
+  Download,
+  ExternalLink,
+  Eye,
+  Github,
   Globe,
+  Link2,
+  Loader2,
+  Rocket,
 } from "lucide-react";
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 interface DeployPanelProps {
   projectId: Id<"projects"> | null;
 }
 
 export function DeployPanel({ projectId }: DeployPanelProps) {
-  const files = useQuery(api.files.listByProject, projectId ? { projectId } : "skip");
-  const project = useQuery(api.projects.get, projectId ? { projectId } : "skip");
+  const files = useQuery(
+    api.files.listByProject,
+    projectId ? { projectId } : "skip",
+  );
+  const project = useQuery(
+    api.projects.get,
+    projectId ? { projectId } : "skip",
+  );
   const githubSettings = useQuery(api.github.getSettings);
 
   const [deployingTo, setDeployingTo] = useState<string | null>(null);
@@ -38,7 +45,9 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
     if (!files) return;
     setDeployingTo("preview");
     try {
-      const htmlFile = files.find((f: NonNullable<typeof files>[number]) => f.path === "index.html");
+      const htmlFile = files.find(
+        (f: NonNullable<typeof files>[number]) => f.path === "index.html",
+      );
       if (!htmlFile?.content) {
         toast.error("No index.html found");
         setDeployingTo(null);
@@ -60,7 +69,9 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
     if (!files) return;
     setDeployingTo("share");
     try {
-      const htmlFile = files.find((f: NonNullable<typeof files>[number]) => f.path === "index.html");
+      const htmlFile = files.find(
+        (f: NonNullable<typeof files>[number]) => f.path === "index.html",
+      );
       if (!htmlFile?.content) {
         toast.error("No index.html found");
         setDeployingTo(null);
@@ -84,7 +95,9 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
     setDeployingTo("zip");
     try {
       // Build a simple downloadable HTML string with all files inlined
-      const htmlFile = files.find((f: NonNullable<typeof files>[number]) => f.path === "index.html");
+      const htmlFile = files.find(
+        (f: NonNullable<typeof files>[number]) => f.path === "index.html",
+      );
       const content = htmlFile?.content || "<!-- No index.html found -->";
       const blob = new Blob([content], { type: "text/html" });
       const a = document.createElement("a");
@@ -108,7 +121,10 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
       setPreviewUrl(result.url);
       toast.success("Deployed to Vercel!", {
         description: result.url,
-        action: { label: "Open", onClick: () => window.open(result.url, "_blank") },
+        action: {
+          label: "Open",
+          onClick: () => window.open(result.url, "_blank"),
+        },
       });
     } catch (e) {
       toast.error("Vercel deploy failed", {
@@ -122,7 +138,9 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
   if (!projectId) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-xs text-muted-foreground">Select a project to deploy</p>
+        <p className="text-xs text-muted-foreground">
+          Select a project to deploy
+        </p>
       </div>
     );
   }
@@ -158,18 +176,29 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
     {
       id: "github-pages",
       label: "GitHub Pages",
-      desc: githubSettings?.connected ? "Push to gh-pages branch" : "Connect GitHub first",
+      desc: githubSettings?.connected
+        ? "Push to gh-pages branch"
+        : "Connect GitHub first",
       icon: <Github className="h-4 w-4 text-white/50" />,
-      action: () => toast.info("Push to GitHub first, then enable Pages in repo Settings"),
+      action: () =>
+        toast.info("Push to GitHub first, then enable Pages in repo Settings"),
       badge: githubSettings?.connected ? "Available" : "Needs Auth",
-      badgeColor: githubSettings?.connected ? "bg-green-500/10 text-green-400" : "bg-white/5 text-white/30",
+      badgeColor: githubSettings?.connected
+        ? "bg-green-500/10 text-green-400"
+        : "bg-white/5 text-white/30",
       disabled: !githubSettings?.connected,
     },
     {
       id: "vercel",
       label: "Vercel",
-      desc: deployingTo === "vercel" ? "Deploying..." : "Deploy directly to Vercel",
-      icon: deployingTo === "vercel" ? <Loader2 className="h-4 w-4 text-white animate-spin" /> : <Globe className="h-4 w-4 text-white" />,
+      desc:
+        deployingTo === "vercel" ? "Deploying..." : "Deploy directly to Vercel",
+      icon:
+        deployingTo === "vercel" ? (
+          <Loader2 className="h-4 w-4 text-white animate-spin" />
+        ) : (
+          <Globe className="h-4 w-4 text-white" />
+        ),
       action: handleVercelDeploy,
       badge: "Live",
       badgeColor: "bg-white/10 text-white",
@@ -182,9 +211,14 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-white/5 px-3 py-2 bg-white/[0.02] shrink-0">
         <Rocket className="h-4 w-4 text-green-400/60" />
-        <span className="text-xs font-semibold text-white/70 flex-1">Deploy</span>
+        <span className="text-xs font-semibold text-white/70 flex-1">
+          Deploy
+        </span>
         <Badge className="text-[9px] h-4 px-1.5 bg-white/5 text-white/30 border-0">
-          {files?.filter((f: NonNullable<typeof files>[number]) => !f.isDirectory).length ?? 0} files
+          {files?.filter(
+            (f: NonNullable<typeof files>[number]) => !f.isDirectory,
+          ).length ?? 0}{" "}
+          files
         </Badge>
       </div>
 
@@ -194,7 +228,9 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
           {previewUrl && (
             <div className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/5 px-3 py-2">
               <Check className="h-3.5 w-3.5 text-green-400 shrink-0" />
-              <span className="text-[10px] text-green-300 flex-1 truncate">Preview ready</span>
+              <span className="text-[10px] text-green-300 flex-1 truncate">
+                Preview ready
+              </span>
               <button
                 type="button"
                 onClick={() => window.open(previewUrl, "_blank")}
@@ -206,19 +242,25 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
           )}
 
           {/* Deploy options */}
-          {deployOptions.map((opt) => (
+          {deployOptions.map(opt => (
             <div
               key={opt.id}
               className={cn(
                 "rounded-lg border border-white/5 p-3 bg-white/[0.02] flex items-center gap-3",
-                opt.disabled ? "opacity-40" : "hover:border-white/10 transition-colors"
+                opt.disabled
+                  ? "opacity-40"
+                  : "hover:border-white/10 transition-colors",
               )}
             >
               <div className="shrink-0">{opt.icon}</div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-white/70">{opt.label}</span>
-                  <Badge className={`text-[8px] h-3.5 px-1 border-0 ${opt.badgeColor}`}>
+                  <span className="text-xs font-medium text-white/70">
+                    {opt.label}
+                  </span>
+                  <Badge
+                    className={`text-[8px] h-3.5 px-1 border-0 ${opt.badgeColor}`}
+                  >
                     {opt.badge}
                   </Badge>
                 </div>

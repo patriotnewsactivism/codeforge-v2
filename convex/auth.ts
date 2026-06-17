@@ -1,8 +1,8 @@
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth, getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "./_generated/server";
-import { TestCredentials } from "./testAuth";
 import { CodeForgeEmail, CodeForgePasswordReset } from "./email";
+import { TestCredentials } from "./testAuth";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -15,12 +15,16 @@ function decodePrivateKey(key: string | undefined): string | undefined {
   if (key.includes("\n")) return key;
 
   if (!key.startsWith("-----BEGIN")) {
-    try { return atob(key); } catch { return key; }
+    try {
+      return atob(key);
+    } catch {
+      return key;
+    }
   }
 
   const beginMarker = "-----BEGIN PRIVATE KEY-----";
-  const endMarker   = "-----END PRIVATE KEY-----";
-  let content = key
+  const endMarker = "-----END PRIVATE KEY-----";
+  const content = key
     .replace(/-----BEGIN PRIVATE KEY-----\s*/, "")
     .replace(/\s*-----END PRIVATE KEY-----/, "")
     .trim();
@@ -51,12 +55,9 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 
 export const currentUser = query({
   args: {},
-  handler: async (ctx) => {
+  handler: async ctx => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
     return await ctx.db.get(userId);
   },
 });
-
-
-

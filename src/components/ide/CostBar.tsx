@@ -3,18 +3,21 @@
  * Shows today's spend, token counts, and active agent count.
  */
 import { useQuery } from "convex/react";
+import { Bot, DollarSign, TrendingUp, Zap } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { DollarSign, Zap, Bot, TrendingUp } from "lucide-react";
 
 export function CostBar({ projectId }: { projectId: Id<"projects"> | null }) {
   const limitsData = useQuery(api.limits.getMyLimits);
   const agentTasks = useQuery(
     api.intelligence.listAgentTasks,
-    projectId ? { projectId } : "skip"
+    projectId ? { projectId } : "skip",
   );
 
-  const activeAgents = agentTasks?.filter((t: NonNullable<typeof agentTasks>[number]) => t.status === "running").length ?? 0;
+  const activeAgents =
+    agentTasks?.filter(
+      (t: NonNullable<typeof agentTasks>[number]) => t.status === "running",
+    ).length ?? 0;
   const todayCost = limitsData?.usage?.computeCostUsd ?? 0;
   const aiRequests = limitsData?.usage?.aiRequests ?? 0;
   const missions = limitsData?.usage?.missions ?? 0;
@@ -24,16 +27,24 @@ export function CostBar({ projectId }: { projectId: Id<"projects"> | null }) {
       {/* Brand */}
       <div className="flex items-center gap-1.5">
         <Zap className="h-3 w-3 text-amber-400" />
-        <span className="font-bold text-foreground tracking-tight">CodeForge</span>
+        <span className="font-bold text-foreground tracking-tight">
+          CodeForge
+        </span>
       </div>
 
       <div className="h-3 w-px bg-border" />
 
       {/* Active agents */}
       <div className="flex items-center gap-1">
-        <Bot className={`h-2.5 w-2.5 ${activeAgents > 0 ? "text-green-400 animate-pulse" : "text-muted-foreground"}`} />
-        <span className={activeAgents > 0 ? "text-green-400 font-semibold" : ""}>
-          {activeAgents > 0 ? `${activeAgents} agent${activeAgents > 1 ? "s" : ""} running` : "No active agents"}
+        <Bot
+          className={`h-2.5 w-2.5 ${activeAgents > 0 ? "text-green-400 animate-pulse" : "text-muted-foreground"}`}
+        />
+        <span
+          className={activeAgents > 0 ? "text-green-400 font-semibold" : ""}
+        >
+          {activeAgents > 0
+            ? `${activeAgents} agent${activeAgents > 1 ? "s" : ""} running`
+            : "No active agents"}
         </span>
       </div>
 
@@ -42,7 +53,9 @@ export function CostBar({ projectId }: { projectId: Id<"projects"> | null }) {
       {/* Today's usage */}
       <div className="flex items-center gap-1">
         <TrendingUp className="h-2.5 w-2.5" />
-        <span>{aiRequests} AI calls · {missions} missions today</span>
+        <span>
+          {aiRequests} AI calls · {missions} missions today
+        </span>
       </div>
 
       {/* Cost */}

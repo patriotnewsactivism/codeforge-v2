@@ -15,8 +15,8 @@
  */
 
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
+import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
 
 declare const process: { env: Record<string, string | undefined> };
@@ -55,14 +55,16 @@ export const saveImportJob = mutation({
 export const updateImportJob = mutation({
   args: {
     jobId: v.id("importJobs"),
-    status: v.optional(v.union(
-      v.literal("queued"),
-      v.literal("cloning"),
-      v.literal("indexing"),
-      v.literal("analyzing"),
-      v.literal("ready"),
-      v.literal("failed"),
-    )),
+    status: v.optional(
+      v.union(
+        v.literal("queued"),
+        v.literal("cloning"),
+        v.literal("indexing"),
+        v.literal("analyzing"),
+        v.literal("ready"),
+        v.literal("failed"),
+      ),
+    ),
     filesImported: v.optional(v.number()),
     detectedStack: v.optional(v.array(v.string())),
     briefGenerated: v.optional(v.boolean()),
@@ -72,9 +74,12 @@ export const updateImportJob = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const { jobId, ...patch } = args;
-    await ctx.db.patch(jobId, Object.fromEntries(
-      Object.entries(patch).filter(([, v]) => v !== undefined)
-    ));
+    await ctx.db.patch(
+      jobId,
+      Object.fromEntries(
+        Object.entries(patch).filter(([, v]) => v !== undefined),
+      ),
+    );
     return null;
   },
 });
@@ -89,7 +94,7 @@ export const listImportJobs = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("importJobs")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .take(10);
   },
@@ -111,11 +116,14 @@ function detectStack(filePaths: string[]): string[] {
   if (joined.includes("convex/")) stack.push("convex");
   if (joined.includes("prisma/")) stack.push("prisma");
   if (joined.includes("tailwind.config")) stack.push("tailwind");
-  if (joined.includes("requirements.txt") || joined.includes("setup.py")) stack.push("python");
+  if (joined.includes("requirements.txt") || joined.includes("setup.py"))
+    stack.push("python");
   if (joined.includes("Cargo.toml")) stack.push("rust");
   if (joined.includes("go.mod")) stack.push("go");
-  if (joined.includes("pom.xml") || joined.includes("build.gradle")) stack.push("java");
-  if (joined.includes("Dockerfile") || joined.includes("docker-compose")) stack.push("docker");
+  if (joined.includes("pom.xml") || joined.includes("build.gradle"))
+    stack.push("java");
+  if (joined.includes("Dockerfile") || joined.includes("docker-compose"))
+    stack.push("docker");
 
   return [...new Set(stack)];
 }
@@ -125,7 +133,7 @@ function detectStack(filePaths: string[]): string[] {
 export const importRepo = action({
   args: {
     projectId: v.id("projects"),
-    repoUrl: v.string(),      // https://github.com/owner/repo or owner/repo
+    repoUrl: v.string(), // https://github.com/owner/repo or owner/repo
     branch: v.optional(v.string()),
     userId: v.optional(v.id("users")),
   },
@@ -142,7 +150,9 @@ export const importRepo = action({
     const urlMatch = args.repoUrl.match(/github\.com\/([^/]+\/[^/\s]+)/);
     const repoFullName = urlMatch
       ? urlMatch[1].replace(/\.git$/, "")
-      : args.repoUrl.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "");
+      : args.repoUrl
+          .replace(/^https?:\/\/github\.com\//, "")
+          .replace(/\.git$/, "");
 
     if (!repoFullName.includes("/")) {
       const jobId = await ctx.runMutation(api.repoImport.saveImportJob, {
@@ -153,7 +163,14 @@ export const importRepo = action({
         status: "failed",
         error: "Invalid GitHub URL. Use: https://github.com/owner/repo",
       });
-      return { jobId, filesImported: 0, detectedStack: [], brief: "", success: false, error: "Invalid GitHub URL" };
+      return {
+        jobId,
+        filesImported: 0,
+        detectedStack: [],
+        brief: "",
+        success: false,
+        error: "Invalid GitHub URL",
+      };
     }
 
     const jobId = await ctx.runMutation(api.repoImport.saveImportJob, {
@@ -183,20 +200,34 @@ export const importRepo = action({
 
       if (!importResult.success) {
         await ctx.runMutation(api.repoImport.updateImportJob, {
-          jobId, status: "failed", error: importResult.error,
+          jobId,
+          status: "failed",
+          error: importResult.error,
         });
-        return { jobId, filesImported: 0, detectedStack: [], brief: "", success: false, error: importResult.error };
+        return {
+          jobId,
+          filesImported: 0,
+          detectedStack: [],
+          brief: "",
+          success: false,
+          error: importResult.error,
+        };
       }
 
       // ── Detect stack ──────────────────────────────────────────────────
       const allFiles = await ctx.runQuery(api.files.listByProject, {
         projectId: args.projectId,
       });
-      const filePaths = allFiles.filter((f: any) => !f.isDirectory).map((f: any) => f.path);
+      const filePaths = allFiles
+        .filter((f: any) => !f.isDirectory)
+        .map((f: any) => f.path);
       const detectedStack = detectStack(filePaths);
 
       await ctx.runMutation(api.repoImport.updateImportJob, {
-        jobId, status: "analyzing", filesImported: importResult.filesImported, detectedStack,
+        jobId,
+        status: "analyzing",
+        filesImported: importResult.filesImported,
+        detectedStack,
       });
 
       await ctx.runMutation(api.agentThoughts.emit, {
@@ -210,9 +241,17 @@ export const importRepo = action({
 
       // ── Generate PROJECT_BRIEF.md via Architect ───────────────────────
       // Sample key files for analysis
-      const keyFileNames = ["README.md", "package.json", "convex/schema.ts", "src/App.tsx", "main.py", "go.mod", "Cargo.toml"];
+      const keyFileNames = [
+        "README.md",
+        "package.json",
+        "convex/schema.ts",
+        "src/App.tsx",
+        "main.py",
+        "go.mod",
+        "Cargo.toml",
+      ];
       const keyFiles = allFiles
-        .filter((f: any) => keyFileNames.some((k) => f.path.endsWith(k)))
+        .filter((f: any) => keyFileNames.some(k => f.path.endsWith(k)))
         .slice(0, 5);
 
       const fileSnippets = await Promise.all(
@@ -222,7 +261,7 @@ export const importRepo = action({
             path: f.path,
           });
           return `### ${f.path}\n\`\`\`\n${(full as any)?.content?.slice(0, 1000) ?? ""}\n\`\`\``;
-        })
+        }),
       );
 
       const briefPrompt = `You are the Architect agent in CodeForge. You've just imported a GitHub repository.
@@ -288,7 +327,10 @@ Be specific and technical. This is for AI agents, not humans. Mention exact file
       }
 
       await ctx.runMutation(api.repoImport.updateImportJob, {
-        jobId, status: "ready", briefGenerated: true, completedAt: Date.now(),
+        jobId,
+        status: "ready",
+        briefGenerated: true,
+        completedAt: Date.now(),
       });
 
       await ctx.runMutation(api.agentThoughts.emit, {
@@ -309,11 +351,19 @@ Be specific and technical. This is for AI agents, not humans. Mention exact file
       };
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
-      await ctx.runMutation(api.repoImport.updateImportJob, { jobId, status: "failed", error });
-      return { jobId, filesImported: 0, detectedStack: [], brief: "", success: false, error };
+      await ctx.runMutation(api.repoImport.updateImportJob, {
+        jobId,
+        status: "failed",
+        error,
+      });
+      return {
+        jobId,
+        filesImported: 0,
+        detectedStack: [],
+        brief: "",
+        success: false,
+        error,
+      };
     }
   },
 });
-
-
-

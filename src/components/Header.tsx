@@ -1,7 +1,7 @@
-import { Link } from "react-router-dom";
 import { useConvexAuth } from "convex/react";
-import { Button } from "@/components/ui/button";
 import { Code2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { APP_NAME } from "@/lib/constants";
 
 export function Header() {

@@ -1,8 +1,8 @@
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { Users, Copy, Check, Link2, ChevronLeft } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
+import { Check, ChevronLeft, Copy, Link2, Users } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 interface CollaborationBarProps {
@@ -10,7 +10,10 @@ interface CollaborationBarProps {
   projectName: string;
 }
 
-export function CollaborationBar({ projectId, projectName }: CollaborationBarProps) {
+export function CollaborationBar({
+  projectId,
+  projectName,
+}: CollaborationBarProps) {
   const collaborators = useQuery(api.collaboration.listActive, { projectId });
   const createInvite = useMutation(api.collaboration.createInvite);
   const navigate = useNavigate();
@@ -55,16 +58,18 @@ export function CollaborationBar({ projectId, projectName }: CollaborationBarPro
       <div className="hidden sm:flex items-center gap-2 shrink-0">
         <Users className="h-3.5 w-3.5 text-muted-foreground" />
         <div className="flex items-center -space-x-1.5">
-          {collaborators?.map((collab: NonNullable<typeof collaborators>[number]) => (
-            <div
-              key={collab._id}
-              className="w-6 h-6 rounded-full border-2 border-[oklch(0.09_0.02_260)] flex items-center justify-center text-[10px] font-bold"
-              style={{ backgroundColor: collab.color }}
-              title={collab.userName}
-            >
-              {collab.userName.charAt(0).toUpperCase()}
-            </div>
-          ))}
+          {collaborators?.map(
+            (collab: NonNullable<typeof collaborators>[number]) => (
+              <div
+                key={collab._id}
+                className="w-6 h-6 rounded-full border-2 border-[oklch(0.09_0.02_260)] flex items-center justify-center text-[10px] font-bold"
+                style={{ backgroundColor: collab.color }}
+                title={collab.userName}
+              >
+                {collab.userName.charAt(0).toUpperCase()}
+              </div>
+            ),
+          )}
         </div>
       </div>
 
@@ -85,8 +90,14 @@ export function CollaborationBar({ projectId, projectName }: CollaborationBarPro
             onClick={handleCopyInvite}
             className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-primary/20 text-primary transition-colors"
           >
-            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-            <span className="hidden sm:inline">{copied ? "Copied!" : "Copy link"}</span>
+            {copied ? (
+              <Check className="h-3 w-3" />
+            ) : (
+              <Copy className="h-3 w-3" />
+            )}
+            <span className="hidden sm:inline">
+              {copied ? "Copied!" : "Copy link"}
+            </span>
           </button>
         )}
       </div>

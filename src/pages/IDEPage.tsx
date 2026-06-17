@@ -1,61 +1,76 @@
-import { useCallback, useEffect, useState } from "react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useMutation, useQuery, useAction } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import { AgentActivityPanel } from "@/components/ide/AgentActivityPanel";
+import { AgentPanel } from "@/components/ide/AgentPanel";
+import { BuildProgress } from "@/components/ide/BuildProgress";
+import { ChatPanel } from "@/components/ide/ChatPanel";
+import { CodeEditor } from "@/components/ide/CodeEditor";
+import { CollaborationBar } from "@/components/ide/CollaborationBar";
+import { CostBar } from "@/components/ide/CostBar";
+import { DeployPanel } from "@/components/ide/DeployPanel";
+import { DiffViewer } from "@/components/ide/DiffViewer";
+import { EditorTabs } from "@/components/ide/EditorTabs";
+import { FileTree } from "@/components/ide/FileTree";
+import { GitHubConnectDialog } from "@/components/ide/GitHubConnectDialog";
+import { GitPanel } from "@/components/ide/GitPanel";
+import { ImportRepoDialog } from "@/components/ide/ImportRepoDialog";
+import { LivePreview } from "@/components/ide/LivePreview";
+import { MemoryTab } from "@/components/ide/MemoryTab";
+import { PanelErrorBoundary } from "@/components/ide/PanelErrorBoundary";
+import { SuggestionsPanel } from "@/components/ide/SuggestionsPanel";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { FileTree } from "@/components/ide/FileTree";
-import { CodeEditor } from "@/components/ide/CodeEditor";
-import { EditorTabs } from "@/components/ide/EditorTabs";
-import { ChatPanel } from "@/components/ide/ChatPanel";
-import { LivePreview } from "@/components/ide/LivePreview";
-import { CollaborationBar } from "@/components/ide/CollaborationBar";
-import { SuggestionsPanel } from "@/components/ide/SuggestionsPanel";
-import { BuildProgress } from "@/components/ide/BuildProgress";
-import { AgentPanel } from "@/components/ide/AgentPanel";
-import { MemoryTab } from "@/components/ide/MemoryTab";
-import { AgentActivityPanel } from "@/components/ide/AgentActivityPanel";
-import { GitPanel } from "@/components/ide/GitPanel";
-import { PanelErrorBoundary } from "@/components/ide/PanelErrorBoundary";
-import { CostBar } from "@/components/ide/CostBar";
-import { ImportRepoDialog } from "@/components/ide/ImportRepoDialog";
-import { DiffViewer } from "@/components/ide/DiffViewer";
-import { DeployPanel } from "@/components/ide/DeployPanel";
-import { GitHubConnectDialog } from "@/components/ide/GitHubConnectDialog";
-import { CinemaPanel } from "@/components/ide/CinemaPanel";
-import { ErrorIngestionPanel } from "@/components/ide/ErrorIngestionPanel";
-import { AnalyticsDashboard } from "@/components/ide/AnalyticsDashboard";
+import { api } from "../../convex/_generated/api";
+
+const CinemaPanel = lazy(() =>
+  import("@/components/ide/CinemaPanel").then(m => ({
+    default: m.CinemaPanel,
+  })),
+);
+const ErrorIngestionPanel = lazy(() =>
+  import("@/components/ide/ErrorIngestionPanel").then(m => ({
+    default: m.ErrorIngestionPanel,
+  })),
+);
+const AnalyticsDashboard = lazy(() =>
+  import("@/components/ide/AnalyticsDashboard").then(m => ({
+    default: m.AnalyticsDashboard,
+  })),
+);
+
 import {
-  FileTreeSkeleton,
-  EditorSkeleton,
-} from "@/components/ide/PanelSkeleton";
-import { useAuthToken } from "@/hooks/useAuthToken";
-import { toast } from "sonner";
-import type { Doc, Id } from "../../convex/_generated/dataModel";
-import {
-  MessageSquare,
-  Lightbulb,
-  Zap,
-  Brain,
-  Cpu,
-  Github,
-  FolderOpen,
-  Code2,
-  Eye,
-  Save,
-  X,
-  Film,
   AlertTriangle,
   BarChart3,
+  Brain,
+  Code2,
+  Cpu,
+  Eye,
+  Film,
+  FolderOpen,
+  Github,
+  Lightbulb,
+  MessageSquare,
+  Save,
+  X,
+  Zap,
 } from "lucide-react";
+import { toast } from "sonner";
+import {
+  EditorSkeleton,
+  FileTreeSkeleton,
+  PanelSkeleton,
+} from "@/components/ide/PanelSkeleton";
+import { useAuthToken } from "@/hooks/useAuthToken";
+import type { Doc, Id } from "../../convex/_generated/dataModel";
 
 // Mobile breakpoint: anything below 768px is "mobile"
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(
-    typeof window !== "undefined" ? window.innerWidth < 768 : false
+    typeof window !== "undefined" ? window.innerWidth < 768 : false,
   );
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 768);
@@ -65,7 +80,18 @@ function useIsMobile() {
   return isMobile;
 }
 
-type RightPanel = "chat" | "suggestions" | "agents" | "memory" | "thoughts" | "git" | "diff" | "deploy" | "cinema" | "errors" | "analytics";
+type RightPanel =
+  | "chat"
+  | "suggestions"
+  | "agents"
+  | "memory"
+  | "thoughts"
+  | "git"
+  | "diff"
+  | "deploy"
+  | "cinema"
+  | "errors"
+  | "analytics";
 // Mobile views: one panel visible at a time
 type MobileView = "files" | "editor" | "preview" | "panel";
 
@@ -76,15 +102,15 @@ export function IDEPage() {
 
   const project = useQuery(
     api.projects.get,
-    projectId ? { projectId: projectId as Id<"projects"> } : "skip"
+    projectId ? { projectId: projectId as Id<"projects"> } : "skip",
   );
   const files = useQuery(
     api.files.listByProject,
-    projectId ? { projectId: projectId as Id<"projects"> } : "skip"
+    projectId ? { projectId: projectId as Id<"projects"> } : "skip",
   );
   const collaborators = useQuery(
     api.collaboration.listActive,
-    projectId ? { projectId: projectId as Id<"projects"> } : "skip"
+    projectId ? { projectId: projectId as Id<"projects"> } : "skip",
   );
 
   const updateFileContent = useMutation(api.files.updateContent);
@@ -97,7 +123,9 @@ export function IDEPage() {
 
   const [openFilePaths, setOpenFilePaths] = useState<string[]>([]);
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
-  const [fileBuffers, setFileBuffers] = useState<Map<string, string>>(new Map());
+  const [fileBuffers, setFileBuffers] = useState<Map<string, string>>(
+    new Map(),
+  );
   const [unsavedFiles, setUnsavedFiles] = useState<Set<string>>(new Set());
   const [sessionId, setSessionId] = useState<Id<"chatSessions"> | null>(null);
   const [showPreview, _setShowPreview] = useState(true);
@@ -107,7 +135,8 @@ export function IDEPage() {
   const [showRightPanel, _setShowRightPanel] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [_showSessionSidebar, _setShowSessionSidebar] = useState(false);
-  const [cinemaMissionId, setCinemaMissionId] = useState<Id<"buildSessions"> | null>(null);
+  const [cinemaMissionId, setCinemaMissionId] =
+    useState<Id<"buildSessions"> | null>(null);
 
   // Mobile-specific state
   const [mobileView, setMobileView] = useState<MobileView>("editor");
@@ -116,7 +145,9 @@ export function IDEPage() {
   // Initialize chat session
   useEffect(() => {
     if (projectId && userId && !sessionId) {
-      getOrCreateSession({ projectId: projectId as Id<"projects"> }).then(setSessionId);
+      getOrCreateSession({ projectId: projectId as Id<"projects"> }).then(
+        setSessionId,
+      );
     }
   }, [projectId, userId, sessionId, getOrCreateSession]);
 
@@ -135,8 +166,12 @@ export function IDEPage() {
   // Auto-open first file
   useEffect(() => {
     if (files && files.length > 0 && openFilePaths.length === 0) {
-      const htmlFile = files.find((f: NonNullable<typeof files>[number]) => f.name === "index.html");
-      const firstFile = htmlFile ?? files.find((f: NonNullable<typeof files>[number]) => !f.isDirectory);
+      const htmlFile = files.find(
+        (f: NonNullable<typeof files>[number]) => f.name === "index.html",
+      );
+      const firstFile =
+        htmlFile ??
+        files.find((f: NonNullable<typeof files>[number]) => !f.isDirectory);
       if (firstFile) {
         setOpenFilePaths([firstFile.path]);
         setActiveFilePath(firstFile.path);
@@ -148,44 +183,56 @@ export function IDEPage() {
   useEffect(() => {
     if (!projectId || files === undefined || files.length === 0) return;
     // Fire-and-forget: generate suggestions in background
-    generateSuggestions({ projectId: projectId as Id<"projects"> }).catch(() => {});
+    generateSuggestions({ projectId: projectId as Id<"projects"> }).catch(
+      () => {},
+    );
   }, [projectId, files?.length]);
 
   // Autonomous mode: run a build cycle every autoIntervalMinutes
   // Missions list for Cinema panel picker
   const missionsList = useQuery(
     api.missions.listByProject,
-    projectId ? { projectId: projectId as Id<"projects"> } : "skip"
+    projectId ? { projectId: projectId as Id<"projects"> } : "skip",
   );
 
   const autonomousSettings = useQuery(
     api.suggestions.getAutonomousMode,
-    projectId ? { projectId: projectId as Id<"projects"> } : "skip"
+    projectId ? { projectId: projectId as Id<"projects"> } : "skip",
   );
   useEffect(() => {
     if (!projectId || !autonomousSettings?.autonomousMode) return;
-    const intervalMs = (autonomousSettings.autoIntervalMinutes ?? 15) * 60 * 1000;
+    const intervalMs =
+      (autonomousSettings.autoIntervalMinutes ?? 15) * 60 * 1000;
     const timer = setInterval(() => {
-      runAutonomousCycle({ projectId: projectId as Id<"projects"> }).catch(() => {});
+      runAutonomousCycle({ projectId: projectId as Id<"projects"> }).catch(
+        () => {},
+      );
     }, intervalMs);
     return () => clearInterval(timer);
-  }, [projectId, autonomousSettings?.autonomousMode, autonomousSettings?.autoIntervalMinutes]);
+  }, [
+    projectId,
+    autonomousSettings?.autonomousMode,
+    autonomousSettings?.autoIntervalMinutes,
+  ]);
 
-
-  const activeFile = files?.find((f: NonNullable<typeof files>[number]) => f.path === activeFilePath) ?? null;
+  const activeFile =
+    files?.find(
+      (f: NonNullable<typeof files>[number]) => f.path === activeFilePath,
+    ) ?? null;
 
   const getFileContent = useCallback(
     (path: string) =>
       fileBuffers.get(path) ??
-      files?.find((f: NonNullable<typeof files>[number]) => f.path === path)?.content ??
+      files?.find((f: NonNullable<typeof files>[number]) => f.path === path)
+        ?.content ??
       "",
-    [fileBuffers, files]
+    [fileBuffers, files],
   );
 
   const handleFileSelect = useCallback(
     (file: Doc<"files">) => {
       if (!openFilePaths.includes(file.path)) {
-        setOpenFilePaths((prev) => [...prev, file.path]);
+        setOpenFilePaths(prev => [...prev, file.path]);
       }
       setActiveFilePath(file.path);
       // On mobile: auto-navigate to editor after picking a file
@@ -194,46 +241,50 @@ export function IDEPage() {
         setMobileFileDrawer(false);
       }
     },
-    [openFilePaths, isMobile]
+    [openFilePaths, isMobile],
   );
 
   const handleTabClose = useCallback(
     (filePath: string) => {
-      setOpenFilePaths((prev) => prev.filter((p) => p !== filePath));
+      setOpenFilePaths(prev => prev.filter(p => p !== filePath));
       if (activeFilePath === filePath) {
-        const remaining = openFilePaths.filter((p) => p !== filePath);
-        setActiveFilePath(remaining.length > 0 ? remaining[remaining.length - 1]! : null);
+        const remaining = openFilePaths.filter(p => p !== filePath);
+        setActiveFilePath(
+          remaining.length > 0 ? remaining[remaining.length - 1]! : null,
+        );
       }
-      setFileBuffers((prev) => {
+      setFileBuffers(prev => {
         const next = new Map(prev);
         next.delete(filePath);
         return next;
       });
-      setUnsavedFiles((prev) => {
+      setUnsavedFiles(prev => {
         const next = new Set(prev);
         next.delete(filePath);
         return next;
       });
     },
-    [activeFilePath, openFilePaths]
+    [activeFilePath, openFilePaths],
   );
 
   const handleContentChange = useCallback(
     (content: string) => {
       if (!activeFilePath) return;
-      setFileBuffers((prev) => new Map(prev).set(activeFilePath, content));
-      const original = files?.find((f: NonNullable<typeof files>[number]) => f.path === activeFilePath)?.content;
+      setFileBuffers(prev => new Map(prev).set(activeFilePath, content));
+      const original = files?.find(
+        (f: NonNullable<typeof files>[number]) => f.path === activeFilePath,
+      )?.content;
       if (content !== original) {
-        setUnsavedFiles((prev) => new Set(prev).add(activeFilePath));
+        setUnsavedFiles(prev => new Set(prev).add(activeFilePath));
       } else {
-        setUnsavedFiles((prev) => {
+        setUnsavedFiles(prev => {
           const next = new Set(prev);
           next.delete(activeFilePath);
           return next;
         });
       }
     },
-    [activeFilePath, files]
+    [activeFilePath, files],
   );
 
   const handleSave = useCallback(async () => {
@@ -242,12 +293,12 @@ export function IDEPage() {
     if (content === undefined) return;
     try {
       await updateFileContent({ fileId: activeFile._id, content });
-      setUnsavedFiles((prev) => {
+      setUnsavedFiles(prev => {
         const next = new Set(prev);
         next.delete(activeFilePath);
         return next;
       });
-      setFileBuffers((prev) => {
+      setFileBuffers(prev => {
         const next = new Map(prev);
         next.delete(activeFilePath);
         return next;
@@ -285,14 +336,14 @@ export function IDEPage() {
           parentPath: parts.slice(0, -1).join("/") || undefined,
         });
         if (!isDirectory) {
-          setOpenFilePaths((prev) => [...prev, path]);
+          setOpenFilePaths(prev => [...prev, path]);
           setActiveFilePath(path);
         }
       } catch (e) {
         toast.error("Failed to create file");
       }
     },
-    [projectId, createFile]
+    [projectId, createFile],
   );
 
   const handleDeleteFile = useCallback(
@@ -305,31 +356,41 @@ export function IDEPage() {
         toast.error("Failed to delete");
       }
     },
-    [deleteFile, handleTabClose]
+    [deleteFile, handleTabClose],
   );
-
 
   const handleImplementSuggestion = useCallback(
     async (suggestion: { targetFile: string; content: string }) => {
       if (!projectId) return;
-      const file = files?.find((f: NonNullable<typeof files>[number]) => f.path === suggestion.targetFile);
+      const file = files?.find(
+        (f: NonNullable<typeof files>[number]) =>
+          f.path === suggestion.targetFile,
+      );
       if (!file) return;
-      setFileBuffers((prev) => new Map(prev).set(suggestion.targetFile, suggestion.content));
-      setUnsavedFiles((prev) => new Set(prev).add(suggestion.targetFile));
+      setFileBuffers(prev =>
+        new Map(prev).set(suggestion.targetFile, suggestion.content),
+      );
+      setUnsavedFiles(prev => new Set(prev).add(suggestion.targetFile));
       if (!openFilePaths.includes(suggestion.targetFile)) {
-        setOpenFilePaths((prev) => [...prev, suggestion.targetFile]);
+        setOpenFilePaths(prev => [...prev, suggestion.targetFile]);
       }
       setActiveFilePath(suggestion.targetFile);
     },
-    [projectId, files, openFilePaths]
+    [projectId, files, openFilePaths],
   );
 
-  const openFilesDocs = (files ?? []).filter((f: NonNullable<typeof files>[number]) => openFilePaths.includes(f.path));
-  const openFileContexts = openFilesDocs.map((f: NonNullable<typeof files>[number]) => ({
-    path: f.path,
-    content: getFileContent(f.path),
-  }));
-  const previewFiles = (files ?? []).filter((f: NonNullable<typeof files>[number]) => !f.isDirectory);
+  const openFilesDocs = (files ?? []).filter(
+    (f: NonNullable<typeof files>[number]) => openFilePaths.includes(f.path),
+  );
+  const openFileContexts = openFilesDocs.map(
+    (f: NonNullable<typeof files>[number]) => ({
+      path: f.path,
+      content: getFileContent(f.path),
+    }),
+  );
+  const previewFiles = (files ?? []).filter(
+    (f: NonNullable<typeof files>[number]) => !f.isDirectory,
+  );
 
   if (!projectId || project === undefined) {
     return (
@@ -348,25 +409,85 @@ export function IDEPage() {
   }
 
   // ─── RIGHT PANEL CONTENT (shared between mobile and desktop) ────────────────
-  const panelTabs: Array<{ id: RightPanel; label: string; icon: React.ReactNode; color: string }> = [
-    { id: "chat", label: "Chat", icon: <MessageSquare className="h-3.5 w-3.5" />, color: "text-primary border-primary" },
-    { id: "suggestions", label: "Ideas", icon: <Lightbulb className="h-3.5 w-3.5" />, color: "text-amber-400 border-amber-400" },
-    { id: "agents", label: "Agents", icon: <Zap className="h-3.5 w-3.5" />, color: "text-amber-400 border-amber-400" },
-    { id: "memory", label: "Memory", icon: <Brain className="h-3.5 w-3.5" />, color: "text-violet-400 border-violet-400" },
-    { id: "thoughts", label: "Activity", icon: <Cpu className="h-3.5 w-3.5" />, color: "text-cyan-400 border-cyan-400" },
-    { id: "git", label: "Git", icon: <Github className="h-3.5 w-3.5" />, color: "text-orange-400 border-orange-400" },
-    { id: "diff", label: "Diff", icon: <Code2 className="h-3.5 w-3.5" />, color: "text-rose-400 border-rose-400" },
-    { id: "deploy",     label: "Deploy",     icon: <Zap className="h-3.5 w-3.5" />,        color: "text-green-400 border-green-400" },
-    { id: "cinema",    label: "Cinema",    icon: <Film className="h-3.5 w-3.5" />,       color: "text-pink-400 border-pink-400" },
-    { id: "errors",    label: "Errors",    icon: <AlertTriangle className="h-3.5 w-3.5" />, color: "text-red-400 border-red-400" },
-    { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-3.5 w-3.5" />,  color: "text-teal-400 border-teal-400" },
+  const panelTabs: Array<{
+    id: RightPanel;
+    label: string;
+    icon: React.ReactNode;
+    color: string;
+  }> = [
+    {
+      id: "chat",
+      label: "Chat",
+      icon: <MessageSquare className="h-3.5 w-3.5" />,
+      color: "text-primary border-primary",
+    },
+    {
+      id: "suggestions",
+      label: "Ideas",
+      icon: <Lightbulb className="h-3.5 w-3.5" />,
+      color: "text-amber-400 border-amber-400",
+    },
+    {
+      id: "agents",
+      label: "Agents",
+      icon: <Zap className="h-3.5 w-3.5" />,
+      color: "text-amber-400 border-amber-400",
+    },
+    {
+      id: "memory",
+      label: "Memory",
+      icon: <Brain className="h-3.5 w-3.5" />,
+      color: "text-violet-400 border-violet-400",
+    },
+    {
+      id: "thoughts",
+      label: "Activity",
+      icon: <Cpu className="h-3.5 w-3.5" />,
+      color: "text-cyan-400 border-cyan-400",
+    },
+    {
+      id: "git",
+      label: "Git",
+      icon: <Github className="h-3.5 w-3.5" />,
+      color: "text-orange-400 border-orange-400",
+    },
+    {
+      id: "diff",
+      label: "Diff",
+      icon: <Code2 className="h-3.5 w-3.5" />,
+      color: "text-rose-400 border-rose-400",
+    },
+    {
+      id: "deploy",
+      label: "Deploy",
+      icon: <Zap className="h-3.5 w-3.5" />,
+      color: "text-green-400 border-green-400",
+    },
+    {
+      id: "cinema",
+      label: "Cinema",
+      icon: <Film className="h-3.5 w-3.5" />,
+      color: "text-pink-400 border-pink-400",
+    },
+    {
+      id: "errors",
+      label: "Errors",
+      icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      color: "text-red-400 border-red-400",
+    },
+    {
+      id: "analytics",
+      label: "Analytics",
+      icon: <BarChart3 className="h-3.5 w-3.5" />,
+      color: "text-teal-400 border-teal-400",
+    },
   ];
 
   const rightPanelContent = (
     <div className="h-full flex flex-col">
       {/* Tab bar — horizontally scrollable on mobile */}
       <div className="flex border-b border-border bg-[oklch(0.10_0.02_260)] overflow-x-auto scrollbar-none shrink-0">
-        {panelTabs.map((tab) => (
+        {panelTabs.map(tab => (
           <button
             key={tab.id}
             type="button"
@@ -390,7 +511,9 @@ export function IDEPage() {
             <ChatPanel
               projectId={projectId as Id<"projects">}
               sessionId={sessionId}
-              currentFileContent={activeFile ? getFileContent(activeFile.path) : undefined}
+              currentFileContent={
+                activeFile ? getFileContent(activeFile.path) : undefined
+              }
               currentFileName={activeFile?.name}
               openFiles={openFileContexts}
             />
@@ -436,25 +559,31 @@ export function IDEPage() {
         )}
         {rightPanel === "cinema" && (
           <PanelErrorBoundary panelName="Cinema">
-            <CinemaPanel
-              projectId={projectId as Id<"projects">}
-              missionId={cinemaMissionId}
-              missionsList={missionsList ?? []}
-              onSelectMission={(id) => setCinemaMissionId(id)}
-            />
+            <Suspense fallback={<PanelSkeleton />}>
+              <CinemaPanel
+                projectId={projectId as Id<"projects">}
+                missionId={cinemaMissionId}
+                missionsList={missionsList ?? []}
+                onSelectMission={id => setCinemaMissionId(id)}
+              />
+            </Suspense>
           </PanelErrorBoundary>
         )}
         {rightPanel === "errors" && (
           <PanelErrorBoundary panelName="Error Ingestion">
-            <ErrorIngestionPanel
-              projectId={projectId as Id<"projects">}
-              repoFullName={project?.githubRepo ?? undefined}
-            />
+            <Suspense fallback={<PanelSkeleton />}>
+              <ErrorIngestionPanel
+                projectId={projectId as Id<"projects">}
+                repoFullName={project?.githubRepo ?? undefined}
+              />
+            </Suspense>
           </PanelErrorBoundary>
         )}
         {rightPanel === "analytics" && (
           <PanelErrorBoundary panelName="Analytics">
-            <AnalyticsDashboard projectId={projectId as Id<"projects">} />
+            <Suspense fallback={<PanelSkeleton />}>
+              <AnalyticsDashboard projectId={projectId as Id<"projects">} />
+            </Suspense>
           </PanelErrorBoundary>
         )}
       </div>
@@ -492,7 +621,14 @@ export function IDEPage() {
           </button>
         </div>
 
-        <BuildProgress projectId={projectId as Id<"projects">} onMissionActive={(id) => { setCinemaMissionId(id); }} />
+        <PanelErrorBoundary panelName="Build Progress">
+          <BuildProgress
+            projectId={projectId as Id<"projects">}
+            onMissionActive={id => {
+              setCinemaMissionId(id);
+            }}
+          />
+        </PanelErrorBoundary>
 
         {/* Main content area — full height minus top bar and bottom nav */}
         <div className="flex-1 overflow-hidden relative">
@@ -500,13 +636,15 @@ export function IDEPage() {
             <div className="h-full flex flex-col">
               {openFilesDocs.length > 1 && (
                 <div className="shrink-0 overflow-x-auto scrollbar-none">
-                  <EditorTabs
-                    openFiles={openFilesDocs}
-                    activeFilePath={activeFilePath}
-                    onSelect={handleFileSelect}
-                    onClose={handleTabClose}
-                    unsavedFiles={unsavedFiles}
-                  />
+                  <PanelErrorBoundary panelName="Editor Tabs">
+                    <EditorTabs
+                      openFiles={openFilesDocs}
+                      activeFilePath={activeFilePath}
+                      onSelect={handleFileSelect}
+                      onClose={handleTabClose}
+                      unsavedFiles={unsavedFiles}
+                    />
+                  </PanelErrorBoundary>
                 </div>
               )}
               <div className="flex-1 overflow-hidden">
@@ -515,7 +653,14 @@ export function IDEPage() {
                     <EditorSkeleton />
                   ) : (
                     <CodeEditor
-                      file={activeFile ? { ...activeFile, content: getFileContent(activeFile.path) } : null}
+                      file={
+                        activeFile
+                          ? {
+                              ...activeFile,
+                              content: getFileContent(activeFile.path),
+                            }
+                          : null
+                      }
                       onChange={handleContentChange}
                       onSave={handleSave}
                     />
@@ -536,19 +681,34 @@ export function IDEPage() {
           )}
 
           {mobileView === "panel" && (
-            <div className="h-full">
-              {rightPanelContent}
-            </div>
+            <div className="h-full">{rightPanelContent}</div>
           )}
         </div>
 
         {/* Mobile bottom nav — 4 big touch targets */}
         <div className="shrink-0 grid grid-cols-4 border-t border-border bg-[oklch(0.09_0.02_260)]">
           {[
-            { view: "editor" as MobileView, icon: <Code2 className="h-5 w-5" />, label: "Code" },
-            { view: "preview" as MobileView, icon: <Eye className="h-5 w-5" />, label: "Preview" },
-            { view: "panel" as MobileView, icon: <MessageSquare className="h-5 w-5" />, label: "Chat" },
-            { view: "panel" as MobileView, icon: <Zap className="h-5 w-5" />, label: "Agents", panel: "agents" as RightPanel },
+            {
+              view: "editor" as MobileView,
+              icon: <Code2 className="h-5 w-5" />,
+              label: "Code",
+            },
+            {
+              view: "preview" as MobileView,
+              icon: <Eye className="h-5 w-5" />,
+              label: "Preview",
+            },
+            {
+              view: "panel" as MobileView,
+              icon: <MessageSquare className="h-5 w-5" />,
+              label: "Chat",
+            },
+            {
+              view: "panel" as MobileView,
+              icon: <Zap className="h-5 w-5" />,
+              label: "Agents",
+              panel: "agents" as RightPanel,
+            },
           ].map((item, i) => (
             <button
               key={i}
@@ -564,7 +724,9 @@ export function IDEPage() {
               }`}
             >
               {item.icon}
-              <span className="text-[9px] font-semibold uppercase tracking-wider">{item.label}</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wider">
+                {item.label}
+              </span>
             </button>
           ))}
         </div>
@@ -578,7 +740,9 @@ export function IDEPage() {
             />
             <div className="w-72 max-w-[85vw] h-full bg-[oklch(0.10_0.02_260)] border-l border-border flex flex-col">
               <div className="flex items-center justify-between px-4 h-11 border-b border-border shrink-0">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Files</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Files
+                </span>
                 <button
                   type="button"
                   onClick={() => setMobileFileDrawer(false)}
@@ -596,8 +760,10 @@ export function IDEPage() {
                       files={files}
                       activeFilePath={activeFilePath}
                       onFileSelect={handleFileSelect}
-                      onCreateFile={(name: string) => void handleCreateFile(name, false)}
-                      onDeleteFile={(fileId) => void handleDeleteFile(fileId, "")}
+                      onCreateFile={(name: string) =>
+                        void handleCreateFile(name, false)
+                      }
+                      onDeleteFile={fileId => void handleDeleteFile(fileId, "")}
                       collaborators={collaborators}
                     />
                   )}
@@ -613,104 +779,132 @@ export function IDEPage() {
   // ─── DESKTOP LAYOUT ───────────────────────────────────────────────────────────
   return (
     <>
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
-      <CollaborationBar
-        projectId={projectId as Id<"projects">}
-        projectName={project.name}
-      />
-      <BuildProgress projectId={projectId as Id<"projects">} onMissionActive={(id) => { setCinemaMissionId(id); }} />
-      <CostBar projectId={projectId as Id<"projects">} />
+      <div className="h-screen flex flex-col bg-background overflow-hidden">
+        <PanelErrorBoundary panelName="Collaboration Bar">
+          <CollaborationBar
+            projectId={projectId as Id<"projects">}
+            projectName={project.name}
+          />
+        </PanelErrorBoundary>
+        <PanelErrorBoundary panelName="Build Progress">
+          <BuildProgress
+            projectId={projectId as Id<"projects">}
+            onMissionActive={id => {
+              setCinemaMissionId(id);
+            }}
+          />
+        </PanelErrorBoundary>
+        <PanelErrorBoundary panelName="Cost Bar">
+          <CostBar projectId={projectId as Id<"projects">} />
+        </PanelErrorBoundary>
 
-      <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup direction="horizontal">
-          {/* File Tree */}
-          <ResizablePanel defaultSize={15} minSize={10} maxSize={25}>
-            <PanelErrorBoundary panelName="File Tree">
-              {files === undefined ? (
-                <FileTreeSkeleton />
-              ) : (
-                <FileTree
-                  files={files}
-                  activeFilePath={activeFilePath}
-                  onFileSelect={handleFileSelect}
-                  onCreateFile={(name: string) => void handleCreateFile(name, false)}
-                  onDeleteFile={(fileId) => void handleDeleteFile(fileId, "")}
-                  collaborators={collaborators}
-                />
-              )}
-            </PanelErrorBoundary>
-          </ResizablePanel>
-
-          <ResizableHandle />
-
-          {/* Editor + Preview */}
-          <ResizablePanel defaultSize={showRightPanel ? 55 : 70}>
-            <ResizablePanelGroup direction="vertical">
-              <ResizablePanel defaultSize={showPreview ? 55 : 100}>
-                <div className="h-full flex flex-col">
-                  <EditorTabs
-                    openFiles={openFilesDocs}
+        <div className="flex-1 overflow-hidden">
+          <ResizablePanelGroup direction="horizontal">
+            {/* File Tree */}
+            <ResizablePanel defaultSize={15} minSize={10} maxSize={25}>
+              <PanelErrorBoundary panelName="File Tree">
+                {files === undefined ? (
+                  <FileTreeSkeleton />
+                ) : (
+                  <FileTree
+                    files={files}
                     activeFilePath={activeFilePath}
-                    onSelect={handleFileSelect}
-                    onClose={handleTabClose}
-                    unsavedFiles={unsavedFiles}
+                    onFileSelect={handleFileSelect}
+                    onCreateFile={(name: string) =>
+                      void handleCreateFile(name, false)
+                    }
+                    onDeleteFile={fileId => void handleDeleteFile(fileId, "")}
+                    collaborators={collaborators}
                   />
-                  <div className="flex-1 overflow-hidden">
-                    <PanelErrorBoundary panelName="Code Editor">
-                      {files === undefined ? (
-                        <EditorSkeleton />
-                      ) : (
-                        <CodeEditor
-                          file={activeFile ? { ...activeFile, content: getFileContent(activeFile.path) } : null}
-                          onChange={handleContentChange}
-                          onSave={handleSave}
-                        />
-                      )}
-                    </PanelErrorBoundary>
-                  </div>
-                </div>
-              </ResizablePanel>
+                )}
+              </PanelErrorBoundary>
+            </ResizablePanel>
 
-              {showPreview && (
-                <>
-                  <ResizableHandle />
-                  <ResizablePanel defaultSize={45} minSize={20}>
-                    <PanelErrorBoundary panelName="Live Preview">
-                      <LivePreview
-                        files={previewFiles}
-                        autoRefresh={autoRefresh}
-                        onToggleAutoRefresh={() => setAutoRefresh(!autoRefresh)}
+            <ResizableHandle />
+
+            {/* Editor + Preview */}
+            <ResizablePanel defaultSize={showRightPanel ? 55 : 70}>
+              <ResizablePanelGroup direction="vertical">
+                <ResizablePanel defaultSize={showPreview ? 55 : 100}>
+                  <div className="h-full flex flex-col">
+                    <PanelErrorBoundary panelName="Editor Tabs">
+                      <EditorTabs
+                        openFiles={openFilesDocs}
+                        activeFilePath={activeFilePath}
+                        onSelect={handleFileSelect}
+                        onClose={handleTabClose}
+                        unsavedFiles={unsavedFiles}
                       />
                     </PanelErrorBoundary>
-                  </ResizablePanel>
-                </>
-              )}
-            </ResizablePanelGroup>
-          </ResizablePanel>
+                    <div className="flex-1 overflow-hidden">
+                      <PanelErrorBoundary panelName="Code Editor">
+                        {files === undefined ? (
+                          <EditorSkeleton />
+                        ) : (
+                          <CodeEditor
+                            file={
+                              activeFile
+                                ? {
+                                    ...activeFile,
+                                    content: getFileContent(activeFile.path),
+                                  }
+                                : null
+                            }
+                            onChange={handleContentChange}
+                            onSave={handleSave}
+                          />
+                        )}
+                      </PanelErrorBoundary>
+                    </div>
+                  </div>
+                </ResizablePanel>
 
-          {showRightPanel && (
-            <>
-              <ResizableHandle />
-              <ResizablePanel defaultSize={30} minSize={20} maxSize={45}>
-                {rightPanelContent}
-              </ResizablePanel>
-            </>
-          )}
-        </ResizablePanelGroup>
+                {showPreview && (
+                  <>
+                    <ResizableHandle />
+                    <ResizablePanel defaultSize={45} minSize={20}>
+                      <PanelErrorBoundary panelName="Live Preview">
+                        <LivePreview
+                          files={previewFiles}
+                          autoRefresh={autoRefresh}
+                          onToggleAutoRefresh={() =>
+                            setAutoRefresh(!autoRefresh)
+                          }
+                        />
+                      </PanelErrorBoundary>
+                    </ResizablePanel>
+                  </>
+                )}
+              </ResizablePanelGroup>
+            </ResizablePanel>
+
+            {showRightPanel && (
+              <>
+                <ResizableHandle />
+                <ResizablePanel defaultSize={30} minSize={20} maxSize={45}>
+                  {rightPanelContent}
+                </ResizablePanel>
+              </>
+            )}
+          </ResizablePanelGroup>
+        </div>
       </div>
-    </div>
 
       {/* GitHub Dialogs */}
-      <ImportRepoDialog
-        open={showImportDialog}
-        onOpenChange={setShowImportDialog}
-        activeProjectId={projectId as Id<"projects"> | null}
-        onSelectProject={(_id) => setShowImportDialog(false)}
-      />
-      <GitHubConnectDialog
-        open={showGitHubConnect}
-        onOpenChange={setShowGitHubConnect}
-      />
+      <PanelErrorBoundary panelName="Import Repo Dialog">
+        <ImportRepoDialog
+          open={showImportDialog}
+          onOpenChange={setShowImportDialog}
+          activeProjectId={projectId as Id<"projects"> | null}
+          onSelectProject={_id => setShowImportDialog(false)}
+        />
+      </PanelErrorBoundary>
+      <PanelErrorBoundary panelName="GitHub Connect Dialog">
+        <GitHubConnectDialog
+          open={showGitHubConnect}
+          onOpenChange={setShowGitHubConnect}
+        />
+      </PanelErrorBoundary>
     </>
   );
 }

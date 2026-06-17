@@ -49,16 +49,24 @@ const schema = defineSchema({
     sessionId: v.id("chatSessions"),
     projectId: v.id("projects"),
     userId: v.optional(v.id("users")),
-    role: v.union(v.literal("user"), v.literal("assistant"), v.literal("system")),
+    role: v.union(
+      v.literal("user"),
+      v.literal("assistant"),
+      v.literal("system"),
+    ),
     content: v.string(),
     model: v.optional(v.string()),
     tokensUsed: v.optional(v.number()),
     cost: v.optional(v.number()),
     isError: v.optional(v.boolean()),
-    fileContexts: v.optional(v.array(v.object({
-      path: v.string(),
-      content: v.string(),
-    }))),
+    fileContexts: v.optional(
+      v.array(
+        v.object({
+          path: v.string(),
+          content: v.string(),
+        }),
+      ),
+    ),
     agentId: v.optional(v.string()),
     agentRole: v.optional(v.string()),
   }).index("by_session", ["sessionId"]),
@@ -100,7 +108,7 @@ const schema = defineSchema({
       v.literal("pending"),
       v.literal("implementing"),
       v.literal("done"),
-      v.literal("dismissed")
+      v.literal("dismissed"),
     ),
     implementationPrompt: v.string(),
     generatedAt: v.number(),
@@ -118,7 +126,11 @@ const schema = defineSchema({
     filePath: v.string(),
     previousContent: v.string(),
     newContent: v.string(),
-    action: v.union(v.literal("create"), v.literal("edit"), v.literal("delete")),
+    action: v.union(
+      v.literal("create"),
+      v.literal("edit"),
+      v.literal("delete"),
+    ),
     timestamp: v.number(),
     undone: v.optional(v.boolean()),
   })
@@ -133,7 +145,7 @@ const schema = defineSchema({
       v.literal("running"),
       v.literal("paused"),
       v.literal("completed"),
-      v.literal("error")
+      v.literal("error"),
     ),
     currentStep: v.optional(v.string()),
     totalSteps: v.optional(v.number()),
@@ -150,7 +162,11 @@ const schema = defineSchema({
     action: v.string(),
     description: v.string(),
     filesChanged: v.array(v.string()),
-    status: v.union(v.literal("running"), v.literal("done"), v.literal("error")),
+    status: v.union(
+      v.literal("running"),
+      v.literal("done"),
+      v.literal("error"),
+    ),
     errorMessage: v.optional(v.string()),
     timestamp: v.number(),
   })
@@ -169,7 +185,7 @@ const schema = defineSchema({
       v.literal("queued"),
       v.literal("running"),
       v.literal("done"),
-      v.literal("error")
+      v.literal("error"),
     ),
     result: v.optional(v.string()),
     filesChanged: v.optional(v.array(v.string())),
@@ -185,23 +201,23 @@ const schema = defineSchema({
   agentMemories: defineTable({
     projectId: v.id("projects"),
     category: v.union(
-      v.literal("pattern"),       // recurring code patterns that work well
-      v.literal("anti_pattern"),  // things that consistently break
-      v.literal("preference"),    // user style/architecture preferences
-      v.literal("architecture"),  // high-level structural decisions
-      v.literal("dependency"),    // library/tool choices and gotchas
-      v.literal("bugfix"),        // specific bugs and their fixes
-      v.literal("convention"),    // naming, formatting, file structure
-      v.literal("tool"),          // effective tool/API usage patterns
-      v.literal("insight")        // general observations about the codebase
+      v.literal("pattern"), // recurring code patterns that work well
+      v.literal("anti_pattern"), // things that consistently break
+      v.literal("preference"), // user style/architecture preferences
+      v.literal("architecture"), // high-level structural decisions
+      v.literal("dependency"), // library/tool choices and gotchas
+      v.literal("bugfix"), // specific bugs and their fixes
+      v.literal("convention"), // naming, formatting, file structure
+      v.literal("tool"), // effective tool/API usage patterns
+      v.literal("insight"), // general observations about the codebase
     ),
-    content: v.string(),          // the actual memory text injected into prompts
-    importance: v.number(),       // 0.0–1.0, used to rank which memories to inject
-    usageCount: v.number(),       // how many times this memory has been used
-    lastUsedAt: v.number(),       // for decay calculation
-    sourceTaskId: v.optional(v.id("agentTasks")),       // which task created this
+    content: v.string(), // the actual memory text injected into prompts
+    importance: v.number(), // 0.0–1.0, used to rank which memories to inject
+    usageCount: v.number(), // how many times this memory has been used
+    lastUsedAt: v.number(), // for decay calculation
+    sourceTaskId: v.optional(v.id("agentTasks")), // which task created this
     sourceRetroId: v.optional(v.id("taskRetrospectives")), // which retro created this
-    decayFactor: v.number(),      // 0.0–1.0, multiplied into importance over time
+    decayFactor: v.number(), // 0.0–1.0, multiplied into importance over time
     embedding: v.optional(v.string()), // future: vector embedding for semantic search
   })
     .index("by_project", ["projectId"])
@@ -213,15 +229,15 @@ const schema = defineSchema({
   // After every completed agent run, a Retrospective agent analyzes what happened
   taskRetrospectives: defineTable({
     projectId: v.id("projects"),
-    triggerTaskId: v.optional(v.id("agentTasks")),   // which task triggered this retro
+    triggerTaskId: v.optional(v.id("agentTasks")), // which task triggered this retro
     buildSessionId: v.optional(v.id("buildSessions")),
-    qualityScore: v.number(),     // 1–10, how well did the agents perform?
+    qualityScore: v.number(), // 1–10, how well did the agents perform?
     whatWorked: v.array(v.string()),
     whatFailed: v.array(v.string()),
-    improvements: v.array(v.string()),  // concrete changes for future prompts
+    improvements: v.array(v.string()), // concrete changes for future prompts
     memoriesCreated: v.array(v.id("agentMemories")), // memories extracted from this retro
-    rawAnalysis: v.string(),      // full retrospective text from the AI
-    agentsInvolved: v.array(v.string()),  // which agent IDs were analyzed
+    rawAnalysis: v.string(), // full retrospective text from the AI
+    agentsInvolved: v.array(v.string()), // which agent IDs were analyzed
     timestamp: v.number(),
   })
     .index("by_project", ["projectId"])
@@ -233,18 +249,18 @@ const schema = defineSchema({
   agentMessages: defineTable({
     projectId: v.id("projects"),
     buildSessionId: v.optional(v.id("buildSessions")),
-    fromAgentId: v.string(),      // "ui-agent", "planner", "retrospective-agent", etc.
+    fromAgentId: v.string(), // "ui-agent", "planner", "retrospective-agent", etc.
     fromAgentName: v.string(),
     fromAgentIcon: v.string(),
-    toAgentId: v.optional(v.string()),  // null = broadcast to all agents
+    toAgentId: v.optional(v.string()), // null = broadcast to all agents
     toAgentName: v.optional(v.string()),
     messageType: v.union(
-      v.literal("warning"),    // "watch out for X"
-      v.literal("context"),    // "here's info you'll need"
-      v.literal("request"),    // "can you handle X?"
-      v.literal("finding"),    // "I discovered Y"
-      v.literal("blocker"),    // "I'm stuck on Z"
-      v.literal("resolved")    // "blocker Z is now fixed"
+      v.literal("warning"), // "watch out for X"
+      v.literal("context"), // "here's info you'll need"
+      v.literal("request"), // "can you handle X?"
+      v.literal("finding"), // "I discovered Y"
+      v.literal("blocker"), // "I'm stuck on Z"
+      v.literal("resolved"), // "blocker Z is now fixed"
     ),
     content: v.string(),
     relatedFiles: v.optional(v.array(v.string())),
@@ -284,7 +300,7 @@ const schema = defineSchema({
       v.literal("open"),
       v.literal("merged"),
       v.literal("closed"),
-      v.literal("local")
+      v.literal("local"),
     ),
     createdAt: v.number(),
   })
@@ -299,18 +315,17 @@ const schema = defineSchema({
     fileId: v.id("files"),
     path: v.string(),
     language: v.string(),
-    termFrequency: v.string(),   // JSON-serialized Record<string, number>
-    tags: v.array(v.string()),   // function names, imports, class names
+    termFrequency: v.string(), // JSON-serialized Record<string, number>
+    tags: v.array(v.string()), // function names, imports, class names
     tokenCount: v.number(),
     indexedAt: v.number(),
   })
     .index("by_project", ["projectId"])
     .index("by_project_and_path", ["projectId", "path"]),
 
-
   // ─── STREAMING THOUGHT PROCESS ──────────────────────────────────────────────
 
-  // Real-time stream of agent thinking — emitted token by token, 
+  // Real-time stream of agent thinking — emitted token by token,
   // subscribed live in the frontend via Convex's real-time queries
   agentThoughts: defineTable({
     projectId: v.id("projects"),
@@ -327,7 +342,7 @@ const schema = defineSchema({
       v.literal("search"),
       v.literal("commit"),
       v.literal("broadcast"),
-      v.literal("done")
+      v.literal("done"),
     ),
     content: v.string(),
     isStreaming: v.optional(v.boolean()),
@@ -342,24 +357,23 @@ const schema = defineSchema({
     autonomousMode: v.boolean(),
     autoIntervalMinutes: v.number(),
     lastAutoRunAt: v.optional(v.number()),
-    projectSoul: v.optional(v.string()),  // core identity — agents never violate this
+    projectSoul: v.optional(v.string()), // core identity — agents never violate this
   }).index("by_project", ["projectId"]),
-
 
   // ─── V2 ENGINE: TOOL CALL STREAM ────────────────────────────────────────────
   // Live stream of every tool call made by agents — subscribed in real-time by frontend
   toolCalls: defineTable({
     projectId: v.id("projects"),
-    missionId: v.string(),          // groups all calls from one runMission invocation
+    missionId: v.string(), // groups all calls from one runMission invocation
     agentId: v.string(),
     agentName: v.string(),
-    tool: v.string(),               // tool name: create_file, edit_file, etc.
-    args: v.string(),               // JSON-serialized args
+    tool: v.string(), // tool name: create_file, edit_file, etc.
+    args: v.string(), // JSON-serialized args
     status: v.union(
       v.literal("pending"),
       v.literal("running"),
       v.literal("done"),
-      v.literal("error")
+      v.literal("error"),
     ),
     result: v.optional(v.string()),
     error: v.optional(v.string()),
@@ -369,15 +383,14 @@ const schema = defineSchema({
     .index("by_project", ["projectId"])
     .index("by_mission", ["missionId"]),
 
-
   // ─── STRIPE SUBSCRIPTIONS ────────────────────────────────────────────────────
   subscriptions: defineTable({
     userId: v.id("users"),
-    planKey: v.string(),                          // "free" | "weekly" | "monthly" | "lifetime"
+    planKey: v.string(), // "free" | "weekly" | "monthly" | "lifetime"
     stripeCustomerId: v.optional(v.string()),
     stripeSubscriptionId: v.optional(v.string()),
-    currentPeriodEnd: v.optional(v.number()),     // Unix ms
-    status: v.string(),                           // "active" | "past_due" | "cancelled"
+    currentPeriodEnd: v.optional(v.number()), // Unix ms
+    status: v.string(), // "active" | "past_due" | "cancelled"
     updatedAt: v.number(),
   })
     .index("by_user", ["userId"])
@@ -390,7 +403,7 @@ const schema = defineSchema({
       v.literal("openai"),
       v.literal("deepseek"),
       v.literal("xai"),
-      v.literal("moonshot")
+      v.literal("moonshot"),
     ),
     encryptedKey: v.string(),
     maskedKey: v.string(),
@@ -401,18 +414,17 @@ const schema = defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_and_provider", ["userId", "provider"]),
 
-
   // ─── USAGE TRACKING ──────────────────────────────────────────────────────────
 
   // Per-user daily usage counters — reset each day
   userUsage: defineTable({
     userId: v.string(),
-    date: v.string(),                    // "YYYY-MM-DD"
-    aiRequests: v.number(),              // chat messages sent to AI
-    missions: v.number(),               // agent missions started
-    agentsSpawned: v.number(),           // total agent spawns across all missions
-    computeCostUsd: v.number(),          // running $ cost this period
-    periodStart: v.number(),             // epoch ms of period start (daily reset)
+    date: v.string(), // "YYYY-MM-DD"
+    aiRequests: v.number(), // chat messages sent to AI
+    missions: v.number(), // agent missions started
+    agentsSpawned: v.number(), // total agent spawns across all missions
+    computeCostUsd: v.number(), // running $ cost this period
+    periodStart: v.number(), // epoch ms of period start (daily reset)
   })
     .index("by_user_date", ["userId", "date"])
     .index("by_user", ["userId"]),
@@ -420,14 +432,12 @@ const schema = defineSchema({
   // Per-user monthly spend accumulator (for hard cost cap)
   userSpend: defineTable({
     userId: v.string(),
-    periodKey: v.string(),              // "YYYY-MM" for monthly, "YYYY-WNN" for weekly
+    periodKey: v.string(), // "YYYY-MM" for monthly, "YYYY-WNN" for weekly
     totalCostUsd: v.number(),
-    capUsd: v.number(),                 // hard cap for this period
-    cappedAt: v.optional(v.number()),   // epoch ms when cap was hit
+    capUsd: v.number(), // hard cap for this period
+    cappedAt: v.optional(v.number()), // epoch ms when cap was hit
     plan: v.string(),
-  })
-    .index("by_user_period", ["userId", "periodKey"]),
-
+  }).index("by_user_period", ["userId", "periodKey"]),
 
   // ─── Sessions (chat session lifecycle) ──────────────────────────
   sessions: defineTable({
@@ -480,14 +490,12 @@ const schema = defineSchema({
     .index("by_project", ["projectId"])
     .index("by_token", ["token"]),
 
-
-
   // ─── RAG CHUNKS — Code search index ─────────────────────────────────────────
   ragChunks: defineTable({
     projectId: v.id("projects"),
     filePath: v.string(),
-    chunkType: v.string(),           // "block", "function", "class"
-    name: v.optional(v.string()),    // function/class name if applicable
+    chunkType: v.string(), // "block", "function", "class"
+    name: v.optional(v.string()), // function/class name if applicable
     content: v.string(),
     startLine: v.number(),
     endLine: v.number(),
@@ -509,20 +517,19 @@ const schema = defineSchema({
     verdict: v.union(
       v.literal("PROCEED"),
       v.literal("REFINE"),
-      v.literal("ESCALATE")
+      v.literal("ESCALATE"),
     ),
     refinements: v.optional(v.array(v.string())),
     escalationReason: v.optional(v.string()),
-    confidence: v.number(),        // 0–100
+    confidence: v.number(), // 0–100
     durationMs: v.number(),
     timestamp: v.number(),
-    humanApproved: v.boolean(),    // true after human approves an ESCALATE verdict
+    humanApproved: v.boolean(), // true after human approves an ESCALATE verdict
     approvedAt: v.optional(v.number()),
   })
     .index("by_project", ["projectId"])
     .index("by_project_and_verdict", ["projectId", "verdict"])
     .index("by_project_and_time", ["projectId", "timestamp"]),
-
 
   // ─── GITOPS BRIDGE ────────────────────────────────────────────────────────────
   deployments: defineTable({
@@ -586,7 +593,6 @@ const schema = defineSchema({
     .index("by_project_and_severity", ["projectId", "severity"])
     .index("by_project_and_time", ["projectId", "timestamp"]),
 
-
   // ─── LEARNING LOOP: FORENSIC ──────────────────────────────────────────────────
   forensicReports: defineTable({
     projectId: v.id("projects"),
@@ -604,7 +610,10 @@ const schema = defineSchema({
       v.literal("none"),
     ),
     severity: v.union(
-      v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("critical"),
+      v.literal("low"),
+      v.literal("medium"),
+      v.literal("high"),
+      v.literal("critical"),
     ),
     confidence: v.number(),
     timestamp: v.number(),
@@ -628,7 +637,10 @@ const schema = defineSchema({
       v.literal("none"),
     ),
     severity: v.union(
-      v.literal("low"), v.literal("medium"), v.literal("high"), v.literal("critical"),
+      v.literal("low"),
+      v.literal("medium"),
+      v.literal("high"),
+      v.literal("critical"),
     ),
     autoApply: v.boolean(),
     status: v.union(
@@ -664,7 +676,6 @@ const schema = defineSchema({
   })
     .index("by_project", ["projectId"])
     .index("by_project_and_time", ["projectId", "timestamp"]),
-
 
   // ─── CINEMA: MISSION REPLAY ────────────────────────────────────────────────────
   cinemaFrames: defineTable({
@@ -810,13 +821,7 @@ const schema = defineSchema({
     error: v.optional(v.string()),
     startedAt: v.number(),
     completedAt: v.optional(v.number()),
-  })
-    .index("by_project", ["projectId"]),
-
-
+  }).index("by_project", ["projectId"]),
 });
 
 export default schema;
-
-
-

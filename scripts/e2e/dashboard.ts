@@ -1,6 +1,6 @@
 import { runTest } from "../auth";
 
-runTest("Dashboard Operations", async (helper) => {
+runTest("Dashboard Operations", async helper => {
   const { page } = helper;
 
   console.log("Step 1: Navigate to /dashboard");
@@ -21,7 +21,9 @@ runTest("Dashboard Operations", async (helper) => {
 
   // May have been redirected to onboarding if it's a new user
   if (url.includes("/onboarding")) {
-    console.log("   ℹ Redirected to onboarding (new user), skipping dashboard checks");
+    console.log(
+      "   ℹ Redirected to onboarding (new user), skipping dashboard checks",
+    );
     return;
   }
 
@@ -41,7 +43,7 @@ runTest("Dashboard Operations", async (helper) => {
     .catch(() => false);
 
   console.log(
-    `   Header visible: ${hasProjectHeader}, Empty state: ${noProjects}, Has cards: ${anyProjectCard}`
+    `   Header visible: ${hasProjectHeader}, Empty state: ${noProjects}, Has cards: ${anyProjectCard}`,
   );
 
   if (!hasProjectHeader && !noProjects) {
@@ -86,5 +88,4 @@ runTest("Dashboard Operations", async (helper) => {
     throw new Error("Project name input not visible in dialog");
   }
   console.log("   ✓ Project name input visible");
-
 }).catch(() => process.exit(1));

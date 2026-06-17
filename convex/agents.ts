@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback } from "./ai";
 
 // ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
@@ -9,7 +9,7 @@ import { callAIWithFallback } from "./ai";
 // Weekly/monthly/free users use platform process.env keys (no userKeys passed).
 async function resolveByok(
   ctx: any,
-  userId?: string
+  userId?: string,
 ): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
   try {
     const sub = await ctx.runQuery(api.limits.getMyLimits, {});
@@ -19,12 +19,12 @@ async function resolveByok(
 
     const userKeys: Record<string, string> = await ctx.runQuery(
       api.apiKeys.getAllKeysForUser,
-      { userId }
+      { userId },
     );
     if (!userKeys || Object.keys(userKeys).length === 0) {
       throw new Error(
         "⚠️ Lifetime plan requires your own API key. " +
-          "Add one in Settings → API Keys to use AI features."
+          "Add one in Settings → API Keys to use AI features.",
       );
     }
     return { callerPlan, userKeys };
@@ -34,10 +34,7 @@ async function resolveByok(
   }
 }
 
-
-
 declare const process: { env: Record<string, string | undefined> };
-
 
 // ─── AI CALL ─────────────────────────────────────────────────────────────────
 
@@ -45,7 +42,7 @@ async function callAI(
   prompt: string,
   model?: string,
   _maxTokens?: number,
-  byok?: { callerPlan: string; userKeys?: Record<string, string> }
+  byok?: { callerPlan: string; userKeys?: Record<string, string> },
 ): Promise<string> {
   const { text } = await callAIWithFallback(prompt, {
     model,
@@ -62,61 +59,80 @@ const AGENT_TYPES = [
     id: "planner-agent",
     name: "Planner",
     icon: "🗺️",
-    specialty: "Decomposing tasks, assigning work to specialists, coordinating the overall approach",
+    specialty:
+      "Decomposing tasks, assigning work to specialists, coordinating the overall approach",
   },
   {
     id: "ui-agent",
     name: "UI Agent",
     icon: "🎨",
-    specialty: "HTML structure, CSS styling, layout, responsive design, animations, and visual polish",
+    specialty:
+      "HTML structure, CSS styling, layout, responsive design, animations, and visual polish",
   },
   {
     id: "mobile-agent",
     name: "Mobile Agent",
     icon: "📱",
-    specialty: "Mobile-first responsive design, touch interactions, viewport handling, bottom nav patterns",
+    specialty:
+      "Mobile-first responsive design, touch interactions, viewport handling, bottom nav patterns",
   },
   {
     id: "logic-agent",
     name: "Logic Agent",
     icon: "⚙️",
-    specialty: "JavaScript/TypeScript logic, event handling, state management, and application behavior",
+    specialty:
+      "JavaScript/TypeScript logic, event handling, state management, and application behavior",
   },
   {
     id: "debug-agent",
     name: "Debug Agent",
     icon: "🔍",
-    specialty: "Finding and fixing bugs, error handling, edge cases, and code quality",
+    specialty:
+      "Finding and fixing bugs, error handling, edge cases, and code quality",
   },
   {
     id: "feature-agent",
     name: "Feature Agent",
     icon: "✨",
-    specialty: "Adding new features, integrations, and functionality enhancements",
+    specialty:
+      "Adding new features, integrations, and functionality enhancements",
   },
   {
     id: "test-agent",
     name: "Test Agent",
     icon: "🧪",
-    specialty: "Writing tests, validating logic, checking edge cases and error paths",
+    specialty:
+      "Writing tests, validating logic, checking edge cases and error paths",
   },
   {
     id: "reviewer-agent",
     name: "Reviewer",
     icon: "🔎",
-    specialty: "Code review, security checks, performance analysis, and best practice enforcement",
+    specialty:
+      "Code review, security checks, performance analysis, and best practice enforcement",
   },
   {
     id: "qa-agent",
     name: "QA Agent",
     icon: "✅",
-    specialty: "Quality assurance — verifies that all agents completed their tasks correctly, catches regressions, checks mobile/desktop breakpoints",
+    specialty:
+      "Quality assurance — verifies that all agents completed their tasks correctly, catches regressions, checks mobile/desktop breakpoints",
   },
 ];
 
 // ─── HELPER: emit thought ────────────────────────────────────────────────────
 
-type ThoughtType = "plan" | "analyze" | "code" | "debug" | "review" | "memory" | "search" | "commit" | "broadcast" | "done";
+type ThoughtType =
+  | "plan"
+  | "analyze"
+  | "code"
+  | "debug"
+  | "review"
+  | "memory"
+  | "search"
+  | "commit"
+  | "broadcast"
+  | "done";
 
 async function think(
   ctx: { runMutation: Function },
@@ -125,7 +141,7 @@ async function think(
   agentName: string,
   type: ThoughtType,
   content: string,
-  isStreaming = false
+  isStreaming = false,
 ) {
   await ctx.runMutation(api.agentThoughts.emit, {
     projectId,
@@ -155,18 +171,18 @@ export const listTasks = query({
         v.literal("queued"),
         v.literal("running"),
         v.literal("done"),
-        v.literal("error")
+        v.literal("error"),
       ),
       result: v.optional(v.string()),
       filesChanged: v.optional(v.array(v.string())),
       startedAt: v.number(),
       finishedAt: v.optional(v.number()),
-    })
+    }),
   ),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("agentTasks")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .take(50);
   },
@@ -200,7 +216,7 @@ export const updateTask = mutation({
       v.literal("queued"),
       v.literal("running"),
       v.literal("done"),
-      v.literal("error")
+      v.literal("error"),
     ),
     result: v.optional(v.string()),
     filesChanged: v.optional(v.array(v.string())),
@@ -234,28 +250,53 @@ export const runMultiAgent = action({
 
     // BYOK: resolve caller plan + API keys
     const currentUser = await ctx.runQuery(api.auth.currentUser, {});
-    const byok = await resolveByok(ctx, currentUser?._id ? String(currentUser._id) : undefined);
+    const byok = await resolveByok(
+      ctx,
+      currentUser?._id ? String(currentUser._id) : undefined,
+    );
 
-    await think(ctx, projectId, "planner-agent", "Planner", "plan",
-      `Task received: "${args.prompt}"`, true);
+    await think(
+      ctx,
+      projectId,
+      "planner-agent",
+      "Planner",
+      "plan",
+      `Task received: "${args.prompt}"`,
+      true,
+    );
 
     // ── 1. LOAD MEMORY ────────────────────────────────────────────────────────
-    await think(ctx, projectId, "planner-agent", "Planner", "memory",
-      "Loading persistent memory bank...", true);
+    await think(
+      ctx,
+      projectId,
+      "planner-agent",
+      "Planner",
+      "memory",
+      "Loading persistent memory bank...",
+      true,
+    );
 
     const memoryContext = await ctx.runAction(api.memory.getMemoriesForPrompt, {
       projectId,
       topN: 20,
     });
 
-    await think(ctx, projectId, "planner-agent", "Planner", "memory",
+    await think(
+      ctx,
+      projectId,
+      "planner-agent",
+      "Planner",
+      "memory",
       memoryContext
         ? `Memory loaded — ${memoryContext.split("\n").length} entries including past patterns, preferences, and anti-patterns`
-        : "No prior memory — starting fresh");
-
+        : "No prior memory — starting fresh",
+    );
 
     // ── 1b. LOAD PROJECT SOUL ─────────────────────────────────────────────────
-    const projectSettings = await ctx.runQuery(api.suggestions.getAutonomousMode, { projectId });
+    const projectSettings = await ctx.runQuery(
+      api.suggestions.getAutonomousMode,
+      { projectId },
+    );
     const projectSoul = projectSettings?.projectSoul ?? "";
     const soulSection = projectSoul
       ? `\n\nPROJECT SOUL — THE CORE IDENTITY (NEVER VIOLATE THIS):\n${projectSoul}\n\nEVERY change you make MUST be additive and consistent with this soul. The QA agent will reject anything that contradicts it.`
@@ -265,8 +306,15 @@ export const runMultiAgent = action({
     const files = await ctx.runQuery(api.files.listByProject, { projectId });
     const codeFiles = files.filter((f: any) => !f.isDirectory);
 
-    await think(ctx, projectId, "planner-agent", "Planner", "search",
-      `Indexing ${codeFiles.length} files for semantic search...`, true);
+    await think(
+      ctx,
+      projectId,
+      "planner-agent",
+      "Planner",
+      "search",
+      `Indexing ${codeFiles.length} files for semantic search...`,
+      true,
+    );
 
     // RAG index + relevant context
     let ragContext = "";
@@ -278,10 +326,18 @@ export const runMultiAgent = action({
       });
       if (ragContext) {
         const matchCount = (ragContext.match(/---/g) ?? []).length / 2;
-        await think(ctx, projectId, "planner-agent", "Planner", "search",
-          `Semantic search complete — ${matchCount} highly relevant files identified`);
+        await think(
+          ctx,
+          projectId,
+          "planner-agent",
+          "Planner",
+          "search",
+          `Semantic search complete — ${matchCount} highly relevant files identified`,
+        );
       }
-    } catch { /* non-fatal */ }
+    } catch {
+      /* non-fatal */
+    }
 
     const fileList = codeFiles.map((f: any) => f.path).join(", ");
     const fileContext = codeFiles
@@ -289,8 +345,15 @@ export const runMultiAgent = action({
       .join("\n\n");
 
     // ── 3. PLANNER PHASE ──────────────────────────────────────────────────────
-    await think(ctx, projectId, "planner-agent", "Planner", "plan",
-      "Running deep task analysis and decomposing into specialized subtasks...", true);
+    await think(
+      ctx,
+      projectId,
+      "planner-agent",
+      "Planner",
+      "plan",
+      "Running deep task analysis and decomposing into specialized subtasks...",
+      true,
+    );
 
     const planPrompt = `You are CodeForge's Master Planner. You orchestrate an autonomous multi-agent coding system.
 
@@ -301,7 +364,9 @@ ${memoryContext ? `LEARNED CONTEXT FROM MEMORY:\n${memoryContext}\n` : ""}
 PROJECT FILES: ${fileList}
 
 AVAILABLE SPECIALIST AGENTS:
-${AGENT_TYPES.filter(a => a.id !== "planner-agent").map(a => `- ${a.id} (${a.name}): ${a.specialty}`).join("\n")}
+${AGENT_TYPES.filter(a => a.id !== "planner-agent")
+  .map(a => `- ${a.id} (${a.name}): ${a.specialty}`)
+  .join("\n")}
 
 RULES:
 - Always include reviewer-agent for ANY complex task (3+ agents)
@@ -326,7 +391,12 @@ Return ONLY valid JSON (no markdown fences):
   ]
 }`;
 
-    const planResult = await callAI(planPrompt, "deepseek-v4-flash", 3000, byok);
+    const planResult = await callAI(
+      planPrompt,
+      "deepseek-v4-flash",
+      3000,
+      byok,
+    );
     const planMatch = planResult.match(/\{[\s\S]*\}/);
     if (!planMatch) throw new Error("Planner failed to produce a valid plan");
 
@@ -336,8 +406,14 @@ Return ONLY valid JSON (no markdown fences):
       agents: Array<{ agentId: string; task: string }>;
     };
 
-    await think(ctx, projectId, "planner-agent", "Planner", "plan",
-      `Plan (${plan.complexity}): ${plan.reasoning}\nAgents: ${plan.agents.map(a => a.agentId).join(" → ")}`);
+    await think(
+      ctx,
+      projectId,
+      "planner-agent",
+      "Planner",
+      "plan",
+      `Plan (${plan.complexity}): ${plan.reasoning}\nAgents: ${plan.agents.map(a => a.agentId).join(" → ")}`,
+    );
 
     // ── 4. CREATE TASK RECORDS ────────────────────────────────────────────────
     type TaskRecord = {
@@ -350,7 +426,8 @@ Return ONLY valid JSON (no markdown fences):
     const taskRecords: TaskRecord[] = [];
 
     for (const planned of plan.agents) {
-      const agentDef = AGENT_TYPES.find(a => a.id === planned.agentId) ?? AGENT_TYPES[1]!;
+      const agentDef =
+        AGENT_TYPES.find(a => a.id === planned.agentId) ?? AGENT_TYPES[1]!;
       const taskId = await ctx.runMutation(api.agents.createTask, {
         projectId,
         agentId: agentDef.id,
@@ -384,7 +461,8 @@ Return ONLY valid JSON (no markdown fences):
     const allChangedFiles = new Set<string>();
 
     for (const t of taskRecords) {
-      const agentDef = AGENT_TYPES.find(a => a.id === t.agentId) ?? AGENT_TYPES[1]!;
+      const agentDef =
+        AGENT_TYPES.find(a => a.id === t.agentId) ?? AGENT_TYPES[1]!;
 
       await ctx.runMutation(api.agents.updateTask, {
         taskId: t.taskId,
@@ -400,12 +478,20 @@ Return ONLY valid JSON (no markdown fences):
         content: `Starting: ${t.task}`,
       });
 
-      await think(ctx, projectId, t.agentId, t.agentName, "analyze",
-        t.task, true);
+      await think(
+        ctx,
+        projectId,
+        t.agentId,
+        t.agentName,
+        "analyze",
+        t.task,
+        true,
+      );
 
-      const priorContext = agentBroadcasts.length > 0
-        ? `\n\nMESSAGES FROM AGENTS BEFORE YOU:\n${agentBroadcasts.join("\n")}`
-        : "";
+      const priorContext =
+        agentBroadcasts.length > 0
+          ? `\n\nMESSAGES FROM AGENTS BEFORE YOU:\n${agentBroadcasts.join("\n")}`
+          : "";
 
       // For QA agent — give it the full change summary
       const isQA = t.agentId === "qa-agent";
@@ -455,10 +541,22 @@ Return ONLY valid JSON (no markdown fences):
 }`;
 
       try {
-        await think(ctx, projectId, t.agentId, t.agentName, "code",
-          "Working...", true);
+        await think(
+          ctx,
+          projectId,
+          t.agentId,
+          t.agentName,
+          "code",
+          "Working...",
+          true,
+        );
 
-        const agentResult = await callAI(agentPrompt, "deepseek-v4-flash", 8000, byok);
+        const agentResult = await callAI(
+          agentPrompt,
+          "deepseek-v4-flash",
+          8000,
+          byok,
+        );
         const jsonMatch = agentResult.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error("Non-JSON output from agent");
 
@@ -472,7 +570,7 @@ Return ONLY valid JSON (no markdown fences):
 
         // Apply file changes
         const changedPaths: string[] = [];
-        for (const change of (parsed.changes ?? [])) {
+        for (const change of parsed.changes ?? []) {
           try {
             const existing = await ctx.runQuery(api.files.getByPath, {
               projectId,
@@ -497,16 +595,35 @@ Return ONLY valid JSON (no markdown fences):
             changedPaths.push(change.path);
             allChangedFiles.add(change.path);
           } catch (fileErr) {
-            await think(ctx, projectId, t.agentId, t.agentName, "debug",
-              `Warning: could not write ${change.path} — ${String(fileErr)}`);
+            await think(
+              ctx,
+              projectId,
+              t.agentId,
+              t.agentName,
+              "debug",
+              `Warning: could not write ${change.path} — ${String(fileErr)}`,
+            );
           }
         }
 
         // Broadcast to other agents
         if (parsed.broadcast) {
-          const validTypes = ["warning", "context", "request", "finding", "blocker", "resolved"];
+          const validTypes = [
+            "warning",
+            "context",
+            "request",
+            "finding",
+            "blocker",
+            "resolved",
+          ];
           const msgType = validTypes.includes(parsed.broadcast.messageType)
-            ? parsed.broadcast.messageType as "warning" | "context" | "request" | "finding" | "blocker" | "resolved"
+            ? (parsed.broadcast.messageType as
+                | "warning"
+                | "context"
+                | "request"
+                | "finding"
+                | "blocker"
+                | "resolved")
             : "finding";
 
           await ctx.runMutation(api.memory.postAgentMessage, {
@@ -522,21 +639,27 @@ Return ONLY valid JSON (no markdown fences):
         }
 
         // Store learnings as memories
-        for (const learning of (parsed.learnings ?? [])) {
+        for (const learning of parsed.learnings ?? []) {
           try {
             await ctx.runMutation(api.memory.addMemory, {
               projectId,
               category: "insight",
               content: learning,
               importance: 6,
-
-
             });
-          } catch { /* non-fatal */ }
+          } catch {
+            /* non-fatal */
+          }
         }
 
-        await think(ctx, projectId, t.agentId, t.agentName, "done",
-          `${parsed.summary ?? "Done"} — ${changedPaths.length} file(s) changed: ${changedPaths.join(", ") || "none"}`);
+        await think(
+          ctx,
+          projectId,
+          t.agentId,
+          t.agentName,
+          "done",
+          `${parsed.summary ?? "Done"} — ${changedPaths.length} file(s) changed: ${changedPaths.join(", ") || "none"}`,
+        );
 
         await ctx.runMutation(api.agents.updateTask, {
           taskId: t.taskId,
@@ -554,7 +677,6 @@ Return ONLY valid JSON (no markdown fences):
           filesChanged: changedPaths,
           broadcast: parsed.broadcast?.content,
         });
-
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         await ctx.runMutation(api.memory.postAgentMessage, {
@@ -570,8 +692,14 @@ Return ONLY valid JSON (no markdown fences):
           status: "error",
           result: errorMsg,
         });
-        await think(ctx, projectId, t.agentId, t.agentName, "debug",
-          `Error: ${errorMsg}`);
+        await think(
+          ctx,
+          projectId,
+          t.agentId,
+          t.agentName,
+          "debug",
+          `Error: ${errorMsg}`,
+        );
         results.push({
           agentId: t.agentId,
           agentName: t.agentName,
@@ -583,8 +711,15 @@ Return ONLY valid JSON (no markdown fences):
     }
 
     // ── 6. RETROSPECTIVE ──────────────────────────────────────────────────────
-    await think(ctx, projectId, "retrospective-agent", "Retrospective", "review",
-      "Run complete — extracting learnings and updating memory...", true);
+    await think(
+      ctx,
+      projectId,
+      "retrospective-agent",
+      "Retrospective",
+      "review",
+      "Run complete — extracting learnings and updating memory...",
+      true,
+    );
 
     try {
       await ctx.runAction(api.memory.runRetrospective, {
@@ -593,8 +728,14 @@ Return ONLY valid JSON (no markdown fences):
         agentResults: results,
         originalPrompt: args.prompt,
       });
-      await think(ctx, projectId, "retrospective-agent", "Retrospective", "memory",
-        "Memory updated with patterns and insights from this run");
+      await think(
+        ctx,
+        projectId,
+        "retrospective-agent",
+        "Retrospective",
+        "memory",
+        "Memory updated with patterns and insights from this run",
+      );
     } catch (e) {
       console.error("Retrospective failed:", e);
     }
@@ -607,10 +748,21 @@ Return ONLY valid JSON (no markdown fences):
       try {
         const project = await ctx.runQuery(api.projects.get, { projectId });
         if (project?.githubRepo) {
-          await think(ctx, projectId, "planner-agent", "Planner", "commit",
-            `Auto-pushing to ${project.githubRepo}...`, true);
+          await think(
+            ctx,
+            projectId,
+            "planner-agent",
+            "Planner",
+            "commit",
+            `Auto-pushing to ${project.githubRepo}...`,
+            true,
+          );
 
-          const branchName = `agent/${args.prompt.slice(0, 40).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+          const branchName = `agent/${args.prompt
+            .slice(0, 40)
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "")}`;
           const pushResult = await ctx.runAction(api.git.pushToGitHub, {
             projectId,
             repoFullName: project.githubRepo,
@@ -627,23 +779,33 @@ Return ONLY valid JSON (no markdown fences):
             ].join("\n"),
           });
 
-          await think(ctx, projectId, "planner-agent", "Planner", "commit",
+          await think(
+            ctx,
+            projectId,
+            "planner-agent",
+            "Planner",
+            "commit",
             pushResult.success
               ? `✓ Pushed to branch \`${branchName}\`${pushResult.prUrl ? ` — PR opened` : ""}`
-              : `⚠ Push skipped: ${pushResult.error}`);
+              : `⚠ Push skipped: ${pushResult.error}`,
+          );
         }
-      } catch { /* non-fatal */ }
+      } catch {
+        /* non-fatal */
+      }
     }
 
-    await think(ctx, projectId, "planner-agent", "Planner", "done",
-      `Complete — ${successCount}/${totalCount} agents succeeded · ${allChangedFiles.size} files changed`);
+    await think(
+      ctx,
+      projectId,
+      "planner-agent",
+      "Planner",
+      "done",
+      `Complete — ${successCount}/${totalCount} agents succeeded · ${allChangedFiles.size} files changed`,
+    );
 
     return results
       .map(r => `${r.agentName} (${r.status}): ${r.result ?? "no result"}`)
       .join("\n");
   },
 });
-
-
-
-

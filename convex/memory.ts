@@ -1,13 +1,16 @@
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback } from "./ai";
 
 declare const process: { env: Record<string, string | undefined> };
 
-
-async function callAI(prompt: string, model?: string, _maxTokens?: number): Promise<string> {
+async function callAI(
+  prompt: string,
+  model?: string,
+  _maxTokens?: number,
+): Promise<string> {
   const { text } = await callAIWithFallback(prompt, { model });
   return text;
 }
@@ -23,15 +26,17 @@ export const listMemories = query({
   handler: async (ctx, args) => {
     let memories = await ctx.db
       .query("agentMemories")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
 
     if (args.category) {
-      memories = memories.filter((m) => m.category === args.category);
+      memories = memories.filter(m => m.category === args.category);
     }
 
     // Sort by effective importance (importance * decayFactor) descending
-    memories.sort((a, b) => (b.importance * b.decayFactor) - (a.importance * a.decayFactor));
+    memories.sort(
+      (a, b) => b.importance * b.decayFactor - a.importance * a.decayFactor,
+    );
 
     return memories.slice(0, args.limit ?? 50);
   },
@@ -42,7 +47,7 @@ export const listRetrospectives = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("taskRetrospectives")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .take(20);
   },
@@ -57,15 +62,15 @@ export const listAgentMessages = query({
     if (args.buildSessionId) {
       return await ctx.db
         .query("agentMessages")
-        .withIndex("by_build_session", (q) =>
-          q.eq("buildSessionId", args.buildSessionId)
+        .withIndex("by_build_session", q =>
+          q.eq("buildSessionId", args.buildSessionId),
         )
         .order("desc")
         .take(100);
     }
     return await ctx.db
       .query("agentMessages")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .take(100);
   },
@@ -76,17 +81,18 @@ export const getMemoryStats = query({
   handler: async (ctx, args) => {
     const memories = await ctx.db
       .query("agentMemories")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
 
     const retros = await ctx.db
       .query("taskRetrospectives")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
 
-    const avgScore = retros.length > 0
-      ? retros.reduce((sum, r) => sum + r.qualityScore, 0) / retros.length
-      : 0;
+    const avgScore =
+      retros.length > 0
+        ? retros.reduce((sum, r) => sum + r.qualityScore, 0) / retros.length
+        : 0;
 
     const byCategory: Record<string, number> = {};
     for (const m of memories) {
@@ -116,7 +122,7 @@ export const addMemory = mutation({
       v.literal("bugfix"),
       v.literal("convention"),
       v.literal("tool"),
-      v.literal("insight")
+      v.literal("insight"),
     ),
     content: v.string(),
     importance: v.number(),
@@ -128,18 +134,20 @@ export const addMemory = mutation({
     // Duplicate detection: check if very similar memory already exists
     const existing = await ctx.db
       .query("agentMemories")
-      .withIndex("by_project_and_category", (q) =>
-        q.eq("projectId", args.projectId).eq("category", args.category)
+      .withIndex("by_project_and_category", q =>
+        q.eq("projectId", args.projectId).eq("category", args.category),
       )
       .collect();
 
     // Simple duplicate check: if content is >80% similar, boost importance instead
     const contentLower = args.content.toLowerCase();
-    const duplicate = existing.find((m) => {
+    const duplicate = existing.find(m => {
       const overlap = contentLower
         .split(" ")
-        .filter((w) => w.length > 4 && m.content.toLowerCase().includes(w)).length;
-      const words = contentLower.split(" ").filter((w) => w.length > 4).length;
+        .filter(
+          w => w.length > 4 && m.content.toLowerCase().includes(w),
+        ).length;
+      const words = contentLower.split(" ").filter(w => w.length > 4).length;
       return words > 0 && overlap / words > 0.6;
     });
 
@@ -187,7 +195,7 @@ export const applyMemoryDecay = mutation({
   handler: async (ctx, args) => {
     const memories = await ctx.db
       .query("agentMemories")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
 
     const now = Date.now();
@@ -219,7 +227,7 @@ export const postAgentMessage = mutation({
       v.literal("request"),
       v.literal("finding"),
       v.literal("blocker"),
-      v.literal("resolved")
+      v.literal("resolved"),
     ),
     content: v.string(),
     relatedFiles: v.optional(v.array(v.string())),
@@ -263,9 +271,7 @@ export const getMemoriesForPrompt = action({
       grouped[mem.category].push(mem);
     }
 
-    const lines: string[] = [
-      "=== AGENT MEMORY (learned from past tasks) ===",
-    ];
+    const lines: string[] = ["=== AGENT MEMORY (learned from past tasks) ==="];
 
     for (const [category, mems] of Object.entries(grouped)) {
       lines.push(`\n[${category.toUpperCase().replace("_", " ")}]`);
@@ -287,34 +293,44 @@ export const runRetrospective = action({
     projectId: v.id("projects"),
     buildSessionId: v.optional(v.id("buildSessions")),
     triggerTaskId: v.optional(v.id("agentTasks")),
-    agentResults: v.array(v.object({
-      agentId: v.string(),
-      agentName: v.string(),
-      task: v.string(),
-      status: v.string(),
-      result: v.optional(v.string()),
-      filesChanged: v.optional(v.array(v.string())),
-    })),
+    agentResults: v.array(
+      v.object({
+        agentId: v.string(),
+        agentName: v.string(),
+        task: v.string(),
+        status: v.string(),
+        result: v.optional(v.string()),
+        filesChanged: v.optional(v.array(v.string())),
+      }),
+    ),
     originalPrompt: v.string(),
   },
   returns: v.id("taskRetrospectives"),
   handler: async (ctx, args): Promise<Id<"taskRetrospectives">> => {
-    const agentsInvolved = args.agentResults.map((a) => a.agentId);
-    const successCount = args.agentResults.filter((a) => a.status === "done").length;
-    const errorCount = args.agentResults.filter((a) => a.status === "error").length;
+    const agentsInvolved = args.agentResults.map(a => a.agentId);
+    const successCount = args.agentResults.filter(
+      a => a.status === "done",
+    ).length;
+    const errorCount = args.agentResults.filter(
+      a => a.status === "error",
+    ).length;
 
     const retroPrompt = `You are CodeForge's Retrospective Agent. Analyze this completed agent task.
 
 ORIGINAL REQUEST: "${args.originalPrompt}"
 
 AGENT RESULTS:
-${args.agentResults.map((a) => `
+${args.agentResults
+  .map(
+    a => `
 Agent: ${a.agentName} (${a.agentId})
 Task: ${a.task}
 Status: ${a.status}
 Result: ${a.result ?? "none"}
 Files Changed: ${(a.filesChanged ?? []).join(", ") || "none"}
-`).join("\n---\n")}
+`,
+  )
+  .join("\n---\n")}
 
 Summary: ${successCount}/${args.agentResults.length} agents succeeded, ${errorCount} failed.
 
@@ -346,7 +362,11 @@ Rules:
       whatWorked: string[];
       whatFailed: string[];
       improvements: string[];
-      memories: Array<{ category: string; content: string; importance: number }>;
+      memories: Array<{
+        category: string;
+        content: string;
+        importance: number;
+      }>;
     };
 
     try {
@@ -380,15 +400,33 @@ Rules:
     });
 
     // Now create memories referencing this retro
-    for (const mem of (parsed.memories ?? [])) {
+    for (const mem of parsed.memories ?? []) {
       const validCategories = [
-        "pattern", "anti_pattern", "preference", "architecture",
-        "dependency", "bugfix", "convention", "tool", "insight",
+        "pattern",
+        "anti_pattern",
+        "preference",
+        "architecture",
+        "dependency",
+        "bugfix",
+        "convention",
+        "tool",
+        "insight",
       ];
-      const category = validCategories.includes(mem.category) ? mem.category : "insight";
+      const category = validCategories.includes(mem.category)
+        ? mem.category
+        : "insight";
       const memId = await ctx.runMutation(api.memory.addMemory, {
         projectId: args.projectId,
-        category: category as "pattern" | "anti_pattern" | "preference" | "architecture" | "dependency" | "bugfix" | "convention" | "tool" | "insight",
+        category: category as
+          | "pattern"
+          | "anti_pattern"
+          | "preference"
+          | "architecture"
+          | "dependency"
+          | "bugfix"
+          | "convention"
+          | "tool"
+          | "insight",
         content: mem.content,
         importance: Math.max(0.1, Math.min(1.0, mem.importance ?? 0.5)),
         sourceTaskId: args.triggerTaskId,
@@ -479,6 +517,3 @@ export const saveMemory = mutation({
     });
   },
 });
-
-
-

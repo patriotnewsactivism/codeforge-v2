@@ -1,29 +1,46 @@
-import { useAction, useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import { useConvexAuth } from "convex/react";
+import { useAction, useConvexAuth, useQuery } from "convex/react";
+import {
+  ArrowRight,
+  Bot,
+  Check,
+  Clock,
+  Crown,
+  GitBranch,
+  Infinity,
+  Lock,
+  Sparkles,
+  TrendingUp,
+  Unlock,
+  Zap,
+} from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Zap, Crown, Clock, Sparkles, Check, ArrowRight,
-  Bot, GitBranch, Lock, Unlock, Infinity, TrendingUp,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { api } from "../../convex/_generated/api";
 
 // ── Spawn visualizer: animates agent tree expanding ──────────────────────────
-function SpawnTree({ depth: _depth, maxDepth, animate }: { depth: number; maxDepth: number; animate: boolean }) {
+function SpawnTree({
+  depth: _depth,
+  maxDepth,
+  animate,
+}: {
+  depth: number;
+  maxDepth: number;
+  animate: boolean;
+}) {
   const nodes: { level: number; index: number }[] = [];
   let count = 1;
   for (let d = 0; d < maxDepth; d++) {
     for (let i = 0; i < count; i++) nodes.push({ level: d, index: i });
     count = Math.min(count * 2, 16); // cap display at 16 per row
   }
-  const total = Math.pow(2, maxDepth) - 1;
+  const total = 2 ** maxDepth - 1;
 
   return (
-    <div className="select-none">
+    <div className="select-none overflow-x-auto max-w-full">
       <div className="flex flex-col gap-1 items-center">
         {Array.from({ length: maxDepth }, (_, d) => {
-          const rowCount = Math.min(Math.pow(2, d), 16);
+          const rowCount = Math.min(2 ** d, 16);
           return (
             <div key={d} className="flex gap-1 justify-center">
               {Array.from({ length: rowCount }, (_, i) => (
@@ -32,14 +49,18 @@ function SpawnTree({ depth: _depth, maxDepth, animate }: { depth: number; maxDep
                   className={cn(
                     "rounded-full transition-all duration-500",
                     d === 0 ? "w-4 h-4" : d === 1 ? "w-3 h-3" : "w-2 h-2",
-                    animate ? "bg-violet-400 shadow-[0_0_6px_rgba(167,139,250,0.8)]" : "bg-border",
+                    animate
+                      ? "bg-violet-400 shadow-[0_0_6px_rgba(167,139,250,0.8)]"
+                      : "bg-border",
                   )}
-                  style={{ transitionDelay: animate ? `${(d * 100 + i * 20)}ms` : "0ms" }}
+                  style={{
+                    transitionDelay: animate ? `${d * 100 + i * 20}ms` : "0ms",
+                  }}
                 />
               ))}
-              {Math.pow(2, d) > 16 && (
+              {2 ** d > 16 && (
                 <span className="text-[9px] text-muted-foreground self-center ml-1">
-                  +{Math.pow(2, d) - 16} more
+                  +{2 ** d - 16} more
                 </span>
               )}
             </div>
@@ -47,7 +68,9 @@ function SpawnTree({ depth: _depth, maxDepth, animate }: { depth: number; maxDep
         })}
       </div>
       <p className="text-center text-[10px] text-muted-foreground mt-2">
-        {total >= 31 ? `Up to ${Math.pow(2, maxDepth) - 1}+ simultaneous agents` : `Up to ${total} simultaneous agents`}
+        {total >= 31
+          ? `Up to ${2 ** maxDepth - 1}+ simultaneous agents`
+          : `Up to ${total} simultaneous agents`}
       </p>
     </div>
   );
@@ -155,14 +178,18 @@ const PLANS = [
       { text: "32 concurrent agents", locked: false },
       { text: "Spawn depth: 5 (up to 250 agents!!!)", locked: false },
       { text: "200 projects", locked: false },
-      { text: "Bring Your Own Key (BYOK) — use your own AI credits", locked: false },
+      {
+        text: "Bring Your Own Key (BYOK) — use your own AI credits",
+        locked: false,
+      },
       { text: "No API compute charges from CodeForge", locked: false },
       { text: "VIP Discord + direct support", locked: false },
       { text: "All future features, forever", locked: false },
       { text: "Founder badge on profile", locked: false },
     ],
     cta: "Become a Founder",
-    ctaClass: "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-400 hover:to-orange-400",
+    ctaClass:
+      "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-400 hover:to-orange-400",
     stripePlan: "lifetime" as const,
   },
 ];
@@ -177,14 +204,20 @@ export function PricingPage() {
   const myLimits = useQuery(api.limits.getMyLimits);
 
   const handleCheckout = async (plan: "weekly" | "monthly" | "lifetime") => {
-    if (!isAuthenticated) { navigate("/login?redirect=/pricing"); return; }
-    setLoading(plan); setError(null);
+    if (!isAuthenticated) {
+      navigate("/login?redirect=/pricing");
+      return;
+    }
+    setLoading(plan);
+    setError(null);
     try {
       const { url } = await createCheckout({ plan });
       window.location.href = url;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Checkout failed.");
-    } finally { setLoading(null); }
+    } finally {
+      setLoading(null);
+    }
   };
 
   const currentPlan = myLimits?.plan ?? "free";
@@ -198,17 +231,20 @@ export function PricingPage() {
           Exponential AI Agents — One Task, Hundreds of Workers
         </div>
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4">
-          Upgrade your <span className="bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">agent army</span>
+          Upgrade your{" "}
+          <span className="bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">
+            agent army
+          </span>
         </h1>
         <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-          Free gets you a taste. Pro unleashes a recursive swarm of AI agents that
-          spawn sub-agents, then sub-sub-agents — finishing in minutes what would
-          take you hours.
+          Free gets you a taste. Pro unleashes a recursive swarm of AI agents
+          that spawn sub-agents, then sub-sub-agents — finishing in minutes what
+          would take you hours.
         </p>
 
         {/* Live spawn visualizer */}
         <div className="mt-10 flex flex-wrap justify-center gap-6">
-          {PLANS.map((plan) => (
+          {PLANS.map(plan => (
             <div
               key={plan.key}
               className="text-center cursor-pointer"
@@ -234,7 +270,7 @@ export function PricingPage() {
       {/* ── Cards ── */}
       <div className="max-w-6xl mx-auto px-4 pb-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
-          {PLANS.map((plan) => {
+          {PLANS.map(plan => {
             const isCurrentPlan = currentPlan === plan.key;
             const Icon = plan.icon;
             return (
@@ -243,7 +279,8 @@ export function PricingPage() {
                 className={cn(
                   "rounded-xl border flex flex-col overflow-hidden transition-all duration-200",
                   plan.cardClass,
-                  hoveredPlan === plan.key && "scale-[1.02] shadow-lg shadow-violet-500/10",
+                  hoveredPlan === plan.key &&
+                    "scale-[1.02] shadow-lg shadow-violet-500/10",
                 )}
                 onMouseEnter={() => setHoveredPlan(plan.key)}
                 onMouseLeave={() => setHoveredPlan(null)}
@@ -251,10 +288,14 @@ export function PricingPage() {
                 {/* Badge */}
                 <div className="h-6 flex items-center justify-center">
                   {plan.badge && (
-                    <span className={cn(
-                      "text-[10px] font-bold uppercase tracking-widest px-3 py-0.5 rounded-b-md",
-                      plan.key === "lifetime" ? "bg-amber-500/20 text-amber-300" : "bg-violet-500/20 text-violet-300",
-                    )}>
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold uppercase tracking-widest px-3 py-0.5 rounded-b-md",
+                        plan.key === "lifetime"
+                          ? "bg-amber-500/20 text-amber-300"
+                          : "bg-violet-500/20 text-violet-300",
+                      )}
+                    >
                       {plan.badge}
                     </span>
                   )}
@@ -273,7 +314,9 @@ export function PricingPage() {
                   </div>
                   <div className="flex items-end gap-1">
                     <span className="text-3xl font-bold">{plan.price}</span>
-                    <span className="text-muted-foreground text-sm pb-1">{plan.period}</span>
+                    <span className="text-muted-foreground text-sm pb-1">
+                      {plan.period}
+                    </span>
                   </div>
                   {plan.key === "lifetime" && (
                     <p className="text-xs text-amber-400/80 mt-1">
@@ -284,30 +327,45 @@ export function PricingPage() {
                   {/* Agent swarm badge */}
                   <div className="mt-3 flex items-center gap-1.5 rounded-lg bg-black/20 px-2.5 py-1.5">
                     <GitBranch className={cn("h-3.5 w-3.5", plan.iconColor)} />
-                    <span className="text-[11px] font-medium">{plan.agentLabel}</span>
+                    <span className="text-[11px] font-medium">
+                      {plan.agentLabel}
+                    </span>
                   </div>
                 </div>
 
                 {/* Features */}
                 <div className="px-5 py-4 flex-1 space-y-2">
                   {plan.features.map((f, i) => (
-                    <div key={i} className={cn("flex items-start gap-2", f.locked && "opacity-40")}>
-                      {f.locked
-                        ? <Lock className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
-                        : <Check className="h-3.5 w-3.5 mt-0.5 text-green-400 shrink-0" />
-                      }
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex items-start gap-2",
+                        f.locked && "opacity-40",
+                      )}
+                    >
+                      {f.locked ? (
+                        <Lock className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5 mt-0.5 text-green-400 shrink-0" />
+                      )}
                       <span className="text-xs leading-snug">{f.text}</span>
                     </div>
                   ))}
                   {plan.key === "lifetime" && (
-                    <div className="rounded-md p-3 text-xs mt-3" style={{
-                      background: "rgba(245,158,11,0.08)",
-                      border: "1px solid rgba(245,158,11,0.2)",
-                      color: "#94A3B8"
-                    }}>
-                      <span className="text-amber-400 font-semibold">BYOK:</span>{" "}
-                      Lifetime access includes unlimited usage of CodeForge — you supply your own
-                      OpenAI, DeepSeek, xAI, or Moonshot API key. No compute costs billed by us.
+                    <div
+                      className="rounded-md p-3 text-xs mt-3"
+                      style={{
+                        background: "rgba(245,158,11,0.08)",
+                        border: "1px solid rgba(245,158,11,0.2)",
+                        color: "#94A3B8",
+                      }}
+                    >
+                      <span className="text-amber-400 font-semibold">
+                        BYOK:
+                      </span>{" "}
+                      Lifetime access includes unlimited usage of CodeForge —
+                      you supply your own OpenAI, DeepSeek, xAI, or Moonshot API
+                      key. No compute costs billed by us.
                     </div>
                   )}
                 </div>
@@ -322,7 +380,8 @@ export function PricingPage() {
                       className={cn(
                         "w-full py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2",
                         plan.ctaClass,
-                        (loading === plan.key || isCurrentPlan) && "opacity-60 cursor-not-allowed",
+                        (loading === plan.key || isCurrentPlan) &&
+                          "opacity-60 cursor-not-allowed",
                       )}
                     >
                       {loading === plan.key ? (
@@ -330,14 +389,23 @@ export function PricingPage() {
                       ) : isCurrentPlan ? (
                         "Active Plan"
                       ) : (
-                        <>{plan.cta} <ArrowRight className="h-4 w-4" /></>
+                        <>
+                          {plan.cta} <ArrowRight className="h-4 w-4" />
+                        </>
                       )}
                     </button>
                   ) : (
                     <button
                       type="button"
-                      onClick={() => isAuthenticated ? navigate("/dashboard") : navigate("/signup")}
-                      className={cn("w-full py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2", plan.ctaClass)}
+                      onClick={() =>
+                        isAuthenticated
+                          ? navigate("/dashboard")
+                          : navigate("/signup")
+                      }
+                      className={cn(
+                        "w-full py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2",
+                        plan.ctaClass,
+                      )}
                     >
                       {plan.cta} <ArrowRight className="h-4 w-4" />
                     </button>
@@ -361,24 +429,30 @@ export function PricingPage() {
             <TrendingUp className="h-6 w-6 text-violet-400 mx-auto" />
             <h3 className="font-semibold text-sm">Exponential Parallelism</h3>
             <p className="text-xs text-muted-foreground">
-              Agents spawn sub-agents that spawn sub-agents. Monthly Pro can run 80 parallel
-              workers on a single task — finishing in seconds what normally takes hours.
+              Agents spawn sub-agents that spawn sub-agents. Monthly Pro can run
+              80 parallel workers on a single task — finishing in seconds what
+              normally takes hours.
             </p>
           </div>
           <div className="space-y-2">
             <Infinity className="h-6 w-6 text-blue-400 mx-auto" />
-            <h3 className="font-semibold text-sm">Cancel Anytime, Keep the Code</h3>
+            <h3 className="font-semibold text-sm">
+              Cancel Anytime, Keep the Code
+            </h3>
             <p className="text-xs text-muted-foreground">
-              Your projects and files are always yours. Cancel anytime and your work stays.
-              Lifetime Founder keeps paying as AI prices drop.
+              Your projects and files are always yours. Cancel anytime and your
+              work stays. Lifetime Founder keeps paying as AI prices drop.
             </p>
           </div>
           <div className="space-y-2">
             <Unlock className="h-6 w-6 text-green-400 mx-auto" />
-            <h3 className="font-semibold text-sm">Free to Start, Hard to Leave</h3>
+            <h3 className="font-semibold text-sm">
+              Free to Start, Hard to Leave
+            </h3>
             <p className="text-xs text-muted-foreground">
-              Start free with 15 requests/day. The moment you see a 3-agent swarm build
-              your feature in 90 seconds, you'll want to see what 80 agents can do.
+              Start free with 15 requests/day. The moment you see a 3-agent
+              swarm build your feature in 90 seconds, you'll want to see what 80
+              agents can do.
             </p>
           </div>
         </div>
@@ -388,13 +462,13 @@ export function PricingPage() {
           <Crown className="h-8 w-8 text-amber-400 mx-auto mb-3" />
           <h3 className="text-lg font-bold mb-2">The Lifetime Case</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            $420 once vs $29.99/mo forever. Break-even is 14 months.
-            AI compute prices have been dropping ~40% per year — your lifetime deal
-            only gets more valuable over time. And if AI prices ever spike?
-            The hard cap protects you. We absorb the risk.
+            $420 once vs $29.99/mo forever. Break-even is 14 months. AI compute
+            prices have been dropping ~40% per year — your lifetime deal only
+            gets more valuable over time. And if AI prices ever spike? The hard
+            cap protects you. We absorb the risk.
           </p>
           <p className="text-xs text-amber-400/80 font-medium">
-            🔥 First 50 founders only. {" "}
+            🔥 First 50 founders only.{" "}
             <button
               type="button"
               onClick={() => handleCheckout("lifetime")}

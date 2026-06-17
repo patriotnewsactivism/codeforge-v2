@@ -9,19 +9,17 @@
  */
 
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
-import { api } from "./_generated/api";
+import { api as _api, api, api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
-import { api as _api } from "./_generated/api";
-import { api } from "./_generated/api";
 
 // ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
 // Lifetime users get their stored keys injected into AI calls.
 // Weekly/monthly/free users use platform process.env keys (no userKeys passed).
 async function resolveByok(
   ctx: any,
-  userId?: string
+  userId?: string,
 ): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
   try {
     const sub = await ctx.runQuery(api.limits.getMyLimits, {});
@@ -31,12 +29,12 @@ async function resolveByok(
 
     const userKeys: Record<string, string> = await ctx.runQuery(
       api.apiKeys.getAllKeysForUser,
-      { userId }
+      { userId },
     );
     if (!userKeys || Object.keys(userKeys).length === 0) {
       throw new Error(
         "⚠️ Lifetime plan requires your own API key. " +
-          "Add one in Settings → API Keys to use AI features."
+          "Add one in Settings → API Keys to use AI features.",
       );
     }
     return { callerPlan, userKeys };
@@ -45,8 +43,6 @@ async function resolveByok(
     return { callerPlan: "free" };
   }
 }
-
-
 
 // ─── TOOL CALL SCHEMA ──────────────────────────────────────────────────────
 
@@ -87,7 +83,7 @@ export const createToolCall = mutation({
       v.literal("pending"),
       v.literal("running"),
       v.literal("done"),
-      v.literal("error")
+      v.literal("error"),
     ),
   },
   returns: v.id("toolCalls"),
@@ -103,16 +99,19 @@ export const updateToolCall = mutation({
       v.literal("pending"),
       v.literal("running"),
       v.literal("done"),
-      v.literal("error")
+      v.literal("error"),
     ),
     result: v.optional(v.string()),
     error: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const patch: Record<string, unknown> = { status: args.status, finishedAt: Date.now() };
+    const patch: Record<string, unknown> = {
+      status: args.status,
+      finishedAt: Date.now(),
+    };
     if (args.result !== undefined) patch.result = args.result;
-    if (args.error  !== undefined) patch.error  = args.error;
+    if (args.error !== undefined) patch.error = args.error;
     await ctx.db.patch(args.toolCallId, patch);
     return null;
   },
@@ -127,11 +126,11 @@ export const listToolCalls = query({
   handler: async (ctx, args) => {
     let calls = await ctx.db
       .query("toolCalls")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("asc")
       .take(args.limit ?? 200);
     if (args.missionId) {
-      calls = calls.filter((c) => c.missionId === args.missionId);
+      calls = calls.filter(c => c.missionId === args.missionId);
     }
     return calls;
   },
@@ -143,7 +142,7 @@ export const clearToolCalls = mutation({
   handler: async (ctx, args) => {
     const calls = await ctx.db
       .query("toolCalls")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
     for (const c of calls) await ctx.db.delete(c._id);
     return null;
@@ -164,11 +163,19 @@ interface PlanLimits {
 // ─── TOOL EXECUTOR ─────────────────────────────────────────────────────────
 
 const LANG_MAP: Record<string, string> = {
-  ts: "typescript", tsx: "typescriptreact",
-  js: "javascript", jsx: "javascriptreact",
-  css: "css", html: "html", json: "json",
-  md: "markdown", py: "python", sh: "shell",
-  sql: "sql", yml: "yaml", yaml: "yaml",
+  ts: "typescript",
+  tsx: "typescriptreact",
+  js: "javascript",
+  jsx: "javascriptreact",
+  css: "css",
+  html: "html",
+  json: "json",
+  md: "markdown",
+  py: "python",
+  sh: "shell",
+  sql: "sql",
+  yml: "yaml",
+  yaml: "yaml",
 };
 
 async function executeTool(
@@ -181,10 +188,13 @@ async function executeTool(
   spawnDepth: number,
   spawnCount: { value: number },
   model: string,
-  planLimits?: PlanLimits
+  planLimits?: PlanLimits,
 ): Promise<ToolResult> {
   const toolCallId = await ctx.runMutation(api.engine.createToolCall, {
-    projectId, missionId, agentId, agentName,
+    projectId,
+    missionId,
+    agentId,
+    agentName,
     tool: call.tool,
     args: JSON.stringify(call.args),
     status: "running",
@@ -203,10 +213,16 @@ async function executeTool(
 
     if (!sentryResult.allowed) {
       await ctx.runMutation(api.engine.updateToolCall, {
-        toolCallId, status: "error",
+        toolCallId,
+        status: "error",
         error: `Sentry blocked: ${sentryResult.reason}`,
       });
-      return { tool: call.tool, success: false, output: "", error: `Sentry blocked: ${sentryResult.reason}` };
+      return {
+        tool: call.tool,
+        success: false,
+        output: "",
+        error: `Sentry blocked: ${sentryResult.reason}`,
+      };
     }
 
     // If debate required (sensitive path/dangerous content), run it first
@@ -218,10 +234,16 @@ async function executeTool(
       });
       if (!debateCheck.allowed) {
         await ctx.runMutation(api.engine.updateToolCall, {
-          toolCallId, status: "error",
+          toolCallId,
+          status: "error",
           error: debateCheck.message,
         });
-        return { tool: call.tool, success: false, output: "", error: debateCheck.message };
+        return {
+          tool: call.tool,
+          success: false,
+          output: "",
+          error: debateCheck.message,
+        };
       }
     }
 
@@ -229,16 +251,26 @@ async function executeTool(
 
     switch (call.tool) {
       case "create_file": {
-        const { path, content } = call.args as { path: string; content: string };
+        const { path, content } = call.args as {
+          path: string;
+          content: string;
+        };
         const ext = path.split(".").pop() ?? "";
-        const existing = await ctx.runQuery(api.files.getByPath, { projectId, path });
+        const existing = await ctx.runQuery(api.files.getByPath, {
+          projectId,
+          path,
+        });
         if (existing) {
-          await ctx.runMutation(api.files.update, { fileId: existing._id, content });
+          await ctx.runMutation(api.files.update, {
+            fileId: existing._id,
+            content,
+          });
           output = `Updated ${path} (${content.length} chars)`;
         } else {
           const parts = path.split("/");
           await ctx.runMutation(api.files.create, {
-            projectId, path,
+            projectId,
+            path,
             name: parts[parts.length - 1]!,
             content,
             language: LANG_MAP[ext] ?? "plaintext",
@@ -251,10 +283,19 @@ async function executeTool(
       }
 
       case "edit_file": {
-        const { path, content } = call.args as { path: string; content: string };
-        const existing = await ctx.runQuery(api.files.getByPath, { projectId, path });
+        const { path, content } = call.args as {
+          path: string;
+          content: string;
+        };
+        const existing = await ctx.runQuery(api.files.getByPath, {
+          projectId,
+          path,
+        });
         if (!existing) throw new Error(`File not found: ${path}`);
-        await ctx.runMutation(api.files.update, { fileId: existing._id, content });
+        await ctx.runMutation(api.files.update, {
+          fileId: existing._id,
+          content,
+        });
         output = `Edited ${path} (${content.length} chars)`;
         break;
       }
@@ -271,7 +312,10 @@ async function executeTool(
           output = debateCheck.message;
           break;
         }
-        const existing = await ctx.runQuery(api.files.getByPath, { projectId, path });
+        const existing = await ctx.runQuery(api.files.getByPath, {
+          projectId,
+          path,
+        });
         if (existing) {
           await ctx.runMutation(api.files.remove, { fileId: existing._id });
           output = `Deleted ${path}`;
@@ -283,14 +327,19 @@ async function executeTool(
 
       case "read_file": {
         const { path } = call.args as { path: string };
-        const file = await ctx.runQuery(api.files.getByPath, { projectId, path });
+        const file = await ctx.runQuery(api.files.getByPath, {
+          projectId,
+          path,
+        });
         if (!file) throw new Error(`File not found: ${path}`);
         output = file.content;
         break;
       }
 
       case "list_files": {
-        const files = await ctx.runQuery(api.files.listByProject, { projectId });
+        const files = await ctx.runQuery(api.files.listByProject, {
+          projectId,
+        });
         output = files
           .filter((f: any) => !f.isDirectory)
           .map((f: any) => f.path)
@@ -301,17 +350,21 @@ async function executeTool(
 
       case "search_files": {
         const { query: searchQuery } = call.args as { query: string };
-        const files = await ctx.runQuery(api.files.listByProject, { projectId });
+        const files = await ctx.runQuery(api.files.listByProject, {
+          projectId,
+        });
         const q = searchQuery.toLowerCase();
         const matches = files.filter(
           (f: any) =>
             !f.isDirectory &&
-            (f.path.toLowerCase().includes(q) || f.content.toLowerCase().includes(q))
+            (f.path.toLowerCase().includes(q) ||
+              f.content.toLowerCase().includes(q)),
         );
         output = matches
           .slice(0, 10)
-          .map((f: any) =>
-            `${f.path}: ${f.content.substring(0, 200).replace(/\n/g, " ")}…`
+          .map(
+            (f: any) =>
+              `${f.path}: ${f.content.substring(0, 200).replace(/\n/g, " ")}…`,
           )
           .join("\n\n");
         if (!output) output = "No matches found";
@@ -319,7 +372,7 @@ async function executeTool(
       }
 
       case "spawn_agent": {
-        const maxDepth  = planLimits?.maxSpawnDepth      ?? 3;
+        const maxDepth = planLimits?.maxSpawnDepth ?? 3;
         const maxSpawns = planLimits?.maxSpawnsPerMission ?? 25;
 
         if (spawnDepth >= maxDepth) {
@@ -336,15 +389,25 @@ async function executeTool(
         const childModel = getModelForRole(role);
 
         await ctx.runMutation(api.agentThoughts.emit, {
-          projectId, agentId, agentName,
+          projectId,
+          agentId,
+          agentName,
           type: "broadcast",
           content: `Spawning ${role} agent: ${task}`,
           isStreaming: false,
         });
 
         const childResult = await runAgentLoop(
-          ctx, projectId, missionId, role, role,
-          task, spawnDepth + 1, spawnCount, childModel, planLimits
+          ctx,
+          projectId,
+          missionId,
+          role,
+          role,
+          task,
+          spawnDepth + 1,
+          spawnCount,
+          childModel,
+          planLimits,
         );
         output = `Agent ${role} completed: ${childResult.slice(0, 300)}`;
         break;
@@ -375,14 +438,18 @@ async function executeTool(
     }
 
     await ctx.runMutation(api.engine.updateToolCall, {
-      toolCallId, status: "done",
+      toolCallId,
+      status: "done",
       result: output.slice(0, 2000),
     });
     return { tool: call.tool, success: true, output };
-
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
-    await ctx.runMutation(api.engine.updateToolCall, { toolCallId, status: "error", error });
+    await ctx.runMutation(api.engine.updateToolCall, {
+      toolCallId,
+      status: "error",
+      error,
+    });
     return { tool: call.tool, success: false, output: "", error };
   }
 }
@@ -406,11 +473,12 @@ async function runAgentLoop(
   spawnCount: { value: number },
   model: string,
   planLimits?: PlanLimits,
-  byok?: { callerPlan: string; userKeys?: Record<string, string> }
+  byok?: { callerPlan: string; userKeys?: Record<string, string> },
 ): Promise<string> {
   const files = await ctx.runQuery(api.files.listByProject, { projectId });
   const codeFiles = files.filter((f: any) => !f.isDirectory);
-  const fileList = codeFiles.map((f: any) => `  ${f.path}`).join("\n") || "  (empty project)";
+  const fileList =
+    codeFiles.map((f: any) => `  ${f.path}`).join("\n") || "  (empty project)";
 
   const SYSTEM_PROMPT = `You are ${agentName}, an expert software engineer agent inside CodeForge — the world's best autonomous coding platform.
 
@@ -439,7 +507,8 @@ Rules:
 4. If you need to read a file before editing, call read_file first.
 5. Spawn specialist agents for distinct sub-tasks.`;
 
-  const conversationHistory: { role: "user" | "assistant"; content: string }[] = [];
+  const conversationHistory: { role: "user" | "assistant"; content: string }[] =
+    [];
   const MAX_TURNS = 8;
   let fileWriteCount = 0;
   let turnsWithoutWrite = 0;
@@ -448,11 +517,15 @@ Rules:
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     // Build the user message for this turn
-    const turnMsg = conversationHistory.length === 0
-      ? `Begin your task. Respond with your first tool call as JSON.`
-      : `Tool result received. Continue with your next tool call, or call complete_task if done.`;
+    const turnMsg =
+      conversationHistory.length === 0
+        ? `Begin your task. Respond with your first tool call as JSON.`
+        : `Tool result received. Continue with your next tool call, or call complete_task if done.`;
 
-    const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
+    const messages: {
+      role: "system" | "user" | "assistant";
+      content: string;
+    }[] = [
       { role: "system", content: SYSTEM_PROMPT },
       // Keep only last 3 turns to avoid context overflow
       ...conversationHistory.slice(-6),
@@ -461,7 +534,9 @@ Rules:
 
     // Emit thought
     await ctx.runMutation(api.agentThoughts.emit, {
-      projectId, agentId, agentName,
+      projectId,
+      agentId,
+      agentName,
       type: "thinking",
       content: `Turn ${turn + 1}/${MAX_TURNS}: ${task.slice(0, 80)}…`,
       isStreaming: false,
@@ -477,7 +552,9 @@ Rules:
       rawResponse = text;
 
       await ctx.runMutation(api.agentThoughts.emit, {
-        projectId, agentId, agentName,
+        projectId,
+        agentId,
+        agentName,
         type: "action",
         content: `[${modelUsed}] ${rawResponse.slice(0, 150)}`,
         isStreaming: false,
@@ -485,7 +562,9 @@ Rules:
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       await ctx.runMutation(api.agentThoughts.emit, {
-        projectId, agentId, agentName,
+        projectId,
+        agentId,
+        agentName,
         type: "error",
         content: `AI error: ${errMsg}`,
         isStreaming: false,
@@ -497,8 +576,9 @@ Rules:
     let toolCall: ToolCall | null = null;
     try {
       // Extract JSON from response (may have markdown fences)
-      const jsonMatch = rawResponse.match(/```(?:json)?\s*([\s\S]*?)```/) ??
-                        rawResponse.match(/(\{[\s\S]*\})/);
+      const jsonMatch =
+        rawResponse.match(/```(?:json)?\s*([\s\S]*?)```/) ??
+        rawResponse.match(/(\{[\s\S]*\})/);
       const jsonStr = jsonMatch ? jsonMatch[1] : rawResponse.trim();
       const parsed = JSON.parse(jsonStr!);
       if (parsed.tool && parsed.args !== undefined) {
@@ -511,7 +591,8 @@ Rules:
         conversationHistory.push({ role: "assistant", content: rawResponse });
         conversationHistory.push({
           role: "user",
-          content: "Your response was not valid JSON. Respond ONLY with a JSON tool call object.",
+          content:
+            "Your response was not valid JSON. Respond ONLY with a JSON tool call object.",
         });
         continue;
       }
@@ -523,7 +604,9 @@ Rules:
     const toolKey = `${toolCall.tool}:${JSON.stringify(toolCall.args)}`;
     if (toolKey === lastToolCallKey) {
       await ctx.runMutation(api.agentThoughts.emit, {
-        projectId, agentId, agentName,
+        projectId,
+        agentId,
+        agentName,
         type: "warning",
         content: "Repeated tool call detected — forcing task completion.",
         isStreaming: false,
@@ -536,7 +619,9 @@ Rules:
     if (toolCall.tool === "complete_task") {
       finalSummary = (toolCall.args as any).summary ?? finalSummary;
       await ctx.runMutation(api.agentThoughts.emit, {
-        projectId, agentId, agentName,
+        projectId,
+        agentId,
+        agentName,
         type: "complete",
         content: finalSummary,
         isStreaming: false,
@@ -546,8 +631,16 @@ Rules:
 
     // Execute the tool
     const result = await executeTool(
-      ctx, projectId, missionId, agentId, agentName,
-      toolCall, depth, spawnCount, model, planLimits
+      ctx,
+      projectId,
+      missionId,
+      agentId,
+      agentName,
+      toolCall,
+      depth,
+      spawnCount,
+      model,
+      planLimits,
     );
 
     // Track progress
@@ -605,26 +698,32 @@ export const runMission = action({
       const limitsData = await ctx.runQuery(api.limits.getMyLimits, {});
       if (limitsData) {
         planLimits = {
-          maxSpawnDepth:       limitsData.limits.maxSpawnDepth,
+          maxSpawnDepth: limitsData.limits.maxSpawnDepth,
           maxSpawnsPerMission: limitsData.limits.maxSpawnsPerMission,
           maxConcurrentAgents: limitsData.limits.maxConcurrentAgents,
-          hardCapUsdMonthly:   limitsData.limits.hardCapUsdMonthly,
-          cappedOut:           false,
-          plan:                limitsData.plan,
+          hardCapUsdMonthly: limitsData.limits.hardCapUsdMonthly,
+          cappedOut: false,
+          plan: limitsData.plan,
         };
       }
     } catch {
       // Use generous defaults if limits query fails
       planLimits = {
-        maxSpawnDepth: 3, maxSpawnsPerMission: 25,
-        maxConcurrentAgents: 5, hardCapUsdMonthly: 10,
-        cappedOut: false, plan: "free",
+        maxSpawnDepth: 3,
+        maxSpawnsPerMission: 25,
+        maxConcurrentAgents: 5,
+        hardCapUsdMonthly: 10,
+        cappedOut: false,
+        plan: "free",
       };
     }
 
     // Resolve BYOK for this caller
     const userId = await ctx.runQuery(api.auth.currentUser, {});
-    const byok = await resolveByok(ctx, userId?._id ? String(userId._id) : undefined);
+    const byok = await resolveByok(
+      ctx,
+      userId?._id ? String(userId._id) : undefined,
+    );
 
     const result = await runAgentLoop(
       ctx,
@@ -637,13 +736,9 @@ export const runMission = action({
       spawnCount,
       model,
       planLimits,
-      byok
+      byok,
     );
 
     return result;
   },
 });
-
-
-
-

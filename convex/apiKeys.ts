@@ -11,10 +11,11 @@
  *   xai       → XAI_API_KEY (Grok)
  *   moonshot  → MOONSHOT_API_KEY (Kimi)
  */
-import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
+
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { v } from "convex/values";
 import { api } from "./_generated/api";
+import { action, mutation, query } from "./_generated/server";
 
 // ─── OBFUSCATION ─────────────────────────────────────────────────────────────
 // Simple XOR obfuscation — not cryptographic, but prevents plaintext storage
@@ -26,7 +27,9 @@ function obfuscate(text: string): string {
   const key = OBFUSCATION_KEY;
   let result = "";
   for (let i = 0; i < text.length; i++) {
-    result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    result += String.fromCharCode(
+      text.charCodeAt(i) ^ key.charCodeAt(i % key.length),
+    );
   }
   return Buffer.from(result, "binary").toString("base64");
 }
@@ -36,7 +39,9 @@ function deobfuscate(encoded: string): string {
   const text = Buffer.from(encoded, "base64").toString("binary");
   let result = "";
   for (let i = 0; i < text.length; i++) {
-    result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    result += String.fromCharCode(
+      text.charCodeAt(i) ^ key.charCodeAt(i % key.length),
+    );
   }
   return result;
 }
@@ -49,13 +54,25 @@ function maskKey(key: string): string {
 // ─── PROVIDER VALIDATION ──────────────────────────────────────────────────────
 
 const PROVIDER_ENDPOINTS: Record<string, { url: string; model: string }> = {
-  openai:   { url: "https://api.openai.com/v1/chat/completions",  model: "gpt-4o-mini" },
-  deepseek: { url: "https://api.deepseek.com/v1/chat/completions", model: "deepseek-chat" },
-  xai:      { url: "https://api.x.ai/v1/chat/completions",         model: "grok-3-fast" },
-  moonshot: { url: "https://api.moonshot.cn/v1/chat/completions",  model: "moonshot-v1-8k" },
+  openai: {
+    url: "https://api.openai.com/v1/chat/completions",
+    model: "gpt-4o-mini",
+  },
+  deepseek: {
+    url: "https://api.deepseek.com/v1/chat/completions",
+    model: "deepseek-chat",
+  },
+  xai: { url: "https://api.x.ai/v1/chat/completions", model: "grok-3-fast" },
+  moonshot: {
+    url: "https://api.moonshot.cn/v1/chat/completions",
+    model: "moonshot-v1-8k",
+  },
 };
 
-async function validateKeyWithProvider(provider: string, apiKey: string): Promise<{ valid: boolean; error?: string }> {
+async function validateKeyWithProvider(
+  provider: string,
+  apiKey: string,
+): Promise<{ valid: boolean; error?: string }> {
   const endpoint = PROVIDER_ENDPOINTS[provider];
   if (!endpoint) return { valid: false, error: "Unknown provider" };
 
@@ -76,14 +93,22 @@ async function validateKeyWithProvider(provider: string, apiKey: string): Promis
     // 200 or 400 (bad request but auth passed) = key is valid
     if (res.ok || res.status === 400) return { valid: true };
 
-    if (res.status === 401) return { valid: false, error: "Invalid API key — authentication failed" };
-    if (res.status === 403) return { valid: false, error: "API key lacks required permissions" };
+    if (res.status === 401)
+      return { valid: false, error: "Invalid API key — authentication failed" };
+    if (res.status === 403)
+      return { valid: false, error: "API key lacks required permissions" };
     if (res.status === 429) return { valid: true }; // rate limited = key exists and is valid
 
     const body = await res.text().catch(() => "");
-    return { valid: false, error: `Provider returned ${res.status}: ${body.slice(0, 100)}` };
+    return {
+      valid: false,
+      error: `Provider returned ${res.status}: ${body.slice(0, 100)}`,
+    };
   } catch (err) {
-    return { valid: false, error: `Network error: ${err instanceof Error ? err.message : "unknown"}` };
+    return {
+      valid: false,
+      error: `Network error: ${err instanceof Error ? err.message : "unknown"}`,
+    };
   }
 }
 
@@ -92,16 +117,16 @@ async function validateKeyWithProvider(provider: string, apiKey: string): Promis
 /** Returns masked key info for display — NEVER returns the actual key */
 export const listMyKeys = query({
   args: {},
-  handler: async (ctx) => {
+  handler: async ctx => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
 
     const keys = await ctx.db
       .query("userApiKeys")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", q => q.eq("userId", userId))
       .collect();
 
-    return keys.map((k) => ({
+    return keys.map(k => ({
       id: k._id,
       provider: k.provider,
       maskedKey: k.maskedKey,
@@ -121,8 +146,13 @@ export const getKeyForProvider = query({
 
     const keyRecord = await ctx.db
       .query("userApiKeys")
-      .withIndex("by_user_and_provider", (q) =>
-        q.eq("userId", userId).eq("provider", args.provider as "openai" | "deepseek" | "xai" | "moonshot")
+      .withIndex("by_user_and_provider", q =>
+        q
+          .eq("userId", userId)
+          .eq(
+            "provider",
+            args.provider as "openai" | "deepseek" | "xai" | "moonshot",
+          ),
       )
       .first();
 
@@ -137,7 +167,7 @@ export const getAllKeysForUser = query({
   handler: async (ctx, args) => {
     const keys = await ctx.db
       .query("userApiKeys")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user", q => q.eq("userId", args.userId))
       .collect();
 
     const result: Record<string, string> = {};
@@ -151,13 +181,13 @@ export const getAllKeysForUser = query({
 /** Check if the current user has at least one valid key saved */
 export const hasAnyKey = query({
   args: {},
-  handler: async (ctx) => {
+  handler: async ctx => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return false;
 
     const key = await ctx.db
       .query("userApiKeys")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", q => q.eq("userId", userId))
       .first();
 
     return key !== null;
@@ -173,23 +203,32 @@ export const saveKey = action({
       v.literal("openai"),
       v.literal("deepseek"),
       v.literal("xai"),
-      v.literal("moonshot")
+      v.literal("moonshot"),
     ),
     apiKey: v.string(),
   },
-  handler: async (ctx, args): Promise<{ success: boolean; error?: string; maskedKey?: string }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ success: boolean; error?: string; maskedKey?: string }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
     const trimmed = args.apiKey.trim();
     if (trimmed.length < 16) {
-      return { success: false, error: "API key is too short — please check and try again" };
+      return {
+        success: false,
+        error: "API key is too short — please check and try again",
+      };
     }
 
     // Validate before storing
     const validation = await validateKeyWithProvider(args.provider, trimmed);
     if (!validation.valid) {
-      return { success: false, error: validation.error ?? "Key validation failed" };
+      return {
+        success: false,
+        error: validation.error ?? "Key validation failed",
+      };
     }
 
     const encryptedKey = obfuscate(trimmed);
@@ -216,7 +255,7 @@ export const upsertKey = mutation({
       v.literal("openai"),
       v.literal("deepseek"),
       v.literal("xai"),
-      v.literal("moonshot")
+      v.literal("moonshot"),
     ),
     encryptedKey: v.string(),
     maskedKey: v.string(),
@@ -226,8 +265,8 @@ export const upsertKey = mutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("userApiKeys")
-      .withIndex("by_user_and_provider", (q) =>
-        q.eq("userId", args.userId).eq("provider", args.provider)
+      .withIndex("by_user_and_provider", q =>
+        q.eq("userId", args.userId).eq("provider", args.provider),
       )
       .first();
 
@@ -259,7 +298,7 @@ export const deleteKey = mutation({
       v.literal("openai"),
       v.literal("deepseek"),
       v.literal("xai"),
-      v.literal("moonshot")
+      v.literal("moonshot"),
     ),
   },
   handler: async (ctx, args) => {
@@ -268,8 +307,8 @@ export const deleteKey = mutation({
 
     const existing = await ctx.db
       .query("userApiKeys")
-      .withIndex("by_user_and_provider", (q) =>
-        q.eq("userId", userId).eq("provider", args.provider)
+      .withIndex("by_user_and_provider", q =>
+        q.eq("userId", userId).eq("provider", args.provider),
       )
       .first();
 

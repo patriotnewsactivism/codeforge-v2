@@ -1,10 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import {
-  RefreshCw,
-  ExternalLink,
-  Terminal,
-  X,
-} from "lucide-react";
+import { ExternalLink, RefreshCw, Terminal, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { Doc } from "../../../convex/_generated/dataModel";
 
@@ -32,13 +27,13 @@ export function LivePreview({
 
   const buildPreviewContent = useCallback(() => {
     const htmlFile = files.find(
-      (f) => f.name === "index.html" || f.path.endsWith(".html")
+      f => f.name === "index.html" || f.path.endsWith(".html"),
     );
     const cssFile = files.find(
-      (f) => f.name === "style.css" || f.path.endsWith(".css")
+      f => f.name === "style.css" || f.path.endsWith(".css"),
     );
     const jsFile = files.find(
-      (f) => f.name === "script.js" || f.path.endsWith(".js")
+      f => f.name === "script.js" || f.path.endsWith(".js"),
     );
 
     if (!htmlFile) {
@@ -63,7 +58,7 @@ export function LivePreview({
       if (html.includes(linkTag) || html.includes(`href="${cssFile.name}"`)) {
         html = html.replace(
           /<link[^>]*href=["'][^"']*\.css["'][^>]*>/gi,
-          styleTag
+          styleTag,
         );
       } else {
         html = html.replace("</head>", `${styleTag}\n</head>`);
@@ -73,11 +68,11 @@ export function LivePreview({
     // Inject JS if it exists
     if (jsFile) {
       const scriptSrc = `<script src="${jsFile.name}"></script>`;
-      const scriptInline = `<script>${jsFile.content}<\/script>`;
+      const scriptInline = `<script>${jsFile.content}</script>`;
       if (html.includes(scriptSrc) || html.includes(`src="${jsFile.name}"`)) {
         html = html.replace(
           /<script[^>]*src=["'][^"']*\.js["'][^>]*><\/script>/gi,
-          scriptInline
+          scriptInline,
         );
       } else {
         html = html.replace("</body>", `${scriptInline}\n</body>`);
@@ -111,7 +106,7 @@ export function LivePreview({
             }, '*');
           };
         })();
-      <\/script>
+      </script>
     `;
     html = html.replace("<head>", `<head>${consoleInterceptor}`);
 
@@ -121,7 +116,7 @@ export function LivePreview({
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       if (event.data?.type === "console") {
-        setConsoleMessages((prev) => [
+        setConsoleMessages(prev => [
           ...prev.slice(-100), // Keep last 100 messages
           {
             type: event.data.method,
@@ -137,7 +132,7 @@ export function LivePreview({
 
   const refresh = useCallback(() => {
     setConsoleMessages([]);
-    setRefreshKey((k) => k + 1);
+    setRefreshKey(k => k + 1);
   }, []);
 
   // Auto-refresh on file changes
@@ -145,7 +140,7 @@ export function LivePreview({
     if (autoRefresh) {
       refresh();
     }
-  }, [files.map((f) => f.content).join(""), autoRefresh, refresh]);
+  }, [files.map(f => f.content).join(""), autoRefresh, refresh]);
 
   const previewContent = buildPreviewContent();
 
@@ -178,7 +173,7 @@ export function LivePreview({
               "px-2 py-0.5 text-[10px] rounded",
               autoRefresh
                 ? "bg-primary/20 text-primary"
-                : "bg-[oklch(0.18_0.02_260)] text-muted-foreground"
+                : "bg-[oklch(0.18_0.02_260)] text-muted-foreground",
             )}
             onClick={onToggleAutoRefresh}
             title="Auto-refresh on save"
@@ -208,7 +203,7 @@ export function LivePreview({
             title="Toggle console"
           >
             <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
-            {consoleMessages.some((m) => m.type === "error") && (
+            {consoleMessages.some(m => m.type === "error") && (
               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-destructive rounded-full" />
             )}
           </button>
@@ -271,15 +266,11 @@ export function LivePreview({
                   msg.type === "error" && "text-red-400 bg-red-500/5",
                   msg.type === "warn" && "text-yellow-400 bg-yellow-500/5",
                   msg.type === "info" && "text-blue-400",
-                  msg.type === "log" && "text-foreground/80"
+                  msg.type === "log" && "text-foreground/80",
                 )}
               >
                 <span className="text-muted-foreground/40 mr-2">
-                  {msg.type === "error"
-                    ? "✕"
-                    : msg.type === "warn"
-                      ? "⚠"
-                      : "›"}
+                  {msg.type === "error" ? "✕" : msg.type === "warn" ? "⚠" : "›"}
                 </span>
                 {msg.content}
               </div>

@@ -65,3 +65,14 @@ export function PreviewSkeleton() {
     </div>
   );
 }
+
+export function PanelSkeleton() {
+  return (
+    <div className="h-full flex items-center justify-center animate-pulse">
+      <div className="space-y-3 text-center">
+        <div className="h-6 w-6 bg-muted rounded-full mx-auto" />
+        <div className="h-3 w-24 bg-muted/60 rounded mx-auto" />
+      </div>
+    </div>
+  );
+}

@@ -1,6 +1,6 @@
 import { runTest } from "../auth";
 
-runTest("IDE Critical Path", async (helper) => {
+runTest("IDE Critical Path", async helper => {
   const { page } = helper;
 
   console.log("Step 1: Navigate to /dashboard");
@@ -74,7 +74,7 @@ runTest("IDE Critical Path", async (helper) => {
     .catch(() => false);
 
   console.log(
-    `   File tree: ${hasFileTree}, Editor: ${hasEditor}, Chat tab: ${hasChatTab}`
+    `   File tree: ${hasFileTree}, Editor: ${hasEditor}, Chat tab: ${hasChatTab}`,
   );
 
   if (!hasFileTree && !hasEditor && !hasChatTab) {
@@ -82,5 +82,4 @@ runTest("IDE Critical Path", async (helper) => {
     throw new Error("IDE core components not detected");
   }
   console.log("   ✓ IDE loaded successfully");
-
 }).catch(() => process.exit(1));

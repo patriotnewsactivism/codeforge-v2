@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -11,6 +10,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 
@@ -101,18 +101,31 @@ function TreeItem({
   const isActive = activeFilePath === node.path;
 
   // Find collaborators viewing this file
-  const viewingCollabs = collaborators?.filter(
-    (c) => c.activeFile === node.path
-  );
+  const viewingCollabs = collaborators?.filter(c => c.activeFile === node.path);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (node.isDirectory) {
+        setExpanded(!expanded);
+      } else if (node.file) {
+        onFileSelect(node.file);
+      }
+    }
+  };
 
   return (
-    <div>
+    <div
+      role="treeitem"
+      aria-expanded={node.isDirectory ? expanded : undefined}
+    >
       <div
         className={cn(
           "flex items-center gap-1 px-2 py-1 cursor-pointer text-sm hover:bg-[oklch(0.20_0.02_260)] rounded-sm group relative",
-          isActive && "bg-[oklch(0.22_0.02_260)] text-[oklch(0.75_0.18_190)]"
+          isActive && "bg-[oklch(0.22_0.02_260)] text-[oklch(0.75_0.18_190)]",
         )}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
+        tabIndex={0}
         onClick={() => {
           if (node.isDirectory) {
             setExpanded(!expanded);
@@ -120,6 +133,7 @@ function TreeItem({
             onFileSelect(node.file);
           }
         }}
+        onKeyDown={handleKeyDown}
       >
         {node.isDirectory ? (
           expanded ? (
@@ -144,7 +158,7 @@ function TreeItem({
         {/* Collaborator dots */}
         {viewingCollabs && viewingCollabs.length > 0 && (
           <div className="flex gap-0.5 mr-1">
-            {viewingCollabs.map((c) => (
+            {viewingCollabs.map(c => (
               <div
                 key={c._id}
                 className="w-2 h-2 rounded-full"
@@ -160,7 +174,8 @@ function TreeItem({
           <button
             type="button"
             className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-destructive transition-opacity"
-            onClick={(e) => {
+            aria-label={`Delete ${node.name}`}
+            onClick={e => {
               e.stopPropagation();
               onDeleteFile(node.file!._id);
             }}
@@ -172,7 +187,7 @@ function TreeItem({
 
       {node.isDirectory && expanded && (
         <div>
-          {node.children.map((child) => (
+          {node.children.map(child => (
             <TreeItem
               key={child.path}
               node={child}
@@ -220,7 +235,7 @@ export function FileTree({
           type="button"
           className="p-1 hover:bg-[oklch(0.20_0.02_260)] rounded"
           onClick={() => setIsCreating(!isCreating)}
-          title="New file"
+          aria-label="New file"
         >
           <Plus className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
@@ -232,9 +247,10 @@ export function FileTree({
             type="text"
             className="w-full bg-[oklch(0.18_0.02_260)] border border-border rounded px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             placeholder="filename.ext"
+            aria-label="New file name"
             value={newFileName}
-            onChange={(e) => setNewFileName(e.target.value)}
-            onKeyDown={(e) => {
+            onChange={e => setNewFileName(e.target.value)}
+            onKeyDown={e => {
               if (e.key === "Enter") handleCreate();
               if (e.key === "Escape") {
                 setIsCreating(false);
@@ -246,8 +262,8 @@ export function FileTree({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto py-1">
-        {tree.map((node) => (
+      <div className="flex-1 overflow-y-auto py-1" role="tree">
+        {tree.map(node => (
           <TreeItem
             key={node.path}
             node={node}

@@ -18,8 +18,8 @@
  */
 
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
+import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
 
 // ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
@@ -27,7 +27,7 @@ import { callAIWithFallback, getModelForRole } from "./ai";
 // Weekly/monthly/free users use platform process.env keys (no userKeys passed).
 async function resolveByok(
   ctx: any,
-  userId?: string
+  userId?: string,
 ): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
   try {
     const sub = await ctx.runQuery(api.limits.getMyLimits, {});
@@ -37,12 +37,12 @@ async function resolveByok(
 
     const userKeys: Record<string, string> = await ctx.runQuery(
       api.apiKeys.getAllKeysForUser,
-      { userId }
+      { userId },
     );
     if (!userKeys || Object.keys(userKeys).length === 0) {
       throw new Error(
         "⚠️ Lifetime plan requires your own API key. " +
-          "Add one in Settings → API Keys to use AI features."
+          "Add one in Settings → API Keys to use AI features.",
       );
     }
     return { callerPlan, userKeys };
@@ -52,30 +52,33 @@ async function resolveByok(
   }
 }
 
-
-
 // ─── TYPES ──────────────────────────────────────────────────────────────────
 
 export type FailureClass =
-  | "prompt_failure"       // agent misunderstood its instructions
-  | "model_failure"        // model returned garbage / hallucinated
-  | "tool_failure"         // tool returned error or unexpected result
-  | "logic_error"          // agent took wrong sequence of actions
-  | "scope_creep"          // agent did more than instructed
-  | "context_overflow"     // agent lost track of context mid-run
-  | "sentry_violation"     // attempted a disallowed operation
-  | "ci_failure"           // code passed agents but failed CI
+  | "prompt_failure" // agent misunderstood its instructions
+  | "model_failure" // model returned garbage / hallucinated
+  | "tool_failure" // tool returned error or unexpected result
+  | "logic_error" // agent took wrong sequence of actions
+  | "scope_creep" // agent did more than instructed
+  | "context_overflow" // agent lost track of context mid-run
+  | "sentry_violation" // attempted a disallowed operation
+  | "ci_failure" // code passed agents but failed CI
   | "unknown";
 
 export interface ForensicReport {
   missionId: string;
   failureClass: FailureClass;
   rootCause: string;
-  evidenceQuotes: string[];    // exact quotes from tool calls / thoughts that prove it
-  proposedMutation: string;    // what should change to prevent this
-  mutationTarget: "prompt" | "tool_policy" | "retry_strategy" | "model_assignment" | "none";
+  evidenceQuotes: string[]; // exact quotes from tool calls / thoughts that prove it
+  proposedMutation: string; // what should change to prevent this
+  mutationTarget:
+    | "prompt"
+    | "tool_policy"
+    | "retry_strategy"
+    | "model_assignment"
+    | "none";
   severity: "low" | "medium" | "high" | "critical";
-  confidence: number;          // 0–100
+  confidence: number; // 0–100
 }
 
 // ─── DB ──────────────────────────────────────────────────────────────────────
@@ -119,7 +122,10 @@ export const markMutationApplied = mutation({
   args: { reportId: v.id("forensicReports") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.reportId, { mutationApplied: true, appliedAt: Date.now() });
+    await ctx.db.patch(args.reportId, {
+      mutationApplied: true,
+      appliedAt: Date.now(),
+    });
     return null;
   },
 });
@@ -133,10 +139,10 @@ export const listReports = query({
   handler: async (ctx, args) => {
     const all = await ctx.db
       .query("forensicReports")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .take(args.limit ?? 50);
-    if (args.unappliedOnly) return all.filter((r) => !r.mutationApplied);
+    if (args.unappliedOnly) return all.filter(r => !r.mutationApplied);
     return all;
   },
 });
@@ -154,11 +160,11 @@ export const runForensicAnalysis = action({
     missionId: v.optional(v.id("buildSessions")),
     buildSessionId: v.optional(v.id("buildSessions")),
     // Provide as much evidence as available
-    failureSummary: v.string(),           // human-readable description of what went wrong
-    agentThoughts: v.optional(v.array(v.string())),   // recent thought stream entries
-    toolCallErrors: v.optional(v.array(v.string())),  // tool call error messages
+    failureSummary: v.string(), // human-readable description of what went wrong
+    agentThoughts: v.optional(v.array(v.string())), // recent thought stream entries
+    toolCallErrors: v.optional(v.array(v.string())), // tool call error messages
     sentryViolations: v.optional(v.array(v.string())), // sentry violation details
-    ciLogs: v.optional(v.string()),       // CI failure output
+    ciLogs: v.optional(v.string()), // CI failure output
     agentsInvolved: v.optional(v.array(v.string())),
   },
   returns: v.object({
@@ -173,15 +179,23 @@ export const runForensicAnalysis = action({
   handler: async (ctx, args) => {
     // Build evidence block
     const thoughtsBlock = args.agentThoughts?.length
-      ? `\nAgent thoughts (recent):\n${args.agentThoughts.slice(-10).map((t) => `  - ${t}`).join("\n")}`
+      ? `\nAgent thoughts (recent):\n${args.agentThoughts
+          .slice(-10)
+          .map(t => `  - ${t}`)
+          .join("\n")}`
       : "";
     const errorsBlock = args.toolCallErrors?.length
-      ? `\nTool call errors:\n${args.toolCallErrors.slice(-10).map((e) => `  - ${e}`).join("\n")}`
+      ? `\nTool call errors:\n${args.toolCallErrors
+          .slice(-10)
+          .map(e => `  - ${e}`)
+          .join("\n")}`
       : "";
     const sentryBlock = args.sentryViolations?.length
-      ? `\nSentry violations:\n${args.sentryViolations.map((v) => `  - ${v}`).join("\n")}`
+      ? `\nSentry violations:\n${args.sentryViolations.map(v => `  - ${v}`).join("\n")}`
       : "";
-    const ciBlock = args.ciLogs ? `\nCI logs (tail):\n${args.ciLogs.slice(-2000)}` : "";
+    const ciBlock = args.ciLogs
+      ? `\nCI logs (tail):\n${args.ciLogs.slice(-2000)}`
+      : "";
     const agentsBlock = args.agentsInvolved?.length
       ? `\nAgents involved: ${args.agentsInvolved.join(", ")}`
       : "";
@@ -244,7 +258,8 @@ Respond with JSON only:
     };
 
     try {
-      const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? raw.match(/(\{[\s\S]*\})/);
+      const jsonMatch =
+        raw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? raw.match(/(\{[\s\S]*\})/);
       const parsed = JSON.parse(jsonMatch ? jsonMatch[1]! : raw.trim());
       report = {
         missionId: args.missionId ?? "unknown",
@@ -256,7 +271,9 @@ Respond with JSON only:
         severity: parsed.severity ?? "medium",
         confidence: Math.min(100, Math.max(0, parsed.confidence ?? 0)),
       };
-    } catch { /* use defaults */ }
+    } catch {
+      /* use defaults */
+    }
 
     const reportId = await ctx.runMutation(api.forensic.saveReport, {
       projectId: args.projectId,
@@ -273,9 +290,13 @@ Respond with JSON only:
 
     // Broadcast finding
     const severityEmoji =
-      report.severity === "critical" ? "🔴" :
-      report.severity === "high" ? "🟠" :
-      report.severity === "medium" ? "🟡" : "🟢";
+      report.severity === "critical"
+        ? "🔴"
+        : report.severity === "high"
+          ? "🟠"
+          : report.severity === "medium"
+            ? "🟡"
+            : "🟢";
 
     await ctx.runMutation(api.agentThoughts.emit, {
       projectId: args.projectId,
@@ -312,7 +333,3 @@ Respond with JSON only:
     };
   },
 });
-
-
-
-

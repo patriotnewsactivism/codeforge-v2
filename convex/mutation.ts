@@ -17,8 +17,8 @@
  */
 
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
+import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
 
 // ─── DB ──────────────────────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ export const updateMutationStatus = mutation({
   handler: async (ctx, args) => {
     const { mutationId, ...patch } = args;
     const filtered = Object.fromEntries(
-      Object.entries(patch).filter(([, v]) => v !== undefined)
+      Object.entries(patch).filter(([, v]) => v !== undefined),
     );
     await ctx.db.patch(mutationId, filtered);
     return null;
@@ -83,22 +83,24 @@ export const updateMutationStatus = mutation({
 export const listMutations = query({
   args: {
     projectId: v.id("projects"),
-    status: v.optional(v.union(
-      v.literal("pending_review"),
-      v.literal("pending_apply"),
-      v.literal("applied"),
-      v.literal("rejected"),
-      v.literal("rolled_back"),
-    )),
+    status: v.optional(
+      v.union(
+        v.literal("pending_review"),
+        v.literal("pending_apply"),
+        v.literal("applied"),
+        v.literal("rejected"),
+        v.literal("rolled_back"),
+      ),
+    ),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const all = await ctx.db
       .query("mutationLog")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .take(args.limit ?? 50);
-    if (args.status) return all.filter((m) => m.status === args.status);
+    if (args.status) return all.filter(m => m.status === args.status);
     return all;
   },
 });
@@ -108,9 +110,9 @@ export const getActiveMutations = query({
   handler: async (ctx, args) => {
     const all = await ctx.db
       .query("mutationLog")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
-    return all.filter((m) => m.status === "applied");
+    return all.filter(m => m.status === "applied");
   },
 });
 
@@ -224,10 +226,14 @@ JSON only, no other text.`;
 
     let patch = patchRaw;
     try {
-      const jsonMatch = patchRaw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? patchRaw.match(/(\{[\s\S]*\})/);
+      const jsonMatch =
+        patchRaw.match(/```(?:json)?\s*([\s\S]*?)```/) ??
+        patchRaw.match(/(\{[\s\S]*\})/);
       const parsed = JSON.parse(jsonMatch ? jsonMatch[1]! : patchRaw.trim());
       patch = JSON.stringify(parsed, null, 2);
-    } catch { /* use raw */ }
+    } catch {
+      /* use raw */
+    }
 
     await ctx.runMutation(api.mutation.updateMutationStatus, {
       mutationId,
@@ -281,6 +287,3 @@ export const rollbackMutation = action({
     return { success: true };
   },
 });
-
-
-

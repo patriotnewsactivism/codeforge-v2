@@ -8,20 +8,23 @@
  *   upsertSubscription     (mutation) — create/update subscription record
  */
 import { v } from "convex/values";
-import { action, httpAction, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
+import { action, httpAction, mutation, query } from "./_generated/server";
 
 const APP_URL = "https://codeforge.app";
 
 const PRICE_TO_PLAN: Record<string, string> = {
-  "price_1TT78bDmDTj65rCTbextWLwt": "weekly",
-  "price_1TT78cDmDTj65rCTxe6Beytp": "monthly",
-  "price_1TT8YfDmDTj65rCTwMQkha7J": "lifetime",
+  price_1TT78bDmDTj65rCTbextWLwt: "weekly",
+  price_1TT78cDmDTj65rCTxe6Beytp: "monthly",
+  price_1TT8YfDmDTj65rCTwMQkha7J: "lifetime",
 };
 
-const PLAN_PRICES: Record<string, { priceId: string; mode: "subscription" | "payment" }> = {
-  weekly:   { priceId: "price_1TT78bDmDTj65rCTbextWLwt", mode: "subscription" },
-  monthly:  { priceId: "price_1TT78cDmDTj65rCTxe6Beytp", mode: "subscription" },
+const PLAN_PRICES: Record<
+  string,
+  { priceId: string; mode: "subscription" | "payment" }
+> = {
+  weekly: { priceId: "price_1TT78bDmDTj65rCTbextWLwt", mode: "subscription" },
+  monthly: { priceId: "price_1TT78cDmDTj65rCTxe6Beytp", mode: "subscription" },
   lifetime: { priceId: "price_1TT8YfDmDTj65rCTwMQkha7J", mode: "payment" },
 };
 
@@ -31,11 +34,19 @@ const PLAN_PRICES: Record<string, { priceId: string; mode: "subscription" | "pay
 
 export const createCheckoutSession = action({
   args: {
-    plan: v.union(v.literal("weekly"), v.literal("monthly"), v.literal("lifetime")),
+    plan: v.union(
+      v.literal("weekly"),
+      v.literal("monthly"),
+      v.literal("lifetime"),
+    ),
     userId: v.optional(v.string()),
     email: v.optional(v.string()),
   },
-  returns: v.object({ url: v.string(), sessionId: v.string(), plan: v.string() }),
+  returns: v.object({
+    url: v.string(),
+    sessionId: v.string(),
+    plan: v.string(),
+  }),
   handler: async (_ctx, args) => {
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY not configured");
@@ -47,10 +58,10 @@ export const createCheckoutSession = action({
       "payment_method_types[]": "card",
       "line_items[0][price]": planCfg.priceId,
       "line_items[0][quantity]": "1",
-      "mode": planCfg.mode,
-      "success_url": `${APP_URL}/dashboard?checkout=success&plan=${args.plan}`,
-      "cancel_url": `${APP_URL}/pricing?checkout=cancelled`,
-      "allow_promotion_codes": "true",
+      mode: planCfg.mode,
+      success_url: `${APP_URL}/dashboard?checkout=success&plan=${args.plan}`,
+      cancel_url: `${APP_URL}/pricing?checkout=cancelled`,
+      allow_promotion_codes: "true",
     });
 
     if (args.email) params.set("customer_email", args.email);
@@ -69,11 +80,11 @@ export const createCheckoutSession = action({
     });
 
     if (!res.ok) {
-      const err = (await res.json() as any).error?.message ?? "Stripe error";
+      const err = ((await res.json()) as any).error?.message ?? "Stripe error";
       throw new Error(err);
     }
 
-    const session = await res.json() as any;
+    const session = (await res.json()) as any;
     return { url: session.url, sessionId: session.id, plan: args.plan };
   },
 });
@@ -84,7 +95,8 @@ export const createCheckoutSession = action({
 
 export const stripeWebhook = httpAction(async (ctx, req) => {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!webhookSecret) return new Response("Webhook not configured", { status: 500 });
+  if (!webhookSecret)
+    return new Response("Webhook not configured", { status: 500 });
 
   const body = await req.text();
   const sig = req.headers.get("stripe-signature") ?? "";
@@ -105,7 +117,10 @@ export const stripeWebhook = httpAction(async (ctx, req) => {
       case "checkout.session.completed": {
         const userId = obj.metadata?.userId as any;
         const planKey = (obj.metadata?.plan as string) ?? "monthly";
-        if (!userId) { console.warn("No userId in metadata"); break; }
+        if (!userId) {
+          console.warn("No userId in metadata");
+          break;
+        }
 
         await ctx.runMutation(api.stripe.upsertSubscription, {
           userId,
@@ -124,11 +139,17 @@ export const stripeWebhook = httpAction(async (ctx, req) => {
       case "invoice.payment_succeeded": {
         const customerId = obj.customer as string;
         const subId = obj.subscription as string;
-        const periodEnd = obj.lines?.data?.[0]?.period?.end as number | undefined;
+        const periodEnd = obj.lines?.data?.[0]?.period?.end as
+          | number
+          | undefined;
         const priceId = obj.lines?.data?.[0]?.price?.id as string | undefined;
-        const planKey = priceId ? (PRICE_TO_PLAN[priceId] ?? "monthly") : "monthly";
+        const planKey = priceId
+          ? (PRICE_TO_PLAN[priceId] ?? "monthly")
+          : "monthly";
 
-        const existingSub = await ctx.runQuery(api.stripe.getSubByCustomerId, { customerId });
+        const existingSub = await ctx.runQuery(api.stripe.getSubByCustomerId, {
+          customerId,
+        });
         if (existingSub) {
           await ctx.runMutation(api.stripe.upsertSubscription, {
             userId: existingSub.userId,
@@ -145,7 +166,9 @@ export const stripeWebhook = httpAction(async (ctx, req) => {
 
       case "invoice.payment_failed": {
         const customerId = obj.customer as string;
-        const existingSub = await ctx.runQuery(api.stripe.getSubByCustomerId, { customerId });
+        const existingSub = await ctx.runQuery(api.stripe.getSubByCustomerId, {
+          customerId,
+        });
         if (existingSub) {
           await ctx.runMutation(api.stripe.upsertSubscription, {
             userId: existingSub.userId,
@@ -159,7 +182,9 @@ export const stripeWebhook = httpAction(async (ctx, req) => {
 
       case "customer.subscription.deleted": {
         const customerId = obj.customer as string;
-        const existingSub = await ctx.runQuery(api.stripe.getSubByCustomerId, { customerId });
+        const existingSub = await ctx.runQuery(api.stripe.getSubByCustomerId, {
+          customerId,
+        });
         if (existingSub) {
           await ctx.runMutation(api.stripe.upsertSubscription, {
             userId: existingSub.userId,
@@ -192,7 +217,9 @@ export const getSubByCustomerId = query({
   handler: async (ctx, { customerId }) => {
     return await ctx.db
       .query("subscriptions")
-      .withIndex("by_stripe_customer", (q) => q.eq("stripeCustomerId", customerId))
+      .withIndex("by_stripe_customer", q =>
+        q.eq("stripeCustomerId", customerId),
+      )
       .first();
   },
 });
@@ -213,7 +240,7 @@ export const upsertSubscription = mutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("subscriptions")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user", q => q.eq("userId", args.userId))
       .first();
 
     if (existing) {
@@ -239,12 +266,15 @@ export const upsertSubscription = mutation({
 
     // Also update the users table plan field if it exists
     try {
-      const user = await ctx.db
+      const user = (await ctx.db
         .query("users")
         .withIndex("by_id", (q: any) => q.eq("_id", args.userId))
-        .first() as any;
+        .first()) as any;
       if (user) {
-        await ctx.db.patch(user._id, { plan: args.planKey, subscriptionStatus: args.status } as any);
+        await ctx.db.patch(user._id, {
+          plan: args.planKey,
+          subscriptionStatus: args.status,
+        } as any);
       }
     } catch (_) {
       // users table may not have these fields yet — non-fatal
@@ -256,7 +286,11 @@ export const upsertSubscription = mutation({
 // Stripe HMAC-SHA256 signature verification (no external deps)
 // ────────────────────────────────────────────────────────────────────────────
 
-async function verifyStripeSignature(body: string, signature: string, secret: string) {
+async function verifyStripeSignature(
+  body: string,
+  signature: string,
+  secret: string,
+) {
   const parts: Record<string, string> = {};
   for (const seg of signature.split(",")) {
     const eq = seg.indexOf("=");
@@ -272,19 +306,22 @@ async function verifyStripeSignature(body: string, signature: string, secret: st
 
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
-    "raw", encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
   );
 
   const sigBytes = await crypto.subtle.sign(
-    "HMAC", key, encoder.encode(`${timestamp}.${body}`)
+    "HMAC",
+    key,
+    encoder.encode(`${timestamp}.${body}`),
   );
   const computed = Array.from(new Uint8Array(sigBytes))
-    .map((b) => b.toString(16).padStart(2, "0")).join("");
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
 
   if (computed !== expectedSig) throw new Error("Signature mismatch");
   return JSON.parse(body);
 }
-
-
-

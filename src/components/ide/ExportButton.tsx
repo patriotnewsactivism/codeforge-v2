@@ -6,13 +6,14 @@
  * One-click download of an entire project as a .zip file.
  * Preserves directory structure.
  */
-import type { Id } from "../../../convex/_generated/dataModel";
+
 import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { useState, useCallback } from "react";
-import { Button } from "@/components/ui/button";
-import { Download, Loader2, Check } from "lucide-react";
+import { Check, Download, Loader2 } from "lucide-react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 interface ExportButtonProps {
   projectId: Id<"projects"> | null;
@@ -36,7 +37,7 @@ export function ExportButton({
 
   const files = useQuery(
     api.files.listByProject,
-    projectId ? { projectId } : "skip"
+    projectId ? { projectId } : "skip",
   );
 
   const handleExport = useCallback(async () => {

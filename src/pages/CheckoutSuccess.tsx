@@ -1,6 +1,6 @@
+import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import { CheckCircle2, ArrowRight } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 export function CheckoutSuccess() {
   const [params] = useSearchParams();
@@ -10,8 +10,11 @@ export function CheckoutSuccess() {
 
   useEffect(() => {
     const t = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) { clearInterval(t); navigate("/dashboard"); }
+      setCountdown(c => {
+        if (c <= 1) {
+          clearInterval(t);
+          navigate("/dashboard");
+        }
         return c - 1;
       });
     }, 1000);
@@ -19,7 +22,9 @@ export function CheckoutSuccess() {
   }, [navigate]);
 
   const planNames: Record<string, string> = {
-    weekly: "Weekly Pro", monthly: "Monthly Pro", lifetime: "Lifetime Founder"
+    weekly: "Weekly Pro",
+    monthly: "Monthly Pro",
+    lifetime: "Lifetime Founder",
   };
 
   return (
@@ -32,8 +37,11 @@ export function CheckoutSuccess() {
         </div>
         <h1 className="text-3xl font-black mb-2">You're in! 🎉</h1>
         <p className="text-muted-foreground mb-2">
-          Welcome to <span className="text-foreground font-semibold">{planNames[plan] ?? "CodeForge Pro"}</span>.
-          Your plan is active.
+          Welcome to{" "}
+          <span className="text-foreground font-semibold">
+            {planNames[plan] ?? "CodeForge Pro"}
+          </span>
+          . Your plan is active.
         </p>
         <p className="text-sm text-muted-foreground mb-8">
           Redirecting to dashboard in {countdown}s…

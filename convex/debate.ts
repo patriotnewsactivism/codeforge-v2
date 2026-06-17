@@ -13,9 +13,9 @@
  */
 
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
 
 // ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
@@ -23,7 +23,7 @@ import { callAIWithFallback, getModelForRole } from "./ai";
 // Weekly/monthly/free users use platform process.env keys (no userKeys passed).
 async function resolveByok(
   ctx: any,
-  userId?: string
+  userId?: string,
 ): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
   try {
     const sub = await ctx.runQuery(api.limits.getMyLimits, {});
@@ -33,12 +33,12 @@ async function resolveByok(
 
     const userKeys: Record<string, string> = await ctx.runQuery(
       api.apiKeys.getAllKeysForUser,
-      { userId }
+      { userId },
     );
     if (!userKeys || Object.keys(userKeys).length === 0) {
       throw new Error(
         "⚠️ Lifetime plan requires your own API key. " +
-          "Add one in Settings → API Keys to use AI features."
+          "Add one in Settings → API Keys to use AI features.",
       );
     }
     return { callerPlan, userKeys };
@@ -47,8 +47,6 @@ async function resolveByok(
     return { callerPlan: "free" };
   }
 }
-
-
 
 // ─── TYPES ─────────────────────────────────────────────────────────────────
 
@@ -61,9 +59,9 @@ export interface DebateResult {
   opponentArgument: string;
   moderatorReasoning: string;
   verdict: DebateVerdict;
-  refinements?: string[];      // populated when verdict = REFINE
-  escalationReason?: string;   // populated when verdict = ESCALATE
-  confidence: number;          // 0–100
+  refinements?: string[]; // populated when verdict = REFINE
+  escalationReason?: string; // populated when verdict = ESCALATE
+  confidence: number; // 0–100
   durationMs: number;
 }
 
@@ -80,7 +78,7 @@ export const saveDebate = mutation({
     verdict: v.union(
       v.literal("PROCEED"),
       v.literal("REFINE"),
-      v.literal("ESCALATE")
+      v.literal("ESCALATE"),
     ),
     refinements: v.optional(v.array(v.string())),
     escalationReason: v.optional(v.string()),
@@ -101,7 +99,10 @@ export const approveEscalation = mutation({
   args: { debateId: v.id("debates") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.debateId, { humanApproved: true, approvedAt: Date.now() });
+    await ctx.db.patch(args.debateId, {
+      humanApproved: true,
+      approvedAt: Date.now(),
+    });
     return null;
   },
 });
@@ -114,7 +115,7 @@ export const listDebates = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("debates")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .take(args.limit ?? 50);
   },
@@ -131,23 +132,26 @@ export const runDebate = action({
   args: {
     projectId: v.id("projects"),
     proposal: v.string(),
-    context: v.optional(v.string()),         // codebase context, file list, etc.
+    context: v.optional(v.string()), // codebase context, file list, etc.
     buildSessionId: v.optional(v.id("buildSessions")),
-    operationType: v.optional(v.union(       // helps calibrate verdict thresholds
-      v.literal("architectural"),            // high stakes — schema, infra, stack
-      v.literal("destructive"),              // delete files, drop tables
-      v.literal("refactor"),                 // code restructure
-      v.literal("feature"),                  // new feature addition
-      v.literal("bugfix"),                   // bug fix
-      v.literal("style")                     // cosmetic/formatting
-    )),
+    operationType: v.optional(
+      v.union(
+        // helps calibrate verdict thresholds
+        v.literal("architectural"), // high stakes — schema, infra, stack
+        v.literal("destructive"), // delete files, drop tables
+        v.literal("refactor"), // code restructure
+        v.literal("feature"), // new feature addition
+        v.literal("bugfix"), // bug fix
+        v.literal("style"), // cosmetic/formatting
+      ),
+    ),
   },
   returns: v.object({
     debateId: v.id("debates"),
     verdict: v.union(
       v.literal("PROCEED"),
       v.literal("REFINE"),
-      v.literal("ESCALATE")
+      v.literal("ESCALATE"),
     ),
     proponentArgument: v.string(),
     opponentArgument: v.string(),
@@ -175,12 +179,15 @@ Do NOT hedge. You are arguing FOR this change.`;
 
     // BYOK: resolve caller plan + keys for lifetime users
     const byok = await resolveByok(ctx);
-    const { text: proponentArgument } = await callAIWithFallback(proponentPrompt, {
-      model: getModelForRole("architect"),
-      temperature: 0.4,
-      callerPlan: byok?.callerPlan,
-      userKeys: byok?.userKeys,
-    });
+    const { text: proponentArgument } = await callAIWithFallback(
+      proponentPrompt,
+      {
+        model: getModelForRole("architect"),
+        temperature: 0.4,
+        callerPlan: byok?.callerPlan,
+        userKeys: byok?.userKeys,
+      },
+    );
 
     // ── Round 2: Opponent ──────────────────────────────────────────────────
     const opponentPrompt = `You are the Opponent agent in a CodeForge architectural debate.
@@ -195,12 +202,15 @@ Respond with your strongest objections (3–5 sentences max). Focus on concrete 
 breaking changes, performance regressions, security issues, or architectural debt.
 Do NOT agree with the proponent. You are finding problems.`;
 
-    const { text: opponentArgument } = await callAIWithFallback(opponentPrompt, {
-      model: getModelForRole("reviewer"),
-      temperature: 0.4,
-      callerPlan: byok?.callerPlan,
-      userKeys: byok?.userKeys,
-    });
+    const { text: opponentArgument } = await callAIWithFallback(
+      opponentPrompt,
+      {
+        model: getModelForRole("reviewer"),
+        temperature: 0.4,
+        callerPlan: byok?.callerPlan,
+        userKeys: byok?.userKeys,
+      },
+    );
 
     // ── Round 3: Moderator ─────────────────────────────────────────────────
     // Verdict thresholds vary by operation type
@@ -208,8 +218,8 @@ Do NOT agree with the proponent. You are finding problems.`;
       opType === "destructive" || opType === "architectural"
         ? "This is a HIGH-STAKES operation. Default to ESCALATE unless proponent's case is overwhelming."
         : opType === "bugfix" || opType === "style"
-        ? "This is a LOW-RISK operation. Default to PROCEED unless opponent raises a concrete critical issue."
-        : "Apply balanced judgment.";
+          ? "This is a LOW-RISK operation. Default to PROCEED unless opponent raises a concrete critical issue."
+          : "Apply balanced judgment.";
 
     const moderatorPrompt = `You are the Moderator agent in a CodeForge architectural debate.
 You have heard both sides. Your job: render a fair, evidence-based verdict.
@@ -254,11 +264,15 @@ Verdict definitions:
       const jsonMatch =
         moderatorRaw.match(/```(?:json)?\s*([\s\S]*?)```/) ??
         moderatorRaw.match(/(\{[\s\S]*\})/);
-      const parsed = JSON.parse(jsonMatch ? jsonMatch[1]! : moderatorRaw.trim());
+      const parsed = JSON.parse(
+        jsonMatch ? jsonMatch[1]! : moderatorRaw.trim(),
+      );
 
-      verdict = (["PROCEED", "REFINE", "ESCALATE"].includes(parsed.verdict)
-        ? parsed.verdict
-        : "ESCALATE") as DebateVerdict;
+      verdict = (
+        ["PROCEED", "REFINE", "ESCALATE"].includes(parsed.verdict)
+          ? parsed.verdict
+          : "ESCALATE"
+      ) as DebateVerdict;
       moderatorReasoning = parsed.reasoning ?? moderatorRaw;
       confidence = Math.min(100, Math.max(0, parsed.confidence ?? 50));
       if (parsed.refinements?.length) refinements = parsed.refinements;
@@ -266,7 +280,8 @@ Verdict definitions:
     } catch {
       // JSON parse failed — default to ESCALATE (safe)
       verdict = "ESCALATE";
-      escalationReason = "Moderator response could not be parsed — defaulting to human review.";
+      escalationReason =
+        "Moderator response could not be parsed — defaulting to human review.";
       confidence = 0;
     }
 
@@ -321,21 +336,23 @@ export const requireDebate = action({
     projectId: v.id("projects"),
     proposal: v.string(),
     context: v.optional(v.string()),
-    operationType: v.optional(v.union(
-      v.literal("architectural"),
-      v.literal("destructive"),
-      v.literal("refactor"),
-      v.literal("feature"),
-      v.literal("bugfix"),
-      v.literal("style")
-    )),
+    operationType: v.optional(
+      v.union(
+        v.literal("architectural"),
+        v.literal("destructive"),
+        v.literal("refactor"),
+        v.literal("feature"),
+        v.literal("bugfix"),
+        v.literal("style"),
+      ),
+    ),
   },
   returns: v.object({
     allowed: v.boolean(),
     verdict: v.union(
       v.literal("PROCEED"),
       v.literal("REFINE"),
-      v.literal("ESCALATE")
+      v.literal("ESCALATE"),
     ),
     debateId: v.id("debates"),
     message: v.string(),
@@ -377,7 +394,3 @@ export const requireDebate = action({
     };
   },
 });
-
-
-
-

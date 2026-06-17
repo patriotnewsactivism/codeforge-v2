@@ -1,5 +1,5 @@
-import { Component, type ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { Component, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -29,7 +29,9 @@ export class PanelErrorBoundary extends Component<Props, State> {
         <div className="flex flex-col items-center justify-center h-full p-6 text-center gap-3">
           <AlertTriangle className="h-8 w-8 text-yellow-500" />
           <div>
-            <p className="text-sm font-medium">{this.props.panelName} crashed</p>
+            <p className="text-sm font-medium">
+              {this.props.panelName} crashed
+            </p>
             <p className="text-xs text-muted-foreground mt-1">
               {this.state.error?.message ?? "Unknown error"}
             </p>

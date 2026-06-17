@@ -1,6 +1,6 @@
 import { runTest } from "../auth";
 
-runTest("Landing & Public Pages", async (helper) => {
+runTest("Landing & Public Pages", async helper => {
   const { page } = helper;
 
   console.log("Step 1: Landing page at /");
@@ -79,7 +79,7 @@ runTest("Landing & Public Pages", async (helper) => {
   if (!freeTier || !weeklyTier || !monthlyTier || !founderTier) {
     await helper.screenshot("e2e-pricing-tiers.png");
     throw new Error(
-      `Pricing tiers not all visible: Free=${freeTier} Weekly=${weeklyTier} Monthly=${monthlyTier} Founder=${founderTier}`
+      `Pricing tiers not all visible: Free=${freeTier} Weekly=${weeklyTier} Monthly=${monthlyTier} Founder=${founderTier}`,
     );
   }
   console.log("   ✓ All 4 pricing tiers visible");

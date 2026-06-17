@@ -1,7 +1,7 @@
-import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { v } from "convex/values";
 import { api } from "./_generated/api";
+import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback } from "./ai";
 
 // ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
@@ -9,7 +9,7 @@ import { callAIWithFallback } from "./ai";
 // Weekly/monthly/free users use platform process.env keys (no userKeys passed).
 async function resolveByok(
   ctx: any,
-  userId?: string
+  userId?: string,
 ): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
   try {
     const sub = await ctx.runQuery(api.limits.getMyLimits, {});
@@ -19,12 +19,12 @@ async function resolveByok(
 
     const userKeys: Record<string, string> = await ctx.runQuery(
       api.apiKeys.getAllKeysForUser,
-      { userId }
+      { userId },
     );
     if (!userKeys || Object.keys(userKeys).length === 0) {
       throw new Error(
         "⚠️ Lifetime plan requires your own API key. " +
-          "Add one in Settings → API Keys to use AI features."
+          "Add one in Settings → API Keys to use AI features.",
       );
     }
     return { callerPlan, userKeys };
@@ -34,16 +34,13 @@ async function resolveByok(
   }
 }
 
-
-
 declare const process: { env: Record<string, string | undefined> };
-
 
 async function callAI(
   prompt: string,
   model?: string,
   _maxTokens?: number,
-  byok?: { callerPlan: string; userKeys?: Record<string, string> }
+  byok?: { callerPlan: string; userKeys?: Record<string, string> },
 ): Promise<string> {
   const { text } = await callAIWithFallback(prompt, {
     model,
@@ -65,23 +62,27 @@ export const listByProject = query({
       title: v.string(),
       description: v.string(),
       category: v.string(),
-      priority: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+      priority: v.union(
+        v.literal("high"),
+        v.literal("medium"),
+        v.literal("low"),
+      ),
       status: v.union(
         v.literal("pending"),
         v.literal("implementing"),
         v.literal("done"),
-        v.literal("dismissed")
+        v.literal("dismissed"),
       ),
       implementationPrompt: v.string(),
       generatedAt: v.number(),
       impactScore: v.optional(v.number()),
       autoApproved: v.optional(v.boolean()),
-    })
+    }),
   ),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("suggestions")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .collect();
   },
@@ -97,24 +98,28 @@ export const listPending = query({
       title: v.string(),
       description: v.string(),
       category: v.string(),
-      priority: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+      priority: v.union(
+        v.literal("high"),
+        v.literal("medium"),
+        v.literal("low"),
+      ),
       status: v.union(
         v.literal("pending"),
         v.literal("implementing"),
         v.literal("done"),
-        v.literal("dismissed")
+        v.literal("dismissed"),
       ),
       implementationPrompt: v.string(),
       generatedAt: v.number(),
       impactScore: v.optional(v.number()),
       autoApproved: v.optional(v.boolean()),
-    })
+    }),
   ),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("suggestions")
-      .withIndex("by_project_and_status", (q) =>
-        q.eq("projectId", args.projectId).eq("status", "pending")
+      .withIndex("by_project_and_status", q =>
+        q.eq("projectId", args.projectId).eq("status", "pending"),
       )
       .order("desc")
       .collect();
@@ -132,12 +137,12 @@ export const getAutonomousMode = query({
       lastAutoRunAt: v.optional(v.number()),
       projectSoul: v.optional(v.string()),
     }),
-    v.null()
+    v.null(),
   ),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("projectSettings")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .unique();
   },
 });
@@ -151,7 +156,7 @@ export const updateStatus = mutation({
       v.literal("pending"),
       v.literal("implementing"),
       v.literal("done"),
-      v.literal("dismissed")
+      v.literal("dismissed"),
     ),
   },
   returns: v.null(),
@@ -198,13 +203,14 @@ export const setAutonomousMode = mutation({
 
     const existing = await ctx.db
       .query("projectSettings")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .unique();
 
     if (existing) {
       await ctx.db.patch(existing._id, {
         autonomousMode: args.autonomousMode,
-        autoIntervalMinutes: args.autoIntervalMinutes ?? existing.autoIntervalMinutes,
+        autoIntervalMinutes:
+          args.autoIntervalMinutes ?? existing.autoIntervalMinutes,
         projectSoul: args.projectSoul ?? existing.projectSoul,
       });
     } else {
@@ -226,7 +232,7 @@ export const markAutoRunAt = mutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("projectSettings")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .unique();
     if (existing) {
       await ctx.db.patch(existing._id, { lastAutoRunAt: Date.now() });
@@ -243,15 +249,21 @@ export const generateSuggestions = action({
   args: { projectId: v.id("projects") },
   returns: v.number(),
   handler: async (ctx, args) => {
-    const files = await ctx.runQuery(api.files.listByProject, { projectId: args.projectId });
-    const existing = await ctx.runQuery(api.suggestions.listByProject, { projectId: args.projectId });
-    const settings = await ctx.runQuery(api.suggestions.getAutonomousMode, { projectId: args.projectId });
+    const files = await ctx.runQuery(api.files.listByProject, {
+      projectId: args.projectId,
+    });
+    const existing = await ctx.runQuery(api.suggestions.listByProject, {
+      projectId: args.projectId,
+    });
+    const settings = await ctx.runQuery(api.suggestions.getAutonomousMode, {
+      projectId: args.projectId,
+    });
 
     // Collect implemented + dismissed so we never re-suggest them
     const blocklist = new Set(
       existing
         .filter(s => s.status === "done" || s.status === "dismissed")
-        .map(s => s.title.toLowerCase())
+        .map(s => s.title.toLowerCase()),
     );
     const pendingTitles = existing
       .filter((s: any) => s.status === "pending" || s.status === "implementing")
@@ -313,9 +325,19 @@ Return ONLY a JSON array (no markdown, no code fences):
       let added = 0;
       for (const s of suggestions) {
         if (blocklist.has(s.title.toLowerCase())) continue;
-        const priority = (["high", "medium", "low"].includes(s.priority) ? s.priority : "medium") as "high" | "medium" | "low";
-        const category = ["ui", "functionality", "performance", "ux", "security", "mobile"].includes(s.category)
-          ? s.category : "functionality";
+        const priority = (
+          ["high", "medium", "low"].includes(s.priority) ? s.priority : "medium"
+        ) as "high" | "medium" | "low";
+        const category = [
+          "ui",
+          "functionality",
+          "performance",
+          "ux",
+          "security",
+          "mobile",
+        ].includes(s.category)
+          ? s.category
+          : "functionality";
         await ctx.runMutation(api.suggestions.addSuggestion, {
           projectId: args.projectId,
           title: s.title,
@@ -344,9 +366,11 @@ export const implementSuggestion = action({
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
     // Get the suggestion
-    const suggestion: any = await ctx.runQuery(api.suggestions.listByProject, {
-      projectId: args.projectId,
-    }).then(list => list.find((s: any) => s._id === args.suggestionId));
+    const suggestion: any = await ctx
+      .runQuery(api.suggestions.listByProject, {
+        projectId: args.projectId,
+      })
+      .then(list => list.find((s: any) => s._id === args.suggestionId));
 
     if (!suggestion) throw new Error("Suggestion not found");
 
@@ -417,9 +441,12 @@ export const runAutonomousCycle = action({
     }
 
     // 2. Pick the top suggestion (highest impactScore, then highest priority)
-    const freshPending: any[] = await ctx.runQuery(api.suggestions.listPending, {
-      projectId: args.projectId,
-    });
+    const freshPending: any[] = await ctx.runQuery(
+      api.suggestions.listPending,
+      {
+        projectId: args.projectId,
+      },
+    );
 
     if (freshPending.length === 0) {
       return "No pending suggestions to implement";
@@ -439,10 +466,13 @@ export const runAutonomousCycle = action({
       projectId: args.projectId,
     });
 
-    const result: string = await ctx.runAction(api.suggestions.implementSuggestion, {
-      projectId: args.projectId,
-      suggestionId: top._id,
-    });
+    const result: string = await ctx.runAction(
+      api.suggestions.implementSuggestion,
+      {
+        projectId: args.projectId,
+        suggestionId: top._id,
+      },
+    );
 
     // 4. Immediately generate more suggestions to keep the queue full
     await ctx.runAction(api.suggestions.generateSuggestions, {
@@ -452,7 +482,3 @@ export const runAutonomousCycle = action({
     return `Built: "${top.title}" — ${result}`;
   },
 });
-
-
-
-

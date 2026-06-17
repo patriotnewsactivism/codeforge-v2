@@ -1,18 +1,18 @@
-import { useState } from "react";
 import { useAction } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { CheckCircle, ExternalLink, Github, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import { Github, Loader2, CheckCircle, ExternalLink } from "lucide-react";
+import { api } from "../../../convex/_generated/api";
 
 export function GitHubConnectDialog({
   open,
@@ -77,7 +77,10 @@ export function GitHubConnectDialog({
                 </a>
               </li>
               <li>
-                Select scopes: <Badge variant="secondary" className="text-[9px] h-3.5">repo</Badge>{" "}
+                Select scopes:{" "}
+                <Badge variant="secondary" className="text-[9px] h-3.5">
+                  repo
+                </Badge>{" "}
                 (Full control of private repositories)
               </li>
               <li>Generate and paste the token below</li>
@@ -88,11 +91,11 @@ export function GitHubConnectDialog({
             type="password"
             placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
             value={token}
-            onChange={(e) => {
+            onChange={e => {
               setToken(e.target.value);
               setResult(null);
             }}
-            onKeyDown={(e) => e.key === "Enter" && handleValidate()}
+            onKeyDown={e => e.key === "Enter" && handleValidate()}
           />
 
           {result?.valid && (

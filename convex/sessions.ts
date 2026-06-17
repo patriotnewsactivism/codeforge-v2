@@ -1,15 +1,15 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
 
 export const list = query({
   args: {},
-  handler: async (ctx) => {
+  handler: async ctx => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
     return await ctx.db
       .query("sessions")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", q => q.eq("userId", userId))
       .collect();
   },
 });
@@ -23,13 +23,13 @@ export const get = query({
 
 export const getActive = query({
   args: {},
-  handler: async (ctx) => {
+  handler: async ctx => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
     return await ctx.db
       .query("sessions")
-      .withIndex("by_user_active", (q) =>
-        q.eq("userId", userId).eq("isActive", true)
+      .withIndex("by_user_active", q =>
+        q.eq("userId", userId).eq("isActive", true),
       )
       .first();
   },
@@ -47,8 +47,8 @@ export const create = mutation({
     // Deactivate other sessions
     const active = await ctx.db
       .query("sessions")
-      .withIndex("by_user_active", (q) =>
-        q.eq("userId", userId).eq("isActive", true)
+      .withIndex("by_user_active", q =>
+        q.eq("userId", userId).eq("isActive", true),
       )
       .collect();
     for (const s of active) {
@@ -104,23 +104,22 @@ export const listActiveByProject = query({
     void sinceMs;
     const sessions = await ctx.db
       .query("sessions")
-      .withIndex("by_project", (q) => q.eq("projectId", projectId))
-      .filter((q) => q.eq(q.field("isActive"), true))
+      .withIndex("by_project", q => q.eq("projectId", projectId))
+      .filter(q => q.eq(q.field("isActive"), true))
       .collect();
 
     // Enrich with user info
     const enriched = await Promise.all(
-      sessions.slice(0, 12).map(async (s) => {
+      sessions.slice(0, 12).map(async s => {
         const user = await ctx.db.get(s.userId);
         return {
           ...s,
-          displayName: user ? (user as any).name || (user as any).email?.split("@")[0] || "User" : "User",
+          displayName: user
+            ? (user as any).name || (user as any).email?.split("@")[0] || "User"
+            : "User",
         };
-      })
+      }),
     );
     return enriched;
   },
 });
-
-
-

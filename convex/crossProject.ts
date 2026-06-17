@@ -16,8 +16,8 @@
  */
 
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
+import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
 
 // ─── MUTATIONS & QUERIES ─────────────────────────────────────────────────────
@@ -25,36 +25,39 @@ import { callAIWithFallback, getModelForRole } from "./ai";
 export const upsertGlobalInsight = mutation({
   args: {
     userId: v.id("users"),
-    pattern: v.string(),              // canonical short description
-    detail: v.string(),               // full explanation
+    pattern: v.string(), // canonical short description
+    detail: v.string(), // full explanation
     insightType: v.union(
-      v.literal("anti_pattern"),      // something that breaks
-      v.literal("best_practice"),     // something that works well
-      v.literal("architecture"),      // structural insight
-      v.literal("gotcha"),            // subtle footgun
-      v.literal("performance"),       // perf pattern
-      v.literal("security"),          // security insight
+      v.literal("anti_pattern"), // something that breaks
+      v.literal("best_practice"), // something that works well
+      v.literal("architecture"), // structural insight
+      v.literal("gotcha"), // subtle footgun
+      v.literal("performance"), // perf pattern
+      v.literal("security"), // security insight
     ),
     exampleCode: v.optional(v.string()),
     occurrenceCount: v.number(),
-    projectIds: v.array(v.string()),  // which projects this came from
-    confidence: v.number(),           // 0-100
-    tags: v.array(v.string()),        // e.g. ["react", "typescript", "convex"]
+    projectIds: v.array(v.string()), // which projects this came from
+    confidence: v.number(), // 0-100
+    tags: v.array(v.string()), // e.g. ["react", "typescript", "convex"]
   },
   returns: v.id("globalInsights"),
   handler: async (ctx, args) => {
     // Check if identical pattern already exists
     const existing = await ctx.db
       .query("globalInsights")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .filter((q) => q.eq(q.field("pattern"), args.pattern))
+      .withIndex("by_user", q => q.eq("userId", args.userId))
+      .filter(q => q.eq(q.field("pattern"), args.pattern))
       .first();
 
     if (existing) {
       await ctx.db.patch(existing._id, {
         occurrenceCount: existing.occurrenceCount + args.occurrenceCount,
         projectIds: [...new Set([...existing.projectIds, ...args.projectIds])],
-        confidence: Math.min(100, Math.round((existing.confidence + args.confidence) / 2)),
+        confidence: Math.min(
+          100,
+          Math.round((existing.confidence + args.confidence) / 2),
+        ),
         updatedAt: Date.now(),
       });
       return existing._id;
@@ -71,25 +74,29 @@ export const upsertGlobalInsight = mutation({
 export const listGlobalInsights = query({
   args: {
     userId: v.id("users"),
-    insightType: v.optional(v.union(
-      v.literal("anti_pattern"),
-      v.literal("best_practice"),
-      v.literal("architecture"),
-      v.literal("gotcha"),
-      v.literal("performance"),
-      v.literal("security"),
-    )),
+    insightType: v.optional(
+      v.union(
+        v.literal("anti_pattern"),
+        v.literal("best_practice"),
+        v.literal("architecture"),
+        v.literal("gotcha"),
+        v.literal("performance"),
+        v.literal("security"),
+      ),
+    ),
     minConfidence: v.optional(v.number()),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     let all = await ctx.db
       .query("globalInsights")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user", q => q.eq("userId", args.userId))
       .collect();
 
-    if (args.insightType) all = all.filter((i) => i.insightType === args.insightType);
-    if (args.minConfidence) all = all.filter((i) => i.confidence >= args.minConfidence!);
+    if (args.insightType)
+      all = all.filter(i => i.insightType === args.insightType);
+    if (args.minConfidence)
+      all = all.filter(i => i.confidence >= args.minConfidence!);
     all.sort((a, b) => b.occurrenceCount - a.occurrenceCount);
     return all.slice(0, args.limit ?? 50);
   },
@@ -102,7 +109,7 @@ export const extractGlobalInsights = action({
   args: {
     projectId: v.id("projects"),
     userId: v.id("users"),
-    recentLessons: v.array(v.string()),  // from Reflection session
+    recentLessons: v.array(v.string()), // from Reflection session
   },
   returns: v.object({ extracted: v.number() }),
   handler: async (ctx, args) => {
@@ -115,7 +122,7 @@ export const extractGlobalInsights = action({
     });
 
     const memoryBlock = memories
-      .map((m) => `[${m.category}] ${m.content}`)
+      .map(m => `[${m.category}] ${m.content}`)
       .join("\n");
 
     const prompt = `You are the Cross-Project Intelligence system in CodeForge.
@@ -123,7 +130,7 @@ Your job: take project-specific lessons and canonicalize them into universal pro
 that would apply across ANY project, not just this one.
 
 Recent lessons from this project:
-${args.recentLessons.map((l) => `- ${l}`).join("\n")}
+${args.recentLessons.map(l => `- ${l}`).join("\n")}
 
 Project memories for context:
 ${memoryBlock}
@@ -160,9 +167,12 @@ JSON only, no other text.`;
     }> = [];
 
     try {
-      const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? raw.match(/(\[[\s\S]*\])/);
+      const jsonMatch =
+        raw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? raw.match(/(\[[\s\S]*\])/);
       insights = JSON.parse(jsonMatch ? jsonMatch[1]! : raw.trim());
-    } catch { return { extracted: 0 }; }
+    } catch {
+      return { extracted: 0 };
+    }
 
     let extracted = 0;
     for (const insight of insights) {
@@ -192,40 +202,61 @@ export const injectCrossProjectContext = action({
     userId: v.id("users"),
     projectId: v.id("projects"),
     taskDescription: v.string(),
-    techStack: v.optional(v.array(v.string())),  // ["react", "typescript", "convex"]
+    techStack: v.optional(v.array(v.string())), // ["react", "typescript", "convex"]
   },
   returns: v.object({
     injectedInsights: v.array(v.string()),
     warningCount: v.number(),
   }),
   handler: async (ctx, args) => {
-    const allInsights = await ctx.runQuery(api.crossProject.listGlobalInsights, {
-      userId: args.userId,
-      minConfidence: 60,
-      limit: 100,
-    });
+    const allInsights = await ctx.runQuery(
+      api.crossProject.listGlobalInsights,
+      {
+        userId: args.userId,
+        minConfidence: 60,
+        limit: 100,
+      },
+    );
 
     if (!allInsights.length) return { injectedInsights: [], warningCount: 0 };
 
     // Filter by tag relevance to tech stack
     const stack = args.techStack ?? [];
     const relevant = allInsights.filter(
-      (i) =>
+      i =>
         !stack.length ||
-        i.tags.some((t) => stack.some((s) => s.toLowerCase().includes(t.toLowerCase())))
+        i.tags.some(t =>
+          stack.some(s => s.toLowerCase().includes(t.toLowerCase())),
+        ),
     );
 
     // Score by occurrenceCount * confidence
     const ranked = relevant
-      .sort((a, b) => b.occurrenceCount * b.confidence - a.occurrenceCount * a.confidence)
+      .sort(
+        (a, b) =>
+          b.occurrenceCount * b.confidence - a.occurrenceCount * a.confidence,
+      )
       .slice(0, 8);
 
-    const warnings = ranked.filter((i) => i.insightType === "anti_pattern" || i.insightType === "gotcha" || i.insightType === "security");
-    const bestPractices = ranked.filter((i) => i.insightType === "best_practice" || i.insightType === "architecture");
+    const warnings = ranked.filter(
+      i =>
+        i.insightType === "anti_pattern" ||
+        i.insightType === "gotcha" ||
+        i.insightType === "security",
+    );
+    const bestPractices = ranked.filter(
+      i =>
+        i.insightType === "best_practice" || i.insightType === "architecture",
+    );
 
     const injectedInsights = [
-      ...warnings.map((i) => `⚠️ KNOWN PITFALL (seen in ${i.occurrenceCount} project${i.occurrenceCount > 1 ? "s" : ""}): ${i.pattern} — ${i.detail}`),
-      ...bestPractices.map((i) => `✅ PROVEN PATTERN: ${i.pattern} — ${i.detail}`),
+      ...warnings.map(
+        i =>
+          `⚠️ KNOWN PITFALL (seen in ${i.occurrenceCount} project${i.occurrenceCount > 1 ? "s" : ""}): ${i.pattern} — ${i.detail}`,
+      ),
+      ...bestPractices.map(
+        i => `✅ PROVEN PATTERN: ${i.pattern} — ${i.detail}`,
+      ),
     ];
 
     return {
@@ -246,19 +277,24 @@ export const matchAntiPatterns = action({
     fileContent: v.string(),
   },
   returns: v.object({
-    matches: v.array(v.object({
-      pattern: v.string(),
-      detail: v.string(),
-      severity: v.string(),
-    })),
+    matches: v.array(
+      v.object({
+        pattern: v.string(),
+        detail: v.string(),
+        severity: v.string(),
+      }),
+    ),
   }),
   handler: async (ctx, args) => {
-    const antiPatterns = await ctx.runQuery(api.crossProject.listGlobalInsights, {
-      userId: args.userId,
-      insightType: "anti_pattern",
-      minConfidence: 70,
-      limit: 30,
-    });
+    const antiPatterns = await ctx.runQuery(
+      api.crossProject.listGlobalInsights,
+      {
+        userId: args.userId,
+        insightType: "anti_pattern",
+        minConfidence: 70,
+        limit: 30,
+      },
+    );
 
     if (!antiPatterns.length) return { matches: [] };
 
@@ -283,21 +319,24 @@ JSON array (empty if none found):
 
     let matchedIndexes: Array<{ index: number; explanation: string }> = [];
     try {
-      const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? raw.match(/(\[[\s\S]*\])/);
+      const jsonMatch =
+        raw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? raw.match(/(\[[\s\S]*\])/);
       matchedIndexes = JSON.parse(jsonMatch ? jsonMatch[1]! : raw.trim());
-    } catch { return { matches: [] }; }
+    } catch {
+      return { matches: [] };
+    }
 
     const matches = matchedIndexes
-      .filter((m) => m.index >= 1 && m.index <= antiPatterns.length)
-      .map((m) => ({
+      .filter(m => m.index >= 1 && m.index <= antiPatterns.length)
+      .map(m => ({
         pattern: antiPatterns[m.index - 1].pattern,
         detail: `${antiPatterns[m.index - 1].detail} (${m.explanation})`,
-        severity: antiPatterns[m.index - 1].insightType === "security" ? "critical" : "warning",
+        severity:
+          antiPatterns[m.index - 1].insightType === "security"
+            ? "critical"
+            : "warning",
       }));
 
     return { matches };
   },
 });
-
-
-

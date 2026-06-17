@@ -11,13 +11,20 @@
  * Only shown to Lifetime plan users.
  */
 import { useAction, useMutation, useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import {
-  KeyRound, Plus, Trash2, CheckCircle2, AlertCircle,
-  Loader2, Eye, EyeOff, ExternalLink,
+  AlertCircle,
+  CheckCircle2,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Loader2,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { api } from "../../../convex/_generated/api";
 
 // ─── Provider metadata ────────────────────────────────────────────────────────
 
@@ -64,7 +71,7 @@ function ProviderRow({
   onSave,
   onDelete,
 }: {
-  provider: typeof PROVIDERS[number];
+  provider: (typeof PROVIDERS)[number];
   savedKey?: { maskedKey: string; isValid?: boolean; validatedAt?: number };
   onSave: (provider: string, key: string) => Promise<void>;
   onDelete: (provider: string) => Promise<void>;
@@ -120,7 +127,9 @@ function ProviderRow({
             }}
           />
           <div>
-            <p className="text-sm font-semibold text-slate-200">{provider.name}</p>
+            <p className="text-sm font-semibold text-slate-200">
+              {provider.name}
+            </p>
             <p className="text-xs text-slate-500">{provider.label}</p>
           </div>
         </div>
@@ -165,19 +174,26 @@ function ProviderRow({
           <code
             className="flex-1 text-xs px-3 py-2 rounded-md text-slate-400"
             style={{
-              fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
+              fontFamily:
+                "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
               background: "rgba(0,0,0,0.3)",
               border: "1px solid rgba(255,255,255,0.06)",
               letterSpacing: "0.05em",
             }}
           >
-            {showRaw ? savedKey.maskedKey : "•".repeat(20) + savedKey.maskedKey.slice(-4)}
+            {showRaw
+              ? savedKey.maskedKey
+              : "•".repeat(20) + savedKey.maskedKey.slice(-4)}
           </code>
           <button
             onClick={() => setShowRaw(!showRaw)}
             className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-white/5 rounded transition-colors"
           >
-            {showRaw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            {showRaw ? (
+              <EyeOff className="w-3.5 h-3.5" />
+            ) : (
+              <Eye className="w-3.5 h-3.5" />
+            )}
           </button>
           <button
             onClick={() => setShowInput(true)}
@@ -211,20 +227,21 @@ function ProviderRow({
           <input
             type="password"
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
+            onChange={e => setInputValue(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleSave()}
             placeholder={provider.placeholder}
             className="flex-1 text-sm px-3 py-2 rounded-md text-slate-200 placeholder-slate-600 outline-none focus:ring-1 transition-all"
             style={{
-              fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
+              fontFamily:
+                "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
               background: "rgba(0,0,0,0.4)",
               border: "1px solid rgba(255,255,255,0.1)",
               letterSpacing: "0.05em",
             }}
-            onFocus={(e) =>
+            onFocus={e =>
               (e.currentTarget.style.borderColor = `${provider.color}50`)
             }
-            onBlur={(e) =>
+            onBlur={e =>
               (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")
             }
           />
@@ -233,7 +250,9 @@ function ProviderRow({
             disabled={saving || !inputValue.trim()}
             className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-md font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 active:scale-95"
             style={{
-              background: saving ? "rgba(255,255,255,0.05)" : `${provider.color}20`,
+              background: saving
+                ? "rgba(255,255,255,0.05)"
+                : `${provider.color}20`,
               border: `1px solid ${provider.color}40`,
               color: provider.color,
             }}
@@ -252,7 +271,10 @@ function ProviderRow({
           </button>
           {hasKey && showInput && (
             <button
-              onClick={() => { setShowInput(false); setInputValue(""); }}
+              onClick={() => {
+                setShowInput(false);
+                setInputValue("");
+              }}
               className="text-xs px-2.5 py-2 rounded text-slate-500 hover:text-slate-300 border border-slate-700 hover:bg-white/5 transition-colors"
             >
               Cancel
@@ -303,17 +325,24 @@ export function ApiKeysTab() {
 
   if (!isLifetime) {
     return (
-      <div className="rounded-lg p-5 text-sm text-slate-400" style={{
-        background: "rgba(255,255,255,0.03)",
-        border: "1px solid rgba(255,255,255,0.08)",
-      }}>
+      <div
+        className="rounded-lg p-5 text-sm text-slate-400"
+        style={{
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.08)",
+        }}
+      >
         <div className="flex items-center gap-2 mb-2">
           <KeyRound className="w-4 h-4 text-slate-500" />
           <p className="font-medium text-slate-300">API Keys</p>
         </div>
         <p>
-          Your <strong className="text-slate-200">{limitsData?.plan ?? "current"}</strong> plan
-          includes AI compute — no API keys needed. Your AI calls use CodeForge's shared infrastructure.
+          Your{" "}
+          <strong className="text-slate-200">
+            {limitsData?.plan ?? "current"}
+          </strong>{" "}
+          plan includes AI compute — no API keys needed. Your AI calls use
+          CodeForge's shared infrastructure.
         </p>
       </div>
     );
@@ -332,17 +361,18 @@ export function ApiKeysTab() {
             </span>
           </h3>
           <p className="mt-1 text-xs text-slate-500 max-w-lg">
-            Your Lifetime plan is Bring Your Own Key — your keys are used directly for AI calls,
-            so you control costs and usage limits. Keys are stored encrypted and never returned
-            in plaintext. Add at least one to unlock the IDE.
+            Your Lifetime plan is Bring Your Own Key — your keys are used
+            directly for AI calls, so you control costs and usage limits. Keys
+            are stored encrypted and never returned in plaintext. Add at least
+            one to unlock the IDE.
           </p>
         </div>
       </div>
 
       {/* Provider rows */}
       <div className="space-y-3">
-        {PROVIDERS.map((provider) => {
-          const saved = savedKeys?.find((k) => k.provider === provider.id);
+        {PROVIDERS.map(provider => {
+          const saved = savedKeys?.find(k => k.provider === provider.id);
           return (
             <ProviderRow
               key={provider.id}
@@ -357,9 +387,9 @@ export function ApiKeysTab() {
 
       {/* Footer note */}
       <p className="text-xs text-slate-600 leading-relaxed">
-        Keys are verified with a lightweight test call before being stored.
-        Only the last 4 characters are shown after saving.
-        You can replace or remove any key at any time — changes take effect immediately.
+        Keys are verified with a lightweight test call before being stored. Only
+        the last 4 characters are shown after saving. You can replace or remove
+        any key at any time — changes take effect immediately.
       </p>
     </div>
   );

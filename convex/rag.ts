@@ -1,9 +1,8 @@
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
+import { action, mutation, query } from "./_generated/server";
 
 declare const process: { env: Record<string, string | undefined> };
-
 
 // ── Simple TF-IDF style embedding stored as JSON string ─────────────────────
 // Real vector search would use an external embedding API. This implementation
@@ -14,14 +13,44 @@ function tokenize(text: string): string[] {
     .toLowerCase()
     .replace(/[^a-z0-9\s_]/g, " ")
     .split(/\s+/)
-    .filter((t) => t.length > 2 && !STOP_WORDS.has(t));
+    .filter(t => t.length > 2 && !STOP_WORDS.has(t));
 }
 
 const STOP_WORDS = new Set([
-  "the", "and", "for", "with", "this", "that", "from", "are", "was",
-  "will", "can", "has", "have", "been", "not", "but", "all", "its",
-  "they", "their", "them", "use", "used", "using", "function", "return",
-  "const", "let", "var", "type", "import", "export", "default", "class",
+  "the",
+  "and",
+  "for",
+  "with",
+  "this",
+  "that",
+  "from",
+  "are",
+  "was",
+  "will",
+  "can",
+  "has",
+  "have",
+  "been",
+  "not",
+  "but",
+  "all",
+  "its",
+  "they",
+  "their",
+  "them",
+  "use",
+  "used",
+  "using",
+  "function",
+  "return",
+  "const",
+  "let",
+  "var",
+  "type",
+  "import",
+  "export",
+  "default",
+  "class",
 ]);
 
 function buildTermFrequency(tokens: string[]): Record<string, number> {
@@ -39,7 +68,7 @@ function buildTermFrequency(tokens: string[]): Record<string, number> {
 
 function cosineSimilarity(
   a: Record<string, number>,
-  b: Record<string, number>
+  b: Record<string, number>,
 ): number {
   let dot = 0;
   let normA = 0;
@@ -62,7 +91,7 @@ export const listIndexedFiles = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("codebaseIndex")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
   },
 });
@@ -72,7 +101,7 @@ export const getIndexStats = query({
   handler: async (ctx, args) => {
     const entries = await ctx.db
       .query("codebaseIndex")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
     return {
       totalFiles: entries.length,
@@ -95,26 +124,38 @@ export const indexFile = mutation({
     const tf = buildTermFrequency(tokens);
 
     // Extract semantic tags: function names, imports, class names
-    const fnMatches = args.content.match(/(?:function|const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)/g) ?? [];
+    const fnMatches =
+      args.content.match(
+        /(?:function|const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)/g,
+      ) ?? [];
     const importMatches = args.content.match(/from\s+['"]([^'"]+)['"]/g) ?? [];
     const tags = [
-      ...fnMatches.map((m) => m.split(/\s+/).pop() ?? ""),
-      ...importMatches.map((m) => m.replace(/from\s+['"]/, "").replace(/['"]/, "")),
+      ...fnMatches.map(m => m.split(/\s+/).pop() ?? ""),
+      ...importMatches.map(m =>
+        m.replace(/from\s+['"]/, "").replace(/['"]/, ""),
+      ),
     ].filter(Boolean);
 
     // Detect language from extension
     const ext = args.path.split(".").pop() ?? "";
     const langMap: Record<string, string> = {
-      ts: "typescript", tsx: "typescript-react", js: "javascript",
-      jsx: "javascript-react", css: "css", html: "html",
-      py: "python", go: "go", rs: "rust", md: "markdown",
+      ts: "typescript",
+      tsx: "typescript-react",
+      js: "javascript",
+      jsx: "javascript-react",
+      css: "css",
+      html: "html",
+      py: "python",
+      go: "go",
+      rs: "rust",
+      md: "markdown",
     };
     const language = langMap[ext] ?? ext;
 
     const existing = await ctx.db
       .query("codebaseIndex")
-      .withIndex("by_project_and_path", (q) =>
-        q.eq("projectId", args.projectId).eq("path", args.path)
+      .withIndex("by_project_and_path", q =>
+        q.eq("projectId", args.projectId).eq("path", args.path),
       )
       .first();
 
@@ -142,8 +183,8 @@ export const removeFromIndex = mutation({
   handler: async (ctx, args) => {
     const entry = await ctx.db
       .query("codebaseIndex")
-      .withIndex("by_project_and_path", (q) =>
-        q.eq("projectId", args.projectId).eq("path", args.path)
+      .withIndex("by_project_and_path", q =>
+        q.eq("projectId", args.projectId).eq("path", args.path),
       )
       .first();
     if (entry) await ctx.db.delete(entry._id);
@@ -160,7 +201,9 @@ export const indexProject = action({
     const files: any[] = await ctx.runQuery(api.files.listByProject, {
       projectId: args.projectId,
     });
-    const codeFiles = files.filter((f: any) => !f.isDirectory && f.content.length > 0);
+    const codeFiles = files.filter(
+      (f: any) => !f.isDirectory && f.content.length > 0,
+    );
 
     for (const file of codeFiles) {
       await ctx.runMutation(api.rag.indexFile, {
@@ -190,7 +233,7 @@ export const search = action({
       score: v.number(),
       tags: v.array(v.string()),
       snippet: v.string(),
-    })
+    }),
   ),
   handler: async (ctx, args) => {
     const topK = args.topK ?? 8;
@@ -214,16 +257,19 @@ export const search = action({
       let score = cosineSimilarity(queryTF, fileTF);
 
       // Bonus for tag matches (function/class names in query)
-      const tagBonus = entry.tags.filter((tag: string) =>
-        queryWords.some((w) => tag.toLowerCase().includes(w) || w.includes(tag.toLowerCase()))
-      ).length * 0.15;
+      const tagBonus =
+        entry.tags.filter((tag: string) =>
+          queryWords.some(
+            w => tag.toLowerCase().includes(w) || w.includes(tag.toLowerCase()),
+          ),
+        ).length * 0.15;
 
       score += tagBonus;
 
       // Bonus for path matching query words
-      const pathBonus = queryWords.filter((w) =>
-        entry.path.toLowerCase().includes(w)
-      ).length * 0.1;
+      const pathBonus =
+        queryWords.filter(w => entry.path.toLowerCase().includes(w)).length *
+        0.1;
 
       score += pathBonus;
 
@@ -254,7 +300,7 @@ export const search = action({
         // Extract relevant snippet around the first query term match
         const lines = file.content.split("\n");
         const firstMatch = lines.findIndex((line: string) =>
-          queryWords.some((w) => line.toLowerCase().includes(w))
+          queryWords.some(w => line.toLowerCase().includes(w)),
         );
         const start = Math.max(0, firstMatch - 2);
         const end = Math.min(lines.length, start + 10);
@@ -293,9 +339,7 @@ export const getContextForPrompt = action({
 
     if (results.length === 0) return "";
 
-    const lines: string[] = [
-      `=== RELEVANT FILES FOR: "${args.query}" ===`,
-    ];
+    const lines: string[] = [`=== RELEVANT FILES FOR: "${args.query}" ===`];
 
     let charBudget = maxTokens * 4; // ~4 chars per token
 
@@ -307,7 +351,10 @@ export const getContextForPrompt = action({
       if (!file) continue;
 
       const header = `\n--- ${result.path} (relevance: ${result.score}) ---\n`;
-      const content = file.content.slice(0, Math.min(file.content.length, charBudget - header.length));
+      const content = file.content.slice(
+        0,
+        Math.min(file.content.length, charBudget - header.length),
+      );
 
       if (charBudget <= 0) break;
       lines.push(header + content);
@@ -318,6 +365,3 @@ export const getContextForPrompt = action({
     return lines.join("\n");
   },
 });
-
-
-
