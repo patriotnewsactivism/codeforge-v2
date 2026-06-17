@@ -1,169 +1,139 @@
 /* eslint-disable */
 /**
  * Generated `api` utility.
+ *
  * THIS CODE IS AUTOMATICALLY GENERATED.
+ *
  * To regenerate, run `npx convex dev`.
+ * @module
  */
 
-import type { AnyApi, FilterApi, FunctionReference } from "convex/server";
+import type * as agentThoughts from "../agentThoughts.js";
+import type * as agents from "../agents.js";
+import type * as ai from "../ai.js";
+import type * as apiKeys from "../apiKeys.js";
+import type * as auth from "../auth.js";
+import type * as benchmark from "../benchmark.js";
+import type * as buildLoop from "../buildLoop.js";
+import type * as changeHistory from "../changeHistory.js";
+import type * as chat from "../chat.js";
+import type * as cinema from "../cinema.js";
+import type * as collaboration from "../collaboration.js";
+import type * as constants from "../constants.js";
+import type * as costEntries from "../costEntries.js";
+import type * as crossProject from "../crossProject.js";
+import type * as dashboard from "../dashboard.js";
+import type * as debate from "../debate.js";
+import type * as deployVercel from "../deployVercel.js";
+import type * as email from "../email.js";
+import type * as engine from "../engine.js";
+import type * as errorIngestion from "../errorIngestion.js";
+import type * as export_ from "../export.js";
+import type * as files from "../files.js";
+import type * as forensic from "../forensic.js";
+import type * as git from "../git.js";
+import type * as github from "../github.js";
+import type * as gitops from "../gitops.js";
+import type * as http from "../http.js";
+import type * as intelligence from "../intelligence.js";
+import type * as limits from "../limits.js";
+import type * as memory from "../memory.js";
+import type * as missions from "../missions.js";
+import type * as mutation from "../mutation.js";
+import type * as previews from "../previews.js";
+import type * as projects from "../projects.js";
+import type * as rag from "../rag.js";
+import type * as reflection from "../reflection.js";
+import type * as repoImport from "../repoImport.js";
+import type * as seedTestUser from "../seedTestUser.js";
+import type * as sentry from "../sentry.js";
+import type * as sessions from "../sessions.js";
+import type * as stripe from "../stripe.js";
+import type * as suggestions from "../suggestions.js";
+import type * as swarm from "../swarm.js";
+import type * as testAuth from "../testAuth.js";
+import type * as users from "../users.js";
+import type * as vision from "../vision.js";
 
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
+
+declare const fullApi: ApiFromModules<{
+  agentThoughts: typeof agentThoughts;
+  agents: typeof agents;
+  ai: typeof ai;
+  apiKeys: typeof apiKeys;
+  auth: typeof auth;
+  benchmark: typeof benchmark;
+  buildLoop: typeof buildLoop;
+  changeHistory: typeof changeHistory;
+  chat: typeof chat;
+  cinema: typeof cinema;
+  collaboration: typeof collaboration;
+  constants: typeof constants;
+  costEntries: typeof costEntries;
+  crossProject: typeof crossProject;
+  dashboard: typeof dashboard;
+  debate: typeof debate;
+  deployVercel: typeof deployVercel;
+  email: typeof email;
+  engine: typeof engine;
+  errorIngestion: typeof errorIngestion;
+  export: typeof export_;
+  files: typeof files;
+  forensic: typeof forensic;
+  git: typeof git;
+  github: typeof github;
+  gitops: typeof gitops;
+  http: typeof http;
+  intelligence: typeof intelligence;
+  limits: typeof limits;
+  memory: typeof memory;
+  missions: typeof missions;
+  mutation: typeof mutation;
+  previews: typeof previews;
+  projects: typeof projects;
+  rag: typeof rag;
+  reflection: typeof reflection;
+  repoImport: typeof repoImport;
+  seedTestUser: typeof seedTestUser;
+  sentry: typeof sentry;
+  sessions: typeof sessions;
+  stripe: typeof stripe;
+  suggestions: typeof suggestions;
+  swarm: typeof swarm;
+  testAuth: typeof testAuth;
+  users: typeof users;
+  vision: typeof vision;
+}>;
+
+/**
+ * A utility for referencing Convex functions in your app's public API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = api.myModule.myFunction;
+ * ```
+ */
 export declare const api: FilterApi<
   typeof fullApi,
   FunctionReference<any, "public">
 >;
+
+/**
+ * A utility for referencing Convex functions in your app's internal API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = internal.myModule.myFunction;
+ * ```
+ */
 export declare const internal: FilterApi<
   typeof fullApi,
   FunctionReference<any, "internal">
 >;
 
-export declare const fullApi: AnyApi;
-
-// Module references (typed)
-// api.ViktorSpacesEmail.ViktorSpacesEmail
-// api.ViktorSpacesEmail.ViktorSpacesPasswordReset
-// api.agentThoughts.listRecent
-// api.agentThoughts.emit
-// api.agentThoughts.clearForProject
-// api.agents.listTasks
-// api.agents.createTask
-// api.agents.updateTask
-// api.agents.runMultiAgent
-// api.buildLoop.getActiveSession
-// api.buildLoop.listSteps
-// api.buildLoop.createSession
-// api.buildLoop.addStep
-// api.buildLoop.finishSession
-// api.buildLoop.runBuildLoop
-// api.changeHistory.listByProject
-// api.changeHistory.listBySuggestion
-// api.changeHistory.recordChange
-// api.changeHistory.undoChange
-// api.changeHistory.undoSuggestion
-// api.chat.getOrCreateSession
-// api.chat.createSession
-// api.chat.listSessions
-// api.chat.renameSession
-// api.chat.deleteSession
-// api.chat.archiveSession
-// api.chat.getSession
-// api.chat.updateModel
-// api.chat.listMessages
-// api.chat.addMessage
-// api.chat.sendMessage
-// api.collaboration.heartbeat
-// api.collaboration.leave
-// api.collaboration.listActive
-// api.collaboration.createInvite
-// api.collaboration.joinByInvite
-// api.costEntries.log
-// api.costEntries.getByUser
-// api.costEntries.getTotalCost
-// api.engine.createToolCall
-// api.engine.updateToolCall
-// api.engine.listToolCalls
-// api.engine.clearToolCalls
-// api.engine.runMission
-// api.export.getProjectBundle
-// api.files.listByProject
-// api.files.getByPath
-// api.files.updateContent
-// api.files.create
-// api.files.rename
-// api.files.remove
-// api.files.update
-// api.files.bulkInsert
-// api.git.listCommits
-// api.git.listBranches
-// api.git.getActiveBranch
-// api.git.recordCommit
-// api.git.upsertBranch
-// api.git.pushToGitHub
-// api.git.importFromGitHub
-// api.github.saveToken
-// api.github.getSettings
-// api.github.validateToken
-// api.github.updateProfile
-// api.github.listRepos
-// api.github.getTokenInternal
-// api.github.importRepo
-// api.github.commitFile
-// api.github.createBranch
-// api.github.createPullRequest
-// api.intelligence.listMemories
-// api.intelligence.getActiveMemories
-// api.intelligence.deleteMemory
-// api.intelligence.listRetrospectives
-// api.intelligence.listAgentTasks
-// api.intelligence.listToolCalls
-// api.intelligence.listThoughts
-// api.intelligence.listAgentMessages
-// api.intelligence.listBuildSessions
-// api.intelligence.getCostSummary
-// api.limits.PLAN_LIMITS
-// api.limits.getMyLimits
-// api.limits.checkCanRun
-// api.limits.trackUsage
-// api.limits.getUserPlanLimits
-// api.limits.getUserSub
-// api.limits.getSpend
-// api.memory.listMemories
-// api.memory.listRetrospectives
-// api.memory.listAgentMessages
-// api.memory.getMemoryStats
-// api.memory.addMemory
-// api.memory.markMemoryUsed
-// api.memory.applyMemoryDecay
-// api.memory.postAgentMessage
-// api.memory.getMemoriesForPrompt
-// api.memory.runRetrospective
-// api.memory.createRetrospective
-// api.memory.patchRetrospectiveMemories
-// api.memory.deleteMemory
-// api.missions.listByProject
-// api.missions.get
-// api.previews.getShareLink
-// api.previews.createShareLink
-// api.previews.upsertShare
-// api.previews.revokeShareLink
-// api.previews.getShareByToken
-// api.previews.incrementViewCount
-// api.projects.list
-// api.projects.get
-// api.projects.create
-// api.projects.remove
-// api.projects.updateLastOpened
-// api.projects.setGithubRepo
-// api.rag.listIndexedFiles
-// api.rag.getIndexStats
-// api.rag.indexFile
-// api.rag.removeFromIndex
-// api.rag.indexProject
-// api.rag.search
-// api.rag.getContextForPrompt
-// api.seedTestUser.seedTestUser
-// api.sessions.list
-// api.sessions.get
-// api.sessions.getActive
-// api.sessions.create
-// api.sessions.updateModel
-// api.sessions.addCost
-// api.sessions.listActiveByProject
-// api.stripe.createCheckoutSession
-// api.stripe.stripeWebhook
-// api.stripe.getSubByCustomerId
-// api.stripe.upsertSubscription
-// api.suggestions.listByProject
-// api.suggestions.listPending
-// api.suggestions.getAutonomousMode
-// api.suggestions.updateStatus
-// api.suggestions.addSuggestion
-// api.suggestions.setAutonomousMode
-// api.suggestions.markAutoRunAt
-// api.suggestions.generateSuggestions
-// api.suggestions.implementSuggestion
-// api.suggestions.runAutonomousCycle
-// api.testAuth.TestCredentials
-// api.users.deleteAccount
-// api.viktorTools.quickAiSearch
-// api.viktorTools.generateImage
-// api.vision.analyzeScreenshot
+export declare const components: {};
