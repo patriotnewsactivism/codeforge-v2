@@ -5,6 +5,13 @@ import { v } from "convex/values";
 const schema = defineSchema({
   ...authTables,
 
+  users: defineTable({
+    name: v.optional(v.string()),
+    email: v.optional(v.string()),
+    image: v.optional(v.string()),
+    onboarded: v.optional(v.boolean()),
+  }).index("by_email", ["email"]),
+
   // Projects (imported repos or new projects)
   projects: defineTable({
     name: v.string(),

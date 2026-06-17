@@ -6,10 +6,13 @@ import { PublicLayout } from "./components/PublicLayout";
 import { PublicOnlyRoute } from "./components/PublicOnlyRoute";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import {
-  DashboardPage,
-  IDEPage,
-  LandingPage,
+import { useIdleTimeout } from "./hooks/useIdleTimeout";
+...
+function App() {
+  useIdleTimeout();
+
+  return (
+    <ErrorBoundary>
   LoginPage,
   OnboardingPage,
   SettingsPage,

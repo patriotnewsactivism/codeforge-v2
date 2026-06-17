@@ -67,6 +67,7 @@ export function OnboardingPage() {
   const [projectDesc, setProjectDesc] = useState("");
   const [creating, setCreating] = useState(false);
   const createProject = useMutation(api.projects.create);
+  const finishOnboarding = useMutation(api.users.completeOnboarding);
   const navigate = useNavigate();
 
   const handleCreateProject = async () => {
@@ -86,10 +87,16 @@ export function OnboardingPage() {
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     localStorage.setItem("cf_onboarded", "true");
-    toast.success("You're all set!");
-    navigate("/dashboard");
+    try {
+      await finishOnboarding();
+      toast.success("You're all set!");
+      navigate("/dashboard");
+    } catch {
+      toast.error("Failed to save progress, but you can proceed");
+      navigate("/dashboard");
+    }
   };
 
   const handleSkip = () => {
