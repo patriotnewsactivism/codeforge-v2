@@ -68,7 +68,11 @@ export function SettingsPage() {
   // ── GitHub integration state ─────────────────────────────────────────────
   const [githubToken, setGithubToken] = useState("");
   const [showToken, setShowToken] = useState(false);
+<<<<<<< Updated upstream
   const [savingToken, setSavingToken] = useState(false); // Fixed: was duplicated in original
+=======
+  const [savingToken, setSavingToken] = useState(false);
+>>>>>>> Stashed changes
   const saveGithubToken = useMutation(api.github.saveToken);
   const validateGithubToken = useAction(api.github.validateToken);
   const githubSettings = useQuery(api.github.getSettings);

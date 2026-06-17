@@ -1,4 +1,4 @@
-import { runTest } from "./scripts/auth";
+import { runTest } from "./auth";
 
 runTest("Take Screenshots", async (helper) => {
   const { page } = helper;

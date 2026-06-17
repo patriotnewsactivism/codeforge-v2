@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -38,6 +38,16 @@ export function DashboardPage() {
   const [importName, setImportName] = useState("");
   const [importStatus, setImportStatus] = useState<"idle" | "importing" | "done" | "error">("idle");
   const [importMsg, setImportMsg] = useState("");
+
+  // Redirect to onboarding if user hasn't completed it
+  useEffect(() => {
+    if (projects && projects.length === 0) {
+      const hasOnboarded = localStorage.getItem("cf_onboarded");
+      if (!hasOnboarded) {
+        navigate("/onboarding", { replace: true });
+      }
+    }
+  }, [projects, navigate]);
 
   const closeModal = () => {
     setModal("none");

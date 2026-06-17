@@ -4,3 +4,4 @@ export { SignupPage } from "./SignupPage";
 export { DashboardPage } from "./DashboardPage";
 export { SettingsPage } from "./SettingsPage";
 export { IDEPage } from "./IDEPage";
+export { OnboardingPage } from "./OnboardingPage";

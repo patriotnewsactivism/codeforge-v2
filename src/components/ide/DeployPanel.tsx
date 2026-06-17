@@ -3,7 +3,7 @@
  * Instant preview, share link, ZIP export, GitHub Pages, Vercel/Netlify.
  */
 import type { Id } from "../../../convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
@@ -99,6 +99,26 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
     }
   }, [files, project]);
 
+  const deployToVercel = useAction(api.deployVercel.deploy);
+
+  const handleVercelDeploy = useCallback(async () => {
+    setDeployingTo("vercel");
+    try {
+      const result = await deployToVercel({ projectId: projectId! });
+      setPreviewUrl(result.url);
+      toast.success("Deployed to Vercel!", {
+        description: result.url,
+        action: { label: "Open", onClick: () => window.open(result.url, "_blank") },
+      });
+    } catch (e) {
+      toast.error("Vercel deploy failed", {
+        description: e instanceof Error ? e.message : "Unknown error",
+      });
+    } finally {
+      setDeployingTo(null);
+    }
+  }, [deployToVercel, projectId]);
+
   if (!projectId) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -148,12 +168,12 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
     {
       id: "vercel",
       label: "Vercel",
-      desc: "Deploy via Vercel CLI (coming soon)",
-      icon: <Globe className="h-4 w-4 text-white/30" />,
-      action: () => toast.info("Vercel integration coming soon"),
-      badge: "Soon",
-      badgeColor: "bg-white/5 text-white/20",
-      disabled: true,
+      desc: deployingTo === "vercel" ? "Deploying..." : "Deploy directly to Vercel",
+      icon: deployingTo === "vercel" ? <Loader2 className="h-4 w-4 text-white animate-spin" /> : <Globe className="h-4 w-4 text-white" />,
+      action: handleVercelDeploy,
+      badge: "Live",
+      badgeColor: "bg-white/10 text-white",
+      disabled: deployingTo !== null,
     },
   ];
 

@@ -534,6 +534,31 @@ export const launchPipeline = action({
   },
 });
 
-
-
+export const recordDeployment = mutation({
+  args: {
+    projectId: v.id("projects"),
+    platform: v.string(),
+    deploymentId: v.string(),
+    url: v.string(),
+    status: v.string(),
+    filesCount: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    return await ctx.db.insert("deployments", {
+      projectId: args.projectId,
+      branchName: `${args.platform}-${args.deploymentId.slice(0, 7)}`,
+      commitSha: args.deploymentId,
+      commitMessage: `${args.platform} deployment: ${args.url} (${args.filesCount} files)`,
+      repoFullName: args.platform,
+      triggeredByAgentId: "deploy-panel",
+      status: "deployed",
+      humanApproved: true,
+      canaryPercent: 100,
+      createdAt: Date.now(),
+      deployedAt: Date.now(),
+    });
+  },
+});
 

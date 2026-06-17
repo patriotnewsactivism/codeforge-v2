@@ -10,6 +10,7 @@ import {
   DashboardPage,
   LandingPage,
   LoginPage,
+  OnboardingPage,
   SettingsPage,
   SignupPage,
   IDEPage,
@@ -40,6 +41,8 @@ function App() {
             </Route>
             {/* IDE page - full screen, no sidebar */}
             <Route path="/project/:projectId" element={<IDEPage />} />
+            {/* Onboarding - full screen, no sidebar */}
+            <Route path="/onboarding" element={<OnboardingPage />} />
           </Route>
 
           {/* Public pricing page */}

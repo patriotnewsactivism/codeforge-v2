@@ -30,9 +30,17 @@ export function SignUp() {
 
               const formData = new FormData(e.currentTarget);
               const email = formData.get("email") as string;
+              const name = formData.get("name") as string;
+              const password = formData.get("password") as string;
               const provider = isTestEmail(email) ? "test" : "password";
               try {
-                await signIn(provider, formData);
+                await signIn(provider, {
+                  name,
+                  email,
+                  password,
+                  flow: "signUp",
+                  redirectTo: "/onboarding",
+                });
                 if (!isTestEmail(email)) {
                   setStep({ email });
                 }
@@ -119,8 +127,14 @@ export function SignUp() {
             setLoading(true);
 
             const formData = new FormData(e.currentTarget);
+            const code = formData.get("code") as string;
             try {
-              await signIn("password", formData);
+              await signIn("password", {
+                code,
+                email: step.email,
+                flow: "email-verification",
+                redirectTo: "/onboarding",
+              });
             } catch {
               setError("Invalid or expired code. Please try again.");
             } finally {
