@@ -51,6 +51,7 @@ import type * as sessions from "../sessions.js";
 import type * as stripe from "../stripe.js";
 import type * as suggestions from "../suggestions.js";
 import type * as swarm from "../swarm.js";
+import type * as tasks from "../tasks.js";
 import type * as testAuth from "../testAuth.js";
 import type * as users from "../users.js";
 import type * as vision from "../vision.js";
@@ -105,6 +106,7 @@ declare const fullApi: ApiFromModules<{
   stripe: typeof stripe;
   suggestions: typeof suggestions;
   swarm: typeof swarm;
+  tasks: typeof tasks;
   testAuth: typeof testAuth;
   users: typeof users;
   vision: typeof vision;

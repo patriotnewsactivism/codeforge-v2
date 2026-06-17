@@ -85,7 +85,7 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
   const diffLines = useMemo(() => {
     if (comparisonMode === "cumulative" && currentTargetPath) {
       // Find the OLDEST change for this file to get the "original" content
-      const historyForFile = changeHistory?.filter(c => c.filePath === currentTargetPath) ?? [];
+      const historyForFile = changeHistory?.filter((c: any) => c.filePath === currentTargetPath) ?? [];
       const oldest = historyForFile[historyForFile.length - 1];
       const original = oldest?.previousContent ?? "";
       return computeDiff(original, content);

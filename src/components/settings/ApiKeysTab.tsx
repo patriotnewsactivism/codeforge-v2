@@ -372,7 +372,7 @@ export function ApiKeysTab() {
       {/* Provider rows */}
       <div className="space-y-3">
         {PROVIDERS.map(provider => {
-          const saved = savedKeys?.find(k => k.provider === provider.id);
+          const saved = savedKeys?.find((k: any) => k.provider === provider.id);
           return (
             <ProviderRow
               key={provider.id}
