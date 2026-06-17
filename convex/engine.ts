@@ -9,7 +9,7 @@
  */
 
 import { v } from "convex/values";
-import { api as _api, api, api } from "./_generated/api";
+import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";

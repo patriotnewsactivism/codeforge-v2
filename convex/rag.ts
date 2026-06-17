@@ -1,216 +1,71 @@
+/**
+ * rag.ts — Retrieval-Augmented Generation for Agent Context
+ *
+ * Agents can't hold the whole project in their context window (yet).
+ * This module provides simple keyword and semantic search over project files.
+ *
+ * It uses a simple in-memory BM25-like scoring for now, but is designed
+ * to be swapped for Convex vector search later.
+ */
+
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 import { action, mutation, query } from "./_generated/server";
 
-declare const process: { env: Record<string, string | undefined> };
+// ─── DB OPERATIONS ───────────────────────────────────────────────────────────
 
-// ── Simple TF-IDF style embedding stored as JSON string ─────────────────────
-// Real vector search would use an external embedding API. This implementation
-// uses keyword indexing with TF-IDF scoring — works without external deps.
-
-function tokenize(text: string): string[] {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s_]/g, " ")
-    .split(/\s+/)
-    .filter(t => t.length > 2 && !STOP_WORDS.has(t));
-}
-
-const STOP_WORDS = new Set([
-  "the",
-  "and",
-  "for",
-  "with",
-  "this",
-  "that",
-  "from",
-  "are",
-  "was",
-  "will",
-  "can",
-  "has",
-  "have",
-  "been",
-  "not",
-  "but",
-  "all",
-  "its",
-  "they",
-  "their",
-  "them",
-  "use",
-  "used",
-  "using",
-  "function",
-  "return",
-  "const",
-  "let",
-  "var",
-  "type",
-  "import",
-  "export",
-  "default",
-  "class",
-]);
-
-function buildTermFrequency(tokens: string[]): Record<string, number> {
-  const tf: Record<string, number> = {};
-  for (const t of tokens) {
-    tf[t] = (tf[t] ?? 0) + 1;
-  }
-  // Normalize
-  const total = tokens.length || 1;
-  for (const k of Object.keys(tf)) {
-    tf[k] = tf[k]! / total;
-  }
-  return tf;
-}
-
-function cosineSimilarity(
-  a: Record<string, number>,
-  b: Record<string, number>,
-): number {
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  for (const [k, v] of Object.entries(a)) {
-    dot += v * (b[k] ?? 0);
-    normA += v * v;
-  }
-  for (const v of Object.values(b)) {
-    normB += v * v;
-  }
-  const denom = Math.sqrt(normA) * Math.sqrt(normB);
-  return denom === 0 ? 0 : dot / denom;
-}
-
-// ─── QUERIES ─────────────────────────────────────────────────────────────────
-
-export const listIndexedFiles = query({
+export const listAllProjectFiles = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("codebaseIndex")
+      .query("files")
       .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .collect();
   },
 });
 
-export const getIndexStats = query({
-  args: { projectId: v.id("projects") },
-  handler: async (ctx, args) => {
-    const entries = await ctx.db
-      .query("codebaseIndex")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
-      .collect();
-    return {
-      totalFiles: entries.length,
-      lastIndexedAt: entries.reduce((max, e) => Math.max(max, e.indexedAt), 0),
-    };
-  },
-});
-
-// ─── MUTATIONS ────────────────────────────────────────────────────────────────
-
-export const indexFile = mutation({
+export const updateFileTags = mutation({
   args: {
-    projectId: v.id("projects"),
     fileId: v.id("files"),
-    path: v.string(),
-    content: v.string(),
+    tags: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    const tokens = tokenize(args.content);
-    const tf = buildTermFrequency(tokens);
-
-    // Extract semantic tags: function names, imports, class names
-    const fnMatches =
-      args.content.match(
-        /(?:function|const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)/g,
-      ) ?? [];
-    const importMatches = args.content.match(/from\s+['"]([^'"]+)['"]/g) ?? [];
-    const tags = [
-      ...fnMatches.map(m => m.split(/\s+/).pop() ?? ""),
-      ...importMatches.map(m =>
-        m.replace(/from\s+['"]/, "").replace(/['"]/, ""),
-      ),
-    ].filter(Boolean);
-
-    // Detect language from extension
-    const ext = args.path.split(".").pop() ?? "";
-    const langMap: Record<string, string> = {
-      ts: "typescript",
-      tsx: "typescript-react",
-      js: "javascript",
-      jsx: "javascript-react",
-      css: "css",
-      html: "html",
-      py: "python",
-      go: "go",
-      rs: "rust",
-      md: "markdown",
-    };
-    const language = langMap[ext] ?? ext;
-
-    const existing = await ctx.db
-      .query("codebaseIndex")
-      .withIndex("by_project_and_path", q =>
-        q.eq("projectId", args.projectId).eq("path", args.path),
-      )
-      .first();
-
-    const record = {
-      projectId: args.projectId,
-      fileId: args.fileId,
-      path: args.path,
-      language,
-      termFrequency: JSON.stringify(tf),
-      tags,
-      tokenCount: tokens.length,
-      indexedAt: Date.now(),
-    };
-
-    if (existing) {
-      await ctx.db.patch(existing._id, record);
-    } else {
-      await ctx.db.insert("codebaseIndex", record);
-    }
-  },
-});
-
-export const removeFromIndex = mutation({
-  args: { projectId: v.id("projects"), path: v.string() },
-  handler: async (ctx, args) => {
-    const entry = await ctx.db
-      .query("codebaseIndex")
-      .withIndex("by_project_and_path", q =>
-        q.eq("projectId", args.projectId).eq("path", args.path),
-      )
-      .first();
-    if (entry) await ctx.db.delete(entry._id);
+    await ctx.db.patch(args.fileId, { tags: args.tags });
   },
 });
 
 // ─── ACTIONS ─────────────────────────────────────────────────────────────────
 
-// Index all files in a project
+/**
+ * indexProject — runs a background scan of all files to extract tags
+ * for better searchability.
+ */
 export const indexProject = action({
   args: { projectId: v.id("projects") },
   returns: v.object({ filesIndexed: v.number() }),
   handler: async (ctx, args): Promise<{ filesIndexed: number }> => {
-    const files: any[] = await ctx.runQuery(api.files.listByProject, {
+    const files = await ctx.runQuery(api.files.listByProject, {
       projectId: args.projectId,
     });
-    const codeFiles = files.filter(
-      (f: any) => !f.isDirectory && f.content.length > 0,
-    );
+
+    const codeFiles = files.filter(f => !f.isDirectory);
 
     for (const file of codeFiles) {
-      await ctx.runMutation(api.rag.indexFile, {
-        projectId: args.projectId,
+      // Basic extension-based and keyword-based tagging
+      const tags: string[] = [];
+      const ext = file.path.split(".").pop()?.toLowerCase();
+      if (ext) tags.push(ext);
+
+      const content = file.content.toLowerCase();
+      if (content.includes("import react")) tags.push("react");
+      if (content.includes("convex")) tags.push("convex");
+      if (content.includes("interface ") || content.includes("type "))
+        tags.push("types");
+      if (content.includes("test(") || content.includes("it(")) tags.push("test");
+
+      await ctx.runMutation(api.rag.updateFileTags, {
         fileId: file._id,
-        path: file.path,
-        content: file.content,
+        tags,
       });
     }
 
@@ -218,7 +73,10 @@ export const indexProject = action({
   },
 });
 
-// Semantic search: find the most relevant files for a query
+/**
+ * search — performs keyword search across project files.
+ * Scores by keyword frequency in content, title matches, and tag relevance.
+ */
 export const search = action({
   args: {
     projectId: v.id("projects"),
@@ -229,46 +87,50 @@ export const search = action({
   returns: v.array(
     v.object({
       path: v.string(),
-      language: v.string(),
       score: v.number(),
       tags: v.array(v.string()),
       snippet: v.string(),
     }),
   ),
   handler: async (ctx, args) => {
-    const topK = args.topK ?? 8;
-    const queryTokens = tokenize(args.query);
-    const queryTF = buildTermFrequency(queryTokens);
-
-    // Also add query terms as-is for exact match bonus
-    const queryWords = args.query.toLowerCase().split(/\s+/);
-
-    let entries = await ctx.runQuery(api.rag.listIndexedFiles, {
+    const files = await ctx.runQuery(api.rag.listAllProjectFiles, {
       projectId: args.projectId,
     });
 
-    if (args.filterLanguage) {
-      entries = entries.filter((e: any) => e.language === args.filterLanguage);
-    }
+    const queryWords = args.query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    if (!queryWords.length) return [];
 
-    // Score each file
-    const scored = entries.map((entry: any) => {
-      const fileTF = JSON.parse(entry.termFrequency) as Record<string, number>;
-      let score = cosineSimilarity(queryTF, fileTF);
+    const results = files.filter(f => {
+      if (f.isDirectory) return false;
+      if (args.filterLanguage && !f.path.endsWith(args.filterLanguage))
+        return false;
+      return true;
+    });
 
-      // Bonus for tag matches (function/class names in query)
+    const scored = results.map((entry: any) => {
+      let score = 0;
+      const content = entry.content.toLowerCase();
+
+      // Bonus for exact word matches in content
+      for (const word of queryWords) {
+        if (content.includes(word)) score += 1;
+        // Even more for title match
+        if (entry.path.toLowerCase().includes(word)) score += 5;
+      }
+
+      // Tag bonus
       const tagBonus =
-        entry.tags.filter((tag: string) =>
+        entry.tags?.filter((tag: string) =>
           queryWords.some(
-            w => tag.toLowerCase().includes(w) || w.includes(tag.toLowerCase()),
+            (w: string) => tag.toLowerCase().includes(w) || w.includes(tag.toLowerCase()),
           ),
-        ).length * 0.15;
+        ).length ?? 0 * 0.15;
 
       score += tagBonus;
 
       // Bonus for path matching query words
       const pathBonus =
-        queryWords.filter(w => entry.path.toLowerCase().includes(w)).length *
+        queryWords.filter((w: string) => entry.path.toLowerCase().includes(w)).length *
         0.1;
 
       score += pathBonus;
@@ -278,90 +140,67 @@ export const search = action({
 
     // Sort by score, take top K
     scored.sort((a: any, b: any) => b.score - a.score);
-    const top = scored.slice(0, topK).filter((s: any) => s.score > 0);
+    const top = scored.slice(0, args.topK ?? 10);
 
-    // Fetch actual file content for snippets
-    const results: Array<{
-      path: string;
-      language: string;
-      score: number;
-      tags: string[];
-      snippet: string;
-    }> = [];
-
-    for (const { entry, score } of top) {
-      const file = await ctx.runQuery(api.files.getByPath, {
-        projectId: args.projectId,
-        path: entry.path,
-      });
-
-      let snippet = "";
-      if (file) {
-        // Extract relevant snippet around the first query term match
-        const lines = file.content.split("\n");
-        const firstMatch = lines.findIndex((line: string) =>
-          queryWords.some(w => line.toLowerCase().includes(w)),
-        );
-        const start = Math.max(0, firstMatch - 2);
-        const end = Math.min(lines.length, start + 10);
-        snippet = lines.slice(start, end).join("\n");
+    return top.map((s: any) => {
+      // Find the first occurrence of any query word for the snippet
+      const content = s.entry.content;
+      const lower = content.toLowerCase();
+      let bestIndex = 0;
+      for (const word of queryWords) {
+        const idx = lower.indexOf(word);
+        if (idx !== -1) {
+          bestIndex = idx;
+          break;
+        }
       }
 
-      results.push({
-        path: entry.path,
-        language: entry.language,
-        score: Math.round(score * 1000) / 1000,
-        tags: entry.tags.slice(0, 10),
-        snippet,
-      });
-    }
+      const start = Math.max(0, bestIndex - 100);
+      const end = Math.min(content.length, bestIndex + 200);
+      let snippet = content.slice(start, end);
+      if (start > 0) snippet = "..." + snippet;
+      if (end < content.length) snippet = snippet + "...";
 
-    return results;
+      return {
+        path: s.entry.path,
+        score: s.score,
+        tags: s.entry.tags ?? [],
+        snippet,
+      };
+    });
   },
 });
 
-// Get context-aware file selection for an agent prompt
+/**
+ * getContextForPrompt — Convenience function for agents.
+ * Searches and formats the top results as a prompt block.
+ */
 export const getContextForPrompt = action({
   args: {
     projectId: v.id("projects"),
     query: v.string(),
     maxTokens: v.optional(v.number()),
   },
-  returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
-    const maxTokens = args.maxTokens ?? 8000;
-
     const results = await ctx.runAction(api.rag.search, {
       projectId: args.projectId,
       query: args.query,
-      topK: 10,
+      topK: 5,
     });
 
-    if (results.length === 0) return "";
+    if (!results.length) return "No relevant files found for this query.";
 
-    const lines: string[] = [`=== RELEVANT FILES FOR: "${args.query}" ===`];
-
-    let charBudget = maxTokens * 4; // ~4 chars per token
-
-    for (const result of results) {
-      const file = await ctx.runQuery(api.files.getByPath, {
-        projectId: args.projectId,
-        path: result.path,
-      });
-      if (!file) continue;
-
-      const header = `\n--- ${result.path} (relevance: ${result.score}) ---\n`;
-      const content = file.content.slice(
-        0,
-        Math.min(file.content.length, charBudget - header.length),
-      );
-
-      if (charBudget <= 0) break;
-      lines.push(header + content);
-      charBudget -= header.length + content.length;
+    let block = "### Relevant Code Context\n\n";
+    for (const res of results) {
+      block += `--- ${res.path} (score: ${res.score.toFixed(1)}) ---\n`;
+      block += `${res.snippet}\n\n`;
     }
 
-    lines.push("\n=== END RELEVANT FILES ===\n");
-    return lines.join("\n");
+    // Rough token limit
+    if (args.maxTokens && block.length > args.maxTokens * 4) {
+      block = block.slice(0, args.maxTokens * 4) + "... [truncated]";
+    }
+
+    return block;
   },
 });

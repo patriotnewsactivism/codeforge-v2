@@ -309,7 +309,7 @@ Return ONLY a JSON array (no markdown, no code fences):
 
     try {
       const byok = await resolveByok(ctx);
-      const text = await callAI(prompt, 4000, undefined, byok);
+      const text = await callAI(prompt, undefined, 4000, byok);
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (!jsonMatch) return 0;
 

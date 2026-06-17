@@ -210,7 +210,7 @@ toolCalls?.filter(
     c.status === "running" || c.status === "pending",
 ) ?? [];
 
-const activeLanesCount = agentLanes.filter((a: any) => a.isActive).length;
+  const totalCalls = toolCalls?.length ?? 0;
   const isRunning =
     activeCalls.length > 0 ||
     (thoughts?.some((t: { isStreaming?: boolean }) => t.isStreaming) ?? false);
