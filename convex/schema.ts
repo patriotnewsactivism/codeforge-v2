@@ -368,6 +368,7 @@ const schema = defineSchema({
   projectSettings: defineTable({
     projectId: v.id("projects"),
     autonomousMode: v.boolean(),
+    autonomousLevel: v.optional(v.string()), // "manual" | "suggest" | "apply" | "autonomous" | "autopilot"
     autoIntervalMinutes: v.number(),
     lastAutoRunAt: v.optional(v.number()),
     projectSoul: v.optional(v.string()), // core identity — agents never violate this

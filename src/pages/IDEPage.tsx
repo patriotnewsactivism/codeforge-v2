@@ -16,6 +16,7 @@ import { GitHubConnectDialog } from "@/components/ide/GitHubConnectDialog";
 import { GitPanel } from "@/components/ide/GitPanel";
 import { ImportRepoDialog } from "@/components/ide/ImportRepoDialog";
 import { LivePreview } from "@/components/ide/LivePreview";
+import { MissionControlBar } from "@/components/ide/MissionControlBar";
 import { PanelErrorBoundary } from "@/components/ide/PanelErrorBoundary";
 import { SuggestionsPanel } from "@/components/ide/SuggestionsPanel";
 import {
@@ -942,6 +943,9 @@ export function IDEPage() {
             )}
           </ResizablePanelGroup>
         </div>
+
+        {/* Desktop bottom status bar */}
+        <MissionControlBar projectId={projectId as Id<"projects">} />
       </div>
 
       {/* GitHub Dialogs */}

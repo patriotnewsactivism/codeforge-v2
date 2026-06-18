@@ -133,6 +133,7 @@ export const getAutonomousMode = query({
       _id: v.id("projectSettings"),
       projectId: v.id("projects"),
       autonomousMode: v.boolean(),
+      autonomousLevel: v.optional(v.string()),
       autoIntervalMinutes: v.number(),
       lastAutoRunAt: v.optional(v.number()),
       projectSoul: v.optional(v.string()),
@@ -193,6 +194,7 @@ export const setAutonomousMode = mutation({
   args: {
     projectId: v.id("projects"),
     autonomousMode: v.boolean(),
+    autonomousLevel: v.optional(v.string()),
     autoIntervalMinutes: v.optional(v.number()),
     projectSoul: v.optional(v.string()),
   },
@@ -209,6 +211,7 @@ export const setAutonomousMode = mutation({
     if (existing) {
       await ctx.db.patch(existing._id, {
         autonomousMode: args.autonomousMode,
+        autonomousLevel: args.autonomousLevel ?? existing.autonomousLevel,
         autoIntervalMinutes:
           args.autoIntervalMinutes ?? existing.autoIntervalMinutes,
         projectSoul: args.projectSoul ?? existing.projectSoul,
@@ -217,6 +220,7 @@ export const setAutonomousMode = mutation({
       await ctx.db.insert("projectSettings", {
         projectId: args.projectId,
         autonomousMode: args.autonomousMode,
+        autonomousLevel: args.autonomousLevel ?? "manual",
         autoIntervalMinutes: args.autoIntervalMinutes ?? 15,
         projectSoul: args.projectSoul,
         lastAutoRunAt: undefined,

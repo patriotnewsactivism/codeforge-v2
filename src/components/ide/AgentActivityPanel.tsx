@@ -8,7 +8,7 @@
  * Automatically switches to Agents view when a mission starts.
  * Every agent gets its own color + icon + status indicator.
  */
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import {
   Activity,
   Bot,
@@ -79,6 +79,16 @@ const AGENT_COLORS: Record<
   },
 };
 
+const AGENT_PERMISSIONS: Record<string, string> = {
+  planner: "Read-only • Orchestrator",
+  "ui-agent": "Read/Write • src/components",
+  "logic-agent": "Read/Write • convex/",
+  "mobile-agent": "Read/Write • responsive",
+  "feature-agent": "Read/Write • fullstack",
+  "debug-agent": "Read-only • search & fix",
+  "qa-agent": "Execute • run tests",
+};
+
 const DEFAULT_COLOR = {
   dot: "bg-pink-400",
   text: "text-pink-400",
@@ -139,6 +149,13 @@ export function AgentActivityPanel({ projectId }: Props) {
   const [view, setView] = useState<"agents" | "log">("agents");
   const bottomRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
+
+  const autonomousSettings = useQuery(api.suggestions.getAutonomousMode, {
+    projectId,
+  });
+  const setAutonomousMode = useMutation(api.suggestions.setAutonomousMode);
+
+  const autonomousLevel = autonomousSettings?.autonomousLevel ?? "manual";
 
   // Auto-scroll on new activity
   useEffect(() => {
@@ -247,6 +264,37 @@ toolCalls?.filter(
           </span>
         )}
 
+        {/* Budget Bar */}
+        <div className="flex-1 max-w-[120px] hidden sm:flex flex-col gap-1 mx-2">
+          <div className="flex justify-between text-[8px] text-muted-foreground/70 uppercase font-bold tracking-wider">
+            <span>Budget</span>
+            <span>$0.04 / $5.00</span>
+          </div>
+          <div className="h-1.5 bg-black/40 rounded-full overflow-hidden">
+            <div className="h-full bg-amber-400 w-[5%]" />
+          </div>
+        </div>
+
+        {/* Autonomy Level Selector */}
+        <select
+          value={autonomousLevel}
+          onChange={(e) => {
+            const val = e.target.value;
+            setAutonomousMode({
+              projectId,
+              autonomousMode: val === "autonomous" || val === "autopilot",
+              autonomousLevel: val,
+            }).catch(() => {});
+          }}
+          className="bg-white/5 border border-border text-[9px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground rounded px-1.5 py-0.5 outline-none focus:border-primary shrink-0 transition-colors"
+        >
+          <option value="manual">Manual</option>
+          <option value="suggest">Suggest</option>
+          <option value="apply">Apply w/ Approval</option>
+          <option value="autonomous">Autonomous</option>
+          <option value="autopilot">Full Autopilot</option>
+        </select>
+
         {/* View toggle */}
         <div className="flex rounded border border-border overflow-hidden shrink-0">
           {(["agents", "log"] as const).map(v => (
@@ -336,6 +384,11 @@ toolCalls?.filter(
                     >
                       {isActive ? "⚡ active" : isDone ? "✓ done" : "waiting"}
                     </span>
+                  </div>
+
+                  {/* Permission Model */}
+                  <div className="text-[9px] text-muted-foreground/40 font-mono pl-4 mb-1">
+                    {AGENT_PERMISSIONS[agent.agentId] ?? "Read/Write • standard"}
                   </div>
 
                   {/* Latest thought */}
