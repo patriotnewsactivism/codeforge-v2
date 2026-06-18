@@ -182,8 +182,54 @@ export function DashboardPage() {
     <div className="min-h-[calc(100dvh-64px)] p-3 sm:p-6">
       <BYOKBanner />
       <div className="max-w-5xl mx-auto">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <Card className="bg-card/50 backdrop-blur-sm border-border/50">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <FolderOpen className="h-4 w-4 text-primary" /> Total Projects
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="text-2xl font-bold">{projects?.length ?? 0}</div>
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50 backdrop-blur-sm border-border/50">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-400" /> Active Agents
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="text-2xl font-bold">0</div>
+              <p className="text-xs text-muted-foreground mt-1">Currently running</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50 backdrop-blur-sm border-border/50">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-400" /> Missions
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="text-2xl font-bold">0</div>
+              <p className="text-xs text-muted-foreground mt-1">Completed this week</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50 backdrop-blur-sm border-border/50">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Code2 className="h-4 w-4 text-violet-400" /> AI Lines Written
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="text-2xl font-bold">~0</div>
+              <p className="text-xs text-muted-foreground mt-1">Across all projects</p>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
               <Code2 className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
