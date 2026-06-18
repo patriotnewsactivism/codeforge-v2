@@ -10,6 +10,7 @@ import {
   File,
   GitCompareArrows,
   Undo2,
+  Check,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -164,14 +165,31 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
               onClick={async () => {
                 try {
                   await undoChange({ changeId: selectedChange._id });
-                  toast.success("Change reverted");
+                  toast.success("Change rejected and reverted");
                 } catch (e) {
-                  toast.error("Revert failed");
+                  toast.error("Rejection failed");
                 }
               }}
             >
               <Undo2 className="h-3 w-3 mr-1" />
-              Revert
+              Reject
+            </Button>
+          )}
+          {selectedChange && !selectedChange.undone && (
+            <Button
+              size="sm"
+              variant="default"
+              className="h-6 px-2 text-[10px] bg-green-500/20 text-green-400 hover:bg-green-500/30"
+              onClick={() => {
+                toast.success("Change accepted");
+                // Optionally move to next change
+                if (historyIndex > 0) {
+                  setHistoryIndex(i => i - 1);
+                }
+              }}
+            >
+              <Check className="h-3 w-3 mr-1" />
+              Accept
             </Button>
           )}
         </div>

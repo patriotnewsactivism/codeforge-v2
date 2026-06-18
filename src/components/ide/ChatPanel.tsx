@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { UsageMeter } from "./UsageMeter";
+import { QuickActions } from "./QuickActions";
 
 const MODELS = [
   {
@@ -335,6 +336,19 @@ export function ChatPanel({
           <FileCodeIcon className="h-3 w-3 shrink-0" />
           <span className="truncate">Context: {currentFileName}</span>
         </div>
+      )}
+
+      {/* Quick Actions (only show when there's context and no input) */}
+      {currentFileName && !input && (
+        <QuickActions
+          disabled={isLoading}
+          onSelect={(prompt) => {
+            setInput(prompt);
+            setTimeout(() => {
+              if (inputRef.current) inputRef.current.focus();
+            }, 0);
+          }}
+        />
       )}
 
       {/* Input */}
