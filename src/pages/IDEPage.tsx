@@ -780,8 +780,7 @@ export function IDEPage() {
               }`}
             >
               {item.icon}
-                {item.label}
-              </span>
+              <span className="text-[10px] font-medium">{item.label}</span>
             </button>
           ))}
         </div>
