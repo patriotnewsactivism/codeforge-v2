@@ -9,7 +9,6 @@ making changes, and update it when project conventions change.
   York style), React Router v7, Monaco Editor for the IDE.
 - **Backend:** [Convex](https://convex.dev) (v1.41) — schema, queries, mutations,
   actions, HTTP routes, auth, file storage.
-- **`frontend/`** is a legacy Vite app. All active development uses the root app.
 - **`.kilo/`** contains the Kilo orchestrator (worker metadata, templates,
   knowledge base). Do not delete `.kilo/AGENTS.md`,
   `.kilo/knowledgeBase.json`, or `.kilo/templates.json`.
@@ -91,7 +90,6 @@ in the environment to enable test credential login in the Convex backend.
 | `convex/`           | Convex functions, schema, auth, HTTP routes      |
 | `convex/_generated/`| Auto-generated Convex code (don't hand-edit)     |
 | `scripts/`          | Smoke tests and operational scripts (Bun)        |
-| `frontend/`         | Legacy Vite app (ignore unless explicitly targeted)|
 | `.kilo/`            | Kilo orchestrator metadata and worker config     |
 
 ## TypeScript and React style

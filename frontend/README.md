@@ -1,1 +1,0 @@
-Frontend app for CodeForge v2. Built with Vite. Run npm ci && npm run build inside frontend/.
