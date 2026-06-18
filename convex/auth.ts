@@ -1,5 +1,5 @@
 import { Password } from "@convex-dev/auth/providers/Password";
-import GitHub from "@convex-dev/auth/providers/GitHub";
+import GitHub from "@auth/core/providers/github";
 import { convexAuth, getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "./_generated/server";
 import { CodeForgeEmail, CodeForgePasswordReset } from "./email";
