@@ -11,6 +11,8 @@ const schema = defineSchema({
     image: v.optional(v.string()),
     githubToken: v.optional(v.string()),
     onboarded: v.optional(v.boolean()),
+    plan: v.optional(v.string()),
+    subscriptionStatus: v.optional(v.string()),
   }).index("by_email", ["email"]),
 
   // Projects (imported repos or new projects)

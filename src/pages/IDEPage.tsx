@@ -159,12 +159,15 @@ export function IDEPage() {
   // Presence heartbeat
   useEffect(() => {
     if (!projectId) return;
-    const interval = setInterval(() => {
+    const sendHeartbeat = () => {
       heartbeat({
         projectId: projectId as Id<"projects">,
         activeFile: activeFilePath ?? undefined,
       }).catch(() => {});
-    }, 30_000);
+    };
+    
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 30_000);
     return () => clearInterval(interval);
   }, [projectId, activeFilePath, heartbeat]);
 
