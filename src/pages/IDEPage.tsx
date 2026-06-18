@@ -722,8 +722,8 @@ export function IDEPage() {
           )}
         </div>
 
-        {/* Mobile bottom nav — 4 big touch targets */}
-        <div className="shrink-0 grid grid-cols-4 border-t border-border bg-[oklch(0.09_0.02_260)]">
+        {/* Mobile bottom nav — horizontally scrollable 7 tabs */}
+        <div className="shrink-0 flex overflow-x-auto scrollbar-none border-t border-border bg-[oklch(0.09_0.02_260)] snap-x">
           {[
             {
               view: "editor" as MobileView,
@@ -739,12 +739,31 @@ export function IDEPage() {
               view: "panel" as MobileView,
               icon: <MessageSquare className="h-5 w-5" />,
               label: "Chat",
+              panel: "chat" as RightPanel,
             },
             {
               view: "panel" as MobileView,
               icon: <Zap className="h-5 w-5" />,
               label: "Agents",
               panel: "agents" as RightPanel,
+            },
+            {
+              view: "panel" as MobileView,
+              icon: <Target className="h-5 w-5" />,
+              label: "Missions",
+              panel: "missions" as RightPanel,
+            },
+            {
+              view: "panel" as MobileView,
+              icon: <Rocket className="h-5 w-5" />,
+              label: "Deploy",
+              panel: "deploy" as RightPanel,
+            },
+            {
+              view: "panel" as MobileView,
+              icon: <Settings className="h-5 w-5" />,
+              label: "Settings",
+              panel: "settings" as RightPanel,
             },
           ].map((item, i) => (
             <button
@@ -754,14 +773,13 @@ export function IDEPage() {
                 setMobileView(item.view);
                 if (item.panel) setRightPanel(item.panel);
               }}
-              className={`flex flex-col items-center justify-center gap-0.5 py-2.5 min-h-[56px] transition-colors active:bg-white/5 ${
-                mobileView === item.view
-                  ? "text-primary"
-                  : "text-muted-foreground"
+              className={`flex-1 min-w-[72px] shrink-0 flex flex-col items-center justify-center gap-0.5 py-2.5 min-h-[56px] transition-colors active:bg-white/5 snap-start ${
+                mobileView === item.view && (!item.panel || rightPanel === item.panel)
+                  ? "text-primary bg-primary/5 border-t border-primary"
+                  : "text-muted-foreground border-t border-transparent"
               }`}
             >
               {item.icon}
-              <span className="text-[9px] font-semibold uppercase tracking-wider">
                 {item.label}
               </span>
             </button>
