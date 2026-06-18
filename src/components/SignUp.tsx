@@ -34,14 +34,14 @@ export function SignUp() {
               const password = formData.get("password") as string;
               const provider = isTestEmail(email) ? "test" : "password";
               try {
-                await signIn(provider, {
+                const result = await signIn(provider, {
                   name,
                   email,
                   password,
                   flow: "signUp",
                   redirectTo: "/onboarding",
                 });
-                if (!isTestEmail(email)) {
+                if (!isTestEmail(email) && result && result.signingIn === false) {
                   setStep({ email });
                 }
               } catch {
