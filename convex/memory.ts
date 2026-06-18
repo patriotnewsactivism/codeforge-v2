@@ -484,6 +484,13 @@ export const deleteMemory = mutation({
   },
 });
 
+export const approveMemory = mutation({
+  args: { memoryId: v.id("agentMemories"), isApproved: v.boolean() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.memoryId, { isApproved: args.isApproved });
+  },
+});
+
 // ─── SAVE MEMORY (used by Reflection Agent) ──────────────────────────────────
 
 export const saveMemory = mutation({

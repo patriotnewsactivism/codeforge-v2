@@ -53,6 +53,7 @@ export type ToolName =
   | "read_file"
   | "list_files"
   | "search_files"
+  | "get_context"
   | "spawn_agent"
   | "send_message"
   | "complete_task";
@@ -350,24 +351,25 @@ async function executeTool(
 
       case "search_files": {
         const { query: searchQuery } = call.args as { query: string };
-        const files = await ctx.runQuery(api.files.listByProject, {
+        const results = await ctx.runAction(api.rag.search, {
           projectId,
+          query: searchQuery,
+          topK: 10,
         });
-        const q = searchQuery.toLowerCase();
-        const matches = files.filter(
-          (f: any) =>
-            !f.isDirectory &&
-            (f.path.toLowerCase().includes(q) ||
-              f.content.toLowerCase().includes(q)),
-        );
-        output = matches
-          .slice(0, 10)
-          .map(
-            (f: any) =>
-              `${f.path}: ${f.content.substring(0, 200).replace(/\n/g, " ")}…`,
-          )
-          .join("\n\n");
-        if (!output) output = "No matches found";
+        
+        output = results.length > 0 
+          ? results.map((r: any) => `${r.path} (score: ${r.score.toFixed(1)}):\n${r.snippet}\n`).join("\n")
+          : "No matches found";
+        break;
+      }
+
+      case "get_context": {
+        const { query: contextQuery } = call.args as { query: string };
+        output = await ctx.runAction(api.rag.getContextForPrompt, {
+          projectId,
+          query: contextQuery,
+          maxTokens: 2000,
+        });
         break;
       }
 
@@ -496,6 +498,7 @@ Available tools:
 - read_file:   { "tool": "read_file",   "args": { "path": "src/foo.ts" } }
 - list_files:  { "tool": "list_files",  "args": {} }
 - search_files:{ "tool": "search_files","args": { "query": "search term" } }
+- get_context: { "tool": "get_context", "args": { "query": "search term" } }
 - spawn_agent: { "tool": "spawn_agent", "args": { "role": "coder", "task": "implement X" } }
 - send_message:{ "tool": "send_message","args": { "to": "orchestrator", "message": "done with X" } }
 - complete_task:{"tool": "complete_task","args": { "summary": "What I accomplished" } }

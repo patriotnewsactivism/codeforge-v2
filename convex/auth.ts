@@ -1,4 +1,5 @@
 import { Password } from "@convex-dev/auth/providers/Password";
+import GitHub from "@convex-dev/auth/providers/GitHub";
 import { convexAuth, getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "./_generated/server";
 import { CodeForgeEmail, CodeForgePasswordReset } from "./email";
@@ -42,6 +43,17 @@ const resendConfigured = Boolean(process.env.RESEND_API_KEY);
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
+    GitHub({
+      profile(profile, tokens) {
+        return {
+          id: profile.id.toString(),
+          name: profile.name,
+          email: profile.email,
+          image: profile.avatar_url,
+          githubToken: tokens.access_token,
+        };
+      },
+    }),
     Password({
       // Only require email verification when Resend is configured.
       // Without it, sign-up and sign-in both fail because OTP can't be sent.

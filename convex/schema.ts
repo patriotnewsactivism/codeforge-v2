@@ -9,6 +9,7 @@ const schema = defineSchema({
     name: v.optional(v.string()),
     email: v.optional(v.string()),
     image: v.optional(v.string()),
+    githubToken: v.optional(v.string()),
     onboarded: v.optional(v.boolean()),
   }).index("by_email", ["email"]),
 
@@ -217,6 +218,7 @@ const schema = defineSchema({
       v.literal("convention"), // naming, formatting, file structure
       v.literal("tool"), // effective tool/API usage patterns
       v.literal("insight"), // general observations about the codebase
+      v.literal("skill"), // new skill that the agent learned
     ),
     content: v.string(), // the actual memory text injected into prompts
     importance: v.number(), // 0.0–1.0, used to rank which memories to inject
@@ -226,6 +228,7 @@ const schema = defineSchema({
     sourceRetroId: v.optional(v.id("taskRetrospectives")), // which retro created this
     decayFactor: v.number(), // 0.0–1.0, multiplied into importance over time
     embedding: v.optional(v.string()), // future: vector embedding for semantic search
+    isApproved: v.optional(v.boolean()),
   })
     .index("by_project", ["projectId"])
     .index("by_project_and_category", ["projectId", "category"])

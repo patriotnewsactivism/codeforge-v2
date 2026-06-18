@@ -194,8 +194,14 @@ export const getTokenInternal = query({
       .query("githubSettings")
       .withIndex("by_user", q => q.eq("userId", userId))
       .first();
-    if (!settings) return null;
-    return { token: settings.token };
+    if (settings?.token) return { token: settings.token };
+
+    // Fallback to OAuth token stored in users table
+    const user = await ctx.db.get(userId);
+    if (user && "githubToken" in user && typeof user.githubToken === "string") {
+      return { token: user.githubToken };
+    }
+    return null;
   },
 });
 

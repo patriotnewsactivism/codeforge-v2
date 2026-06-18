@@ -14,6 +14,9 @@ import {
   Sparkles,
   Trash2,
   Wrench,
+  Star,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -45,6 +48,7 @@ const CATEGORY_META: Record<
   convention: { label: "Conventions", icon: BookOpen, color: "text-green-400" },
   tool: { label: "Tools", icon: Wrench, color: "text-cyan-400" },
   insight: { label: "Insights", icon: Lightbulb, color: "text-amber-400" },
+  skill: { label: "Skills", icon: Star, color: "text-yellow-300" },
 };
 
 interface MemoryTabProps {
@@ -53,8 +57,8 @@ interface MemoryTabProps {
 
 export function MemoryTab({ projectId }: MemoryTabProps) {
   const [activeSection, setActiveSection] = useState<
-    "memories" | "retros" | "comms"
-  >("memories");
+    "lessons" | "skills" | "forensics" | "comms"
+  >("lessons");
   const [expandedRetro, setExpandedRetro] = useState<string | null>(null);
 
   const stats = useQuery(api.memory.getMemoryStats, { projectId });
@@ -62,12 +66,19 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
   const retros = useQuery(api.memory.listRetrospectives, { projectId });
   const messages = useQuery(api.memory.listAgentMessages, { projectId });
   const deleteMemory = useMutation(api.memory.deleteMemory);
+  const approveMemory = useMutation(api.memory.approveMemory);
 
   // Group memories by category
-  const grouped: Record<string, typeof memories> = {};
+  const groupedLessons: Record<string, typeof memories> = {};
+  const skillsList: typeof memories = [];
+  
   for (const mem of memories ?? []) {
-    if (!grouped[mem.category]) grouped[mem.category] = [];
-    grouped[mem.category]!.push(mem);
+    if (mem.category === "skill") {
+      skillsList.push(mem);
+    } else {
+      if (!groupedLessons[mem.category]) groupedLessons[mem.category] = [];
+      groupedLessons[mem.category]!.push(mem);
+    }
   }
 
   const MESSAGE_COLORS: Record<string, string> = {
@@ -97,7 +108,7 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
 
       {/* Tabs */}
       <div className="flex border-b border-border">
-        {(["memories", "retros", "comms"] as const).map(tab => (
+        {(["lessons", "skills", "forensics", "comms"] as const).map(tab => (
           <button
             key={tab}
             type="button"
@@ -109,30 +120,32 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {tab === "memories"
-              ? `Memories (${stats?.totalMemories ?? 0})`
-              : tab === "retros"
-                ? `Retros (${stats?.totalRetrospectives ?? 0})`
-                : `Comms (${messages?.length ?? 0})`}
+            {tab === "lessons"
+              ? `Lessons`
+              : tab === "skills"
+                ? `Skills (${skillsList?.length ?? 0})`
+                : tab === "forensics"
+                  ? `Forensics (${stats?.totalRetrospectives ?? 0})`
+                  : `Comms (${messages?.length ?? 0})`}
           </button>
         ))}
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {/* ── MEMORIES ── */}
-        {activeSection === "memories" && (
+        {/* ── LESSONS ── */}
+        {activeSection === "lessons" && (
           <div className="p-2 space-y-3">
-            {memories?.length === 0 && (
+            {Object.keys(groupedLessons).length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                 <Brain className="h-8 w-8 text-violet-400/30 mb-3" />
-                <p className="text-sm text-muted-foreground">No memories yet</p>
+                <p className="text-sm text-muted-foreground">No lessons learned yet</p>
                 <p className="text-xs text-muted-foreground/60 mt-1">
                   Run agents to start building the memory bank
                 </p>
               </div>
             )}
-            {Object.entries(grouped).map(([category, mems]) => {
+            {Object.entries(groupedLessons).map(([category, mems]) => {
               const meta = CATEGORY_META[category] ?? CATEGORY_META.insight!;
               const Icon = meta.icon;
               return (
@@ -176,9 +189,7 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
                             </div>
                             <button
                               type="button"
-                              onClick={() =>
-                                deleteMemory({ memoryId: mem._id })
-                              }
+                              onClick={() => deleteMemory({ memoryId: mem._id })}
                               className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all shrink-0"
                             >
                               <Trash2 className="h-3 w-3" />
@@ -194,8 +205,78 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
           </div>
         )}
 
-        {/* ── RETROSPECTIVES ── */}
-        {activeSection === "retros" && (
+        {/* ── SKILLS ── */}
+        {activeSection === "skills" && (
+          <div className="p-2 space-y-2">
+            {skillsList?.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                <Star className="h-8 w-8 text-yellow-400/30 mb-3" />
+                <p className="text-sm text-muted-foreground">No approved skills yet</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">
+                  Agents will suggest new skills. You can approve them here.
+                </p>
+              </div>
+            )}
+            {skillsList?.map((mem: NonNullable<typeof skillsList>[number]) => {
+              const strength = mem.importance * mem.decayFactor;
+              const isApproved = mem.isApproved;
+              
+              return (
+                <div
+                  key={mem._id}
+                  className="relative rounded-md bg-[oklch(0.14_0.02_260)] border border-border p-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] text-foreground leading-relaxed font-mono bg-black/20 p-2 rounded">
+                        {mem.content}
+                      </p>
+                      <div className="flex items-center gap-3 mt-3">
+                        <span className={cn("text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded", 
+                          isApproved ? "bg-green-500/20 text-green-400" : 
+                          isApproved === false ? "bg-red-500/20 text-red-400" : 
+                          "bg-yellow-500/20 text-yellow-400"
+                        )}>
+                          {isApproved ? "Approved" : isApproved === false ? "Rejected" : "Pending Approval"}
+                        </span>
+                        
+                        <div className="ml-auto flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => approveMemory({ memoryId: mem._id, isApproved: true })}
+                            className="p-1 rounded bg-green-500/10 hover:bg-green-500/30 text-green-400 transition-colors"
+                            title="Approve Skill"
+                          >
+                            <CheckCircle className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => approveMemory({ memoryId: mem._id, isApproved: false })}
+                            className="p-1 rounded bg-red-500/10 hover:bg-red-500/30 text-red-400 transition-colors"
+                            title="Reject Skill"
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteMemory({ memoryId: mem._id })}
+                            className="p-1 rounded bg-muted/20 hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors ml-2"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── FORENSICS (RETROS) ── */}
+        {activeSection === "forensics" && (
           <div className="p-2 space-y-2">
             {retros?.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 text-center px-4">
