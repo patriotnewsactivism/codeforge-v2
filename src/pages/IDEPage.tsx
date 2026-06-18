@@ -1,5 +1,6 @@
 import { useAction, useMutation, useQuery } from "convex/react";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useParams } from "react-router-dom";
 import { AgentActivityPanel } from "@/components/ide/AgentActivityPanel";
 import { AgentPanel } from "@/components/ide/AgentPanel";
@@ -544,89 +545,100 @@ export function IDEPage() {
       </div>
 
       {/* Panel content */}
-      <div className="flex-1 overflow-hidden">
-        {rightPanel === "chat" && (
-          <PanelErrorBoundary panelName="AI Chat">
-            <ChatPanel
-              projectId={projectId as Id<"projects">}
-              sessionId={sessionId}
-              currentFileContent={
-                activeFile ? getFileContent(activeFile.path) : undefined
-              }
-              currentFileName={activeFile?.name}
-              openFiles={openFileContexts}
-            />
-          </PanelErrorBoundary>
-        )}
-        {rightPanel === "suggestions" && (
-          <PanelErrorBoundary panelName="Suggestions">
-            <SuggestionsPanel
-              projectId={projectId as Id<"projects">}
-              onImplement={handleImplementSuggestion}
-            />
-          </PanelErrorBoundary>
-        )}
-        {rightPanel === "agents" && (
-          <PanelErrorBoundary panelName="Multi-Agent">
-            <AgentPanel projectId={projectId as Id<"projects">} />
-          </PanelErrorBoundary>
-        )}
-        {rightPanel === "memory" && (
-          <PanelErrorBoundary panelName="Memory">
-            <Suspense fallback={<PanelSkeleton />}>
-              <MemoryTab projectId={projectId as Id<"projects">} />
-            </Suspense>
-          </PanelErrorBoundary>
-        )}
-        {rightPanel === "thoughts" && (
-          <PanelErrorBoundary panelName="Agent Activity">
-            <AgentActivityPanel projectId={projectId as Id<"projects">} />
-          </PanelErrorBoundary>
-        )}
-        {rightPanel === "git" && (
-          <PanelErrorBoundary panelName="Git">
-            <GitPanel projectId={projectId as Id<"projects">} />
-          </PanelErrorBoundary>
-        )}
-        {rightPanel === "diff" && (
-          <PanelErrorBoundary panelName="Diff Viewer">
-            <DiffViewer projectId={projectId as Id<"projects">} />
-          </PanelErrorBoundary>
-        )}
-        {rightPanel === "deploy" && (
-          <PanelErrorBoundary panelName="Deploy">
-            <DeployPanel projectId={projectId as Id<"projects">} />
-          </PanelErrorBoundary>
-        )}
-        {rightPanel === "cinema" && (
-          <PanelErrorBoundary panelName="Cinema">
-            <Suspense fallback={<PanelSkeleton />}>
-              <CinemaPanel
-                projectId={projectId as Id<"projects">}
-                missionId={cinemaMissionId}
-                missionsList={missionsList ?? []}
-                onSelectMission={id => setCinemaMissionId(id)}
-              />
-            </Suspense>
-          </PanelErrorBoundary>
-        )}
-        {rightPanel === "errors" && (
-          <PanelErrorBoundary panelName="Error Ingestion">
-            <Suspense fallback={<PanelSkeleton />}>
-              <ErrorIngestionPanel
-                projectId={projectId as Id<"projects">}
-                repoFullName={project?.githubRepo ?? undefined}
-              />
-            </Suspense>
-          </PanelErrorBoundary>
-        )}
-        {rightPanel === "analytics" && (
-          <PanelErrorBoundary panelName="Analytics">
-            <Suspense fallback={<PanelSkeleton />}>
-              <AnalyticsDashboard projectId={projectId as Id<"projects">} />
-            </Suspense>
-          </PanelErrorBoundary>
-        )}
+      <div className="flex-1 overflow-hidden relative bg-background">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={rightPanel}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.15 }}
+            className="absolute inset-0 flex flex-col"
+          >
+            {rightPanel === "chat" && (
+              <PanelErrorBoundary panelName="AI Chat">
+                <ChatPanel
+                  projectId={projectId as Id<"projects">}
+                  sessionId={sessionId}
+                  currentFileContent={
+                    activeFile ? getFileContent(activeFile.path) : undefined
+                  }
+                  currentFileName={activeFile?.name}
+                  openFiles={openFileContexts}
+                />
+              </PanelErrorBoundary>
+            )}
+            {rightPanel === "suggestions" && (
+              <PanelErrorBoundary panelName="Suggestions">
+                <SuggestionsPanel
+                  projectId={projectId as Id<"projects">}
+                  onImplement={handleImplementSuggestion}
+                />
+              </PanelErrorBoundary>
+            )}
+            {rightPanel === "agents" && (
+              <PanelErrorBoundary panelName="Multi-Agent">
+                <AgentPanel projectId={projectId as Id<"projects">} />
+              </PanelErrorBoundary>
+            )}
+            {rightPanel === "memory" && (
+              <PanelErrorBoundary panelName="Memory">
+                <Suspense fallback={<PanelSkeleton />}>
+                  <MemoryTab projectId={projectId as Id<"projects">} />
+                </Suspense>
+              </PanelErrorBoundary>
+            )}
+            {rightPanel === "thoughts" && (
+              <PanelErrorBoundary panelName="Agent Activity">
+                <AgentActivityPanel projectId={projectId as Id<"projects">} />
+              </PanelErrorBoundary>
+            )}
+            {rightPanel === "git" && (
+              <PanelErrorBoundary panelName="Git">
+                <GitPanel projectId={projectId as Id<"projects">} />
+              </PanelErrorBoundary>
+            )}
+            {rightPanel === "diff" && (
+              <PanelErrorBoundary panelName="Diff Viewer">
+                <DiffViewer projectId={projectId as Id<"projects">} />
+              </PanelErrorBoundary>
+            )}
+            {rightPanel === "deploy" && (
+              <PanelErrorBoundary panelName="Deploy">
+                <DeployPanel projectId={projectId as Id<"projects">} />
+              </PanelErrorBoundary>
+            )}
+            {rightPanel === "cinema" && (
+              <PanelErrorBoundary panelName="Cinema">
+                <Suspense fallback={<PanelSkeleton />}>
+                  <CinemaPanel
+                    projectId={projectId as Id<"projects">}
+                    missionId={cinemaMissionId}
+                    missionsList={missionsList ?? []}
+                    onSelectMission={id => setCinemaMissionId(id)}
+                  />
+                </Suspense>
+              </PanelErrorBoundary>
+            )}
+            {rightPanel === "errors" && (
+              <PanelErrorBoundary panelName="Error Ingestion">
+                <Suspense fallback={<PanelSkeleton />}>
+                  <ErrorIngestionPanel
+                    projectId={projectId as Id<"projects">}
+                    repoFullName={project?.githubRepo ?? undefined}
+                  />
+                </Suspense>
+              </PanelErrorBoundary>
+            )}
+            {rightPanel === "analytics" && (
+              <PanelErrorBoundary panelName="Analytics">
+                <Suspense fallback={<PanelSkeleton />}>
+                  <AnalyticsDashboard projectId={projectId as Id<"projects">} />
+                </Suspense>
+              </PanelErrorBoundary>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );

@@ -190,6 +190,7 @@ const schema = defineSchema({
     agentId: v.string(),
     agentName: v.string(),
     agentIcon: v.string(),
+    role: v.optional(v.string()),
     task: v.string(),
     status: v.union(
       v.literal("queued"),

@@ -35,59 +35,47 @@ const AGENT_COLORS: Record<
   string,
   { dot: string; text: string; bg: string; border: string }
 > = {
-  planner: {
+  orchestrator: {
     dot: "bg-violet-400",
     text: "text-violet-400",
     bg: "bg-violet-400/8",
     border: "border-violet-500/25",
   },
-  "ui-agent": {
+  frontend: {
     dot: "bg-blue-400",
     text: "text-blue-400",
     bg: "bg-blue-400/8",
     border: "border-blue-500/25",
   },
-  "logic-agent": {
+  backend: {
     dot: "bg-green-400",
     text: "text-green-400",
     bg: "bg-green-400/8",
     border: "border-green-500/25",
   },
-  "mobile-agent": {
-    dot: "bg-cyan-400",
-    text: "text-cyan-400",
-    bg: "bg-cyan-400/8",
-    border: "border-cyan-500/25",
-  },
-  "feature-agent": {
+  devops: {
     dot: "bg-amber-400",
     text: "text-amber-400",
     bg: "bg-amber-400/8",
     border: "border-amber-500/25",
   },
-  "debug-agent": {
-    dot: "bg-red-400",
-    text: "text-red-400",
-    bg: "bg-red-400/8",
-    border: "border-red-500/25",
-  },
-  "qa-agent": {
-    dot: "bg-emerald-400",
-    text: "text-emerald-400",
-    bg: "bg-emerald-400/8",
-    border: "border-emerald-500/25",
-  },
 };
 
 const AGENT_PERMISSIONS: Record<string, string> = {
-  planner: "Read-only • Orchestrator",
-  "ui-agent": "Read/Write • src/components",
-  "logic-agent": "Read/Write • convex/",
-  "mobile-agent": "Read/Write • responsive",
-  "feature-agent": "Read/Write • fullstack",
-  "debug-agent": "Read-only • search & fix",
-  "qa-agent": "Execute • run tests",
+  orchestrator: "Read-only • Orchestrator",
+  frontend: "Read/Write • src/components",
+  backend: "Read/Write • convex/",
+  devops: "Execute • Deployments",
 };
+
+function getRoleFromAgentId(agentId: string): string {
+  if (agentId === "orchestrator") return "orchestrator";
+  if (agentId.startsWith("swarm:")) {
+    const parts = agentId.split(":");
+    return parts[2] ?? "unknown";
+  }
+  return agentId;
+}
 
 const DEFAULT_COLOR = {
   dot: "bg-pink-400",
@@ -207,13 +195,13 @@ export function AgentActivityPanel({ projectId }: Props) {
             : 0),
       });
     }
-// Planner first, qa last, rest in middle
+// Orchestrator first, rest in middle
 type Lane = (typeof agents extends Map<string, infer T> ? T : never);
 const sorted = Array.from(agents.values()).sort((a: Lane, b: Lane) => {
-  if (a.agentId === "planner") return -1;
-  if (b.agentId === "planner") return 1;
-  if (a.agentId === "qa-agent") return 1;
-  if (b.agentId === "qa-agent") return -1;
+  const roleA = getRoleFromAgentId(a.agentId);
+  const roleB = getRoleFromAgentId(b.agentId);
+  if (roleA === "orchestrator") return -1;
+  if (roleB === "orchestrator") return 1;
   return 0;
 });
 
@@ -336,7 +324,8 @@ toolCalls?.filter(
             )}
 
             {agentLanes.map(agent => {
-              const color = AGENT_COLORS[agent.agentId] ?? DEFAULT_COLOR;
+              const role = getRoleFromAgentId(agent.agentId);
+              const color = AGENT_COLORS[role] ?? DEFAULT_COLOR;
               const isActive = agent.isActive;
               const isDone = agent.isDone;
 
@@ -388,7 +377,7 @@ toolCalls?.filter(
 
                   {/* Permission Model */}
                   <div className="text-[9px] text-muted-foreground/40 font-mono pl-4 mb-1">
-                    {AGENT_PERMISSIONS[agent.agentId] ?? "Read/Write • standard"}
+                    {AGENT_PERMISSIONS[role] ?? "Read/Write • standard"}
                   </div>
 
                   {/* Latest thought */}
@@ -483,8 +472,8 @@ toolCalls?.filter(
                 arr: NonNullable<typeof thoughts>,
               ) => {
                 const color = THOUGHT_COLORS[t.type] ?? "text-foreground/70";
-                const agentColor = (AGENT_COLORS[t.agentId] ?? DEFAULT_COLOR)
-                  .text;
+                const role = getRoleFromAgentId(t.agentId);
+                const agentColor = (AGENT_COLORS[role] ?? DEFAULT_COLOR).text;
                 const isLast = i === arr.length - 1;
                 return (
                   <div

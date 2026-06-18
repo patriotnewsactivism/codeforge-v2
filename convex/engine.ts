@@ -56,6 +56,7 @@ export type ToolName =
   | "get_context"
   | "spawn_agent"
   | "send_message"
+  | "deploy_project"
   | "complete_task";
 
 export interface ToolCall {
@@ -429,6 +430,26 @@ async function executeTool(
         break;
       }
 
+      case "deploy_project": {
+        try {
+          await ctx.runMutation(api.agentThoughts.emit, {
+            projectId,
+            agentId,
+            agentName,
+            type: "broadcast",
+            content: `🚀 Triggering Vercel deployment...`,
+            isStreaming: false,
+          });
+          const result = await ctx.runAction(api.deployVercel.deploy, {
+            projectId,
+          });
+          output = `Successfully deployed project to Vercel! URL: ${result.url} (ID: ${result.deploymentId})`;
+        } catch (e: any) {
+          output = `Deployment failed: ${e.message}`;
+        }
+        break;
+      }
+
       case "complete_task": {
         const { summary } = call.args as { summary: string };
         output = summary;
@@ -482,7 +503,21 @@ async function runAgentLoop(
   const fileList =
     codeFiles.map((f: any) => `  ${f.path}`).join("\n") || "  (empty project)";
 
-  const SYSTEM_PROMPT = `You are ${agentName}, an expert software engineer agent inside CodeForge — the world's best autonomous coding platform.
+  const role = agentName.toLowerCase();
+  let roleSpecificPrompt = "";
+  if (role === "orchestrator" || role === "lead architect") {
+    roleSpecificPrompt = "You are the Lead Architect. Break down complex requests and spawn specialized agents using the `spawn_agent` tool. Coordinate their work and consolidate the final result.";
+  } else if (role === "frontend") {
+    roleSpecificPrompt = "You are a specialized Frontend Engineer. Focus on UI/UX, React components, Tailwind CSS, and frontend functionality. Write elegant, responsive code.";
+  } else if (role === "backend") {
+    roleSpecificPrompt = "You are a specialized Backend Engineer. Focus on Convex schemas, queries, mutations, actions, and overall data integrity and API design.";
+  } else if (role === "devops") {
+    roleSpecificPrompt = "You are a DevOps Engineer. Focus on builds, deployments, configs, and CI/CD. Use the deploy_project tool when deployment is requested.";
+  } else {
+    roleSpecificPrompt = `You are ${agentName}, an expert software engineer agent inside CodeForge.`;
+  }
+
+  const SYSTEM_PROMPT = `${roleSpecificPrompt} You are part of the world's best autonomous coding platform.
 
 Your task: ${task}
 
@@ -501,6 +536,7 @@ Available tools:
 - get_context: { "tool": "get_context", "args": { "query": "search term" } }
 - spawn_agent: { "tool": "spawn_agent", "args": { "role": "coder", "task": "implement X" } }
 - send_message:{ "tool": "send_message","args": { "to": "orchestrator", "message": "done with X" } }
+- deploy_project:{ "tool": "deploy_project", "args": {} }
 - complete_task:{"tool": "complete_task","args": { "summary": "What I accomplished" } }
 
 Rules:
@@ -545,34 +581,53 @@ Rules:
       isStreaming: false,
     });
 
-    let rawResponse: string;
-    try {
-      const { text, modelUsed } = await callAIWithFallback(messages, {
-        model,
-        callerPlan: byok?.callerPlan,
-        userKeys: byok?.userKeys,
-      });
-      rawResponse = text;
+    let rawResponse: string | null = null;
+    let aiRetries = 0;
+    while (aiRetries < 3) {
+      try {
+        const { text, modelUsed } = await callAIWithFallback(messages, {
+          model,
+          callerPlan: byok?.callerPlan,
+          userKeys: byok?.userKeys,
+        });
+        rawResponse = text;
 
-      await ctx.runMutation(api.agentThoughts.emit, {
-        projectId,
-        agentId,
-        agentName,
-        type: "action",
-        content: `[${modelUsed}] ${rawResponse.slice(0, 150)}`,
-        isStreaming: false,
-      });
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      await ctx.runMutation(api.agentThoughts.emit, {
-        projectId,
-        agentId,
-        agentName,
-        type: "error",
-        content: `AI error: ${errMsg}`,
-        isStreaming: false,
-      });
-      break;
+        await ctx.runMutation(api.agentThoughts.emit, {
+          projectId,
+          agentId,
+          agentName,
+          type: "action",
+          content: `[${modelUsed}] ${rawResponse.slice(0, 150)}`,
+          isStreaming: false,
+        });
+        break;
+      } catch (err) {
+        aiRetries++;
+        const errMsg = err instanceof Error ? err.message : String(err);
+        await ctx.runMutation(api.agentThoughts.emit, {
+          projectId,
+          agentId,
+          agentName,
+          type: "error",
+          content: `AI error (attempt ${aiRetries}/3): ${errMsg}`,
+          isStreaming: false,
+        });
+        
+        if (
+          aiRetries >= 3 || 
+          errMsg.includes("API key is invalid") || 
+          errMsg.includes("Add one in Settings")
+        ) {
+          break; // Stop retrying on hard failures or max retries
+        }
+        
+        // Wait briefly before retrying
+        await new Promise(r => setTimeout(r, 2000 * aiRetries));
+      }
+    }
+
+    if (!rawResponse) {
+      break; // Abort loop if AI permanently failed
     }
 
     // Parse the tool call from JSON response
@@ -625,7 +680,7 @@ Rules:
         projectId,
         agentId,
         agentName,
-        type: "complete",
+        type: "done",
         content: finalSummary,
         isStreaming: false,
       });

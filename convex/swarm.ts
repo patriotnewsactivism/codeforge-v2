@@ -98,6 +98,7 @@ export const spawnAgent = internalMutation({
         .replace(/-/g, " ")
         .replace(/\b\w/g, c => c.toUpperCase()),
       agentIcon: iconMap[args.role] ?? "🤖",
+      role: args.role,
       task: args.assignment,
       status: "running",
       startedAt: Date.now(),
