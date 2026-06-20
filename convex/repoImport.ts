@@ -40,6 +40,7 @@ export const saveImportJob = mutation({
   handler: async (ctx, args) => {
     return await ctx.db.insert("importJobs", {
       ...args,
+      status: args.status as "queued" | "analyzing" | "cloning" | "indexing" | "ready" | "failed",
       startedAt: Date.now(),
     });
   },
@@ -129,7 +130,7 @@ export const importRepo = action({
     success: v.boolean(),
     error: v.optional(v.string()),
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ jobId: any; filesImported: number; detectedStack: string[]; brief: string; success: boolean; error?: string }> => {
     // ── Parse repo URL ────────────────────────────────────────────────────
     const urlMatch = args.repoUrl.match(/github\.com\/([^/]+\/[^/\s]+)/);
     const repoFullName = urlMatch
@@ -139,7 +140,7 @@ export const importRepo = action({
           .replace(/\.git$/, "");
 
     if (!repoFullName.includes("/")) {
-      const jobId = await ctx.runMutation(api.repoImport.saveImportJob, {
+      const jobId: any = await ctx.runMutation(api.repoImport.saveImportJob, {
         projectId: args.projectId,
         repoUrl: args.repoUrl,
         repoFullName: args.repoUrl,
@@ -157,7 +158,7 @@ export const importRepo = action({
       };
     }
 
-    const jobId = await ctx.runMutation(api.repoImport.saveImportJob, {
+    const jobId: any = await ctx.runMutation(api.repoImport.saveImportJob, {
       projectId: args.projectId,
       repoUrl: args.repoUrl,
       repoFullName,
@@ -176,7 +177,7 @@ export const importRepo = action({
 
     try {
       // ── Clone via GitHub API ──────────────────────────────────────────
-      const importResult = await ctx.runAction(api.git.importFromGitHub, {
+      const importResult: any = await ctx.runAction(api.git.importFromGitHub, {
         projectId: args.projectId,
         repoFullName,
         branch: args.branch,

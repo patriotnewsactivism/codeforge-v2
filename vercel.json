@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx convex deploy --typecheck disable && npm run build",
+  "buildCommand": "npx convex deploy && npm run build",
   "outputDirectory": "dist",
   "rewrites": [
     {

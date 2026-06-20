@@ -30,7 +30,7 @@ export const updateFileTags = mutation({
     tags: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.fileId, { tags: args.tags });
+    await ctx.db.patch(args.fileId, { tags: args.tags } as any);
   },
 });
 
@@ -48,7 +48,7 @@ export const indexProject = action({
       projectId: args.projectId,
     });
 
-    const codeFiles = files.filter(f => !f.isDirectory);
+    const codeFiles = (files as any[]).filter((f: any) => !f.isDirectory);
 
     for (const file of codeFiles) {
       // Basic extension-based and keyword-based tagging
@@ -92,15 +92,15 @@ export const search = action({
       snippet: v.string(),
     }),
   ),
-  handler: async (ctx, args) => {
-    const files = await ctx.runQuery(api.rag.listAllProjectFiles, {
+  handler: async (ctx, args): Promise<Array<{ path: string; score: number; tags: string[]; snippet: string }>> => {
+    const files: any[] = await ctx.runQuery(api.rag.listAllProjectFiles, {
       projectId: args.projectId,
     });
 
     const queryWords = args.query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
     if (!queryWords.length) return [];
 
-    const results = files.filter(f => {
+    const results = (files as any[]).filter((f: any) => {
       if (f.isDirectory) return false;
       if (args.filterLanguage && !f.path.endsWith(args.filterLanguage))
         return false;

@@ -185,20 +185,20 @@ export const buildCinemaFromExisting = action({
     missionId: v.id("buildSessions"),
   },
   returns: v.object({ framesCreated: v.number() }),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ framesCreated: number }> => {
     // Pull tool calls and thoughts from existing tables
-    const thoughts = await ctx.runQuery(api.intelligence.listThoughts, {
+    const thoughts: any[] = await ctx.runQuery(api.intelligence.listThoughts, {
       projectId: args.projectId,
     });
-    const toolCalls = await ctx.runQuery(api.intelligence.listToolCalls, {
-      projectId: args.projectId,
+    const toolCalls: any[] = await ctx.runQuery(api.intelligence.listToolCalls, {
+      missionId: args.missionId,
     });
 
     let created = 0;
 
     // Thoughts → frames
     for (const t of thoughts.slice(0, 500)) {
-      await ctx.runMutation(api.cinema.recordFrame, {
+      await ctx.runMutation(api.cinema.recordFrame as any, {
         projectId: args.projectId,
         missionId: args.missionId,
         frameType:
@@ -216,7 +216,7 @@ export const buildCinemaFromExisting = action({
 
     // Tool calls → frames
     for (const tc of toolCalls.slice(0, 500)) {
-      await ctx.runMutation(api.cinema.recordFrame, {
+      await ctx.runMutation(api.cinema.recordFrame as any, {
         projectId: args.projectId,
         missionId: args.missionId,
         frameType: "tool_call",
@@ -226,9 +226,9 @@ export const buildCinemaFromExisting = action({
           tool: tc.tool,
           args: tc.args,
           status: tc.status,
-          output: tc.output,
+          output: tc.result,
         }),
-        success: tc.status === "completed",
+        success: tc.status === "done",
       });
       created++;
     }
