@@ -159,7 +159,6 @@ export function SignUp() {
                   "Code not recognized. Make sure you're entering the 6 digits from your most recent email, or request a new code.",
                 );
               } else {
-                // Show raw error so issues can be diagnosed
                 setError(`Verification failed: ${message}`);
               }
             } finally {
