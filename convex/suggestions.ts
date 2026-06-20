@@ -343,6 +343,8 @@ Return ONLY a JSON array (no markdown, no code fences):
         ].includes(s.category)
           ? s.category
           : "functionality";
+        const impactScore =
+          typeof s.impactScore === "number" ? s.impactScore : 5;
         await ctx.runMutation(api.suggestions.addSuggestion, {
           projectId: args.projectId,
           title: s.title,
@@ -350,7 +352,8 @@ Return ONLY a JSON array (no markdown, no code fences):
           category,
           priority,
           implementationPrompt: s.implementationPrompt,
-          impactScore: typeof s.impactScore === "number" ? s.impactScore : 5,
+          impactScore,
+          autoApproved: isLowRisk({ priority, impactScore, category }),
         });
         added++;
       }
@@ -420,8 +423,38 @@ IMPORTANT: This is an additive improvement. Do NOT remove or break any existing 
   },
 });
 
+/**
+ * Classifies whether a suggestion is safe to build without human approval.
+ *
+ * Low-risk  = additive, contained changes (low/medium priority, modest impact).
+ * High-risk = anything high priority, high impact, or touching security —
+ *             these are held for human approval unless the project is in
+ *             "full" autonomous mode.
+ */
+export function isLowRisk(suggestion: {
+  priority?: string;
+  impactScore?: number;
+  category?: string;
+}): boolean {
+  if (suggestion.priority === "high") return false;
+  if ((suggestion.impactScore ?? 5) >= 8) return false;
+  if (suggestion.category === "security") return false;
+  return true;
+}
+
 // Autonomous build cycle: picks the top pending suggestion and builds it
 // Called by a scheduled job when autonomousMode is ON
+//
+// autonomousLevel gates how aggressive the cycle is (values match the UI
+// selector in AgentActivityPanel):
+//   "manual" / "suggest" → never auto-builds (autonomousMode is off here)
+//   "apply" / "autonomous" → auto-builds only low-risk suggestions; high-risk
+//                items are left pending for human approval (the default)
+//   "autopilot" → full autonomy: auto-builds the single highest-value
+//                suggestion regardless of risk
+const FULL_AUTONOMY_LEVEL = "autopilot";
+const NON_BUILDING_LEVELS = new Set(["manual", "suggest"]);
+
 export const runAutonomousCycle = action({
   args: { projectId: v.id("projects") },
   returns: v.string(),
@@ -433,6 +466,12 @@ export const runAutonomousCycle = action({
     if (!settings?.autonomousMode) {
       return "Autonomous mode is off — skipping";
     }
+
+    const level = settings.autonomousLevel ?? "autonomous";
+    if (NON_BUILDING_LEVELS.has(level)) {
+      return `Autonomous level is "${level}" — generating ideas only, not auto-building`;
+    }
+    const fullAutonomy = level === FULL_AUTONOMY_LEVEL;
 
     // 1. Generate fresh suggestions if we have fewer than 3 pending
     const pending = await ctx.runQuery(api.suggestions.listPending, {
@@ -457,8 +496,19 @@ export const runAutonomousCycle = action({
       return "No pending suggestions to implement";
     }
 
+    // Unless in full autopilot, only low-risk suggestions are eligible for
+    // auto-build; high-risk ones stay pending until a human approves them.
+    const eligible = fullAutonomy
+      ? freshPending
+      : freshPending.filter((s: any) => isLowRisk(s));
+
+    if (eligible.length === 0) {
+      const heldBack = freshPending.length;
+      return `${heldBack} suggestion(s) awaiting approval — none are low-risk enough to auto-build at this level. Switch to Full Autopilot or approve one manually.`;
+    }
+
     const priorityRank: Record<string, number> = { high: 3, medium: 2, low: 1 };
-    const top = freshPending.sort((a: any, b: any) => {
+    const top = eligible.sort((a: any, b: any) => {
       const scoreA = (a.impactScore ?? 5) + (priorityRank[a.priority] ?? 1) * 2;
       const scoreB = (b.impactScore ?? 5) + (priorityRank[b.priority] ?? 1) * 2;
       return scoreB - scoreA;
