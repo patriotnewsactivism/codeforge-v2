@@ -144,13 +144,23 @@ export function SignUp() {
               });
             } catch (err) {
               const message = err instanceof Error ? err.message : String(err);
-              setError(
-                /expired/i.test(message)
-                  ? "That code has expired. Go back and sign up again to get a new one."
-                  : /too many|rate/i.test(message)
-                    ? "Too many attempts. Please wait a few minutes and try again."
-                    : "Invalid code. Double-check the 6 digits from your email.",
-              );
+              if (/expired/i.test(message)) {
+                setError(
+                  "That code has expired. Go back and sign up again to get a new one.",
+                );
+              } else if (/too many|rate/i.test(message)) {
+                setError(
+                  "Too many attempts. Please wait a few minutes and try again.",
+                );
+              } else if (
+                /could not verify|invalid.*code|not found/i.test(message)
+              ) {
+                setError(
+                  "Code not recognized. Make sure you're entering the 6 digits from your most recent email, or request a new code.",
+                );
+              } else {
+                setError(`Verification failed: ${message}`);
+              }
             } finally {
               setLoading(false);
             }
@@ -180,6 +190,16 @@ export function SignUp() {
             {loading && <Loader2 className="size-4 animate-spin" />}
             {loading ? "Verifying..." : "Verify Email"}
           </Button>
+          {error && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => setStep("signUp")}
+            >
+              Request a new code
+            </Button>
+          )}
           <Button
             type="button"
             variant="ghost"
