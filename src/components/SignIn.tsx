@@ -13,6 +13,7 @@ function isTestEmail(email: string): boolean {
 
 type Step =
   | "signIn"
+  | { type: "verify-email"; email: string }
   | { type: "forgot"; email?: string }
   | { type: "reset-code"; email: string }
   | { type: "new-password"; email: string; code: string };
@@ -37,7 +38,13 @@ export function SignIn() {
               const email = formData.get("email") as string;
               const provider = isTestEmail(email) ? "test" : "password";
               try {
-                await signIn(provider, formData);
+                const result = await signIn(provider, formData);
+                // When the account's email isn't verified yet, the Password
+                // provider sends an OTP instead of signing in. Surface the
+                // verification step so the user isn't stuck on a no-op submit.
+                if (!isTestEmail(email) && result && result.signingIn === false) {
+                  setStep({ type: "verify-email", email });
+                }
               } catch {
                 setError("Invalid email or password");
               } finally {
@@ -92,6 +99,100 @@ export function SignIn() {
             </Button>
 
             <OAuthButtons redirectTo="/dashboard" />
+          </form>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (step.type === "verify-email") {
+    return (
+      <Card variant="elevated">
+        <CardContent className="pt-6">
+          <div className="text-center mb-6">
+            <div className="mx-auto size-12 rounded-full bg-primary flex items-center justify-center mb-4">
+              <Mail className="size-6 text-primary-foreground" />
+            </div>
+            <h2 className="font-semibold text-lg">Check your email</h2>
+            <p className="text-sm text-muted-foreground">
+              We sent a verification code to {step.email}
+            </p>
+          </div>
+          <form
+            onSubmit={async e => {
+              e.preventDefault();
+              setError("");
+              setLoading(true);
+              const formData = new FormData(e.currentTarget);
+              const code = (formData.get("code") as string).replace(/\s/g, "");
+              try {
+                await signIn("password", {
+                  code,
+                  email: step.email,
+                  flow: "email-verification",
+                  redirectTo: "/dashboard",
+                });
+              } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                if (/expired/i.test(message)) {
+                  setError(
+                    "That code has expired. Try signing in again to get a new one.",
+                  );
+                } else if (/too many|rate/i.test(message)) {
+                  setError("Too many attempts. Please wait a few minutes and try again.");
+                } else if (/could not verify|invalid.*code|not found/i.test(message)) {
+                  setError(
+                    "Code not recognized. Make sure you're entering the 6 digits from your most recent email.",
+                  );
+                } else {
+                  setError(`Verification failed: ${message}`);
+                }
+              } finally {
+                setLoading(false);
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="code">Verification Code</Label>
+              <Input
+                id="code"
+                name="code"
+                type="text"
+                placeholder="Enter code"
+                autoComplete="one-time-code"
+                className="h-11 text-center tracking-[0.5em] font-mono"
+                required
+              />
+            </div>
+            {error && (
+              <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+                {error}
+              </p>
+            )}
+            <Button type="submit" className="w-full h-11" disabled={loading}>
+              {loading && <Loader2 className="size-4 animate-spin" />}
+              {loading ? "Verifying..." : "Verify Email"}
+            </Button>
+            {error && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setStep("signIn")}
+              >
+                Try signing in again
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={() => setStep("signIn")}
+            >
+              <ArrowLeft className="size-4" />
+              Back to sign in
+            </Button>
           </form>
         </CardContent>
       </Card>
