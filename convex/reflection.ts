@@ -17,8 +17,8 @@
  */
 
 import { v } from "convex/values";
-import { api } from "./_generated/api";
 import { action, mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
 import { callAIWithFallback, getModelForRole } from "./ai";
 
 // ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
@@ -26,7 +26,7 @@ import { callAIWithFallback, getModelForRole } from "./ai";
 // Weekly/monthly/free users use platform process.env keys (no userKeys passed).
 async function resolveByok(
   ctx: any,
-  userId?: string,
+  userId?: string
 ): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
   try {
     const sub = await ctx.runQuery(api.limits.getMyLimits, {});
@@ -36,12 +36,12 @@ async function resolveByok(
 
     const userKeys: Record<string, string> = await ctx.runQuery(
       api.apiKeys.getAllKeysForUser,
-      { userId },
+      { userId }
     );
     if (!userKeys || Object.keys(userKeys).length === 0) {
       throw new Error(
         "⚠️ Lifetime plan requires your own API key. " +
-          "Add one in Settings → API Keys to use AI features.",
+          "Add one in Settings → API Keys to use AI features."
       );
     }
     return { callerPlan, userKeys };
@@ -50,6 +50,8 @@ async function resolveByok(
     return { callerPlan: "free" };
   }
 }
+
+
 
 // ─── DB ──────────────────────────────────────────────────────────────────────
 
@@ -62,7 +64,7 @@ export const saveReflectionSession = mutation({
     retrospectivesRead: v.number(),
     forensicReportsRead: v.number(),
     lessonsLearned: v.array(v.string()),
-    overallHealthScore: v.number(), // 1–10
+    overallHealthScore: v.number(),   // 1–10
     summary: v.string(),
     nextActions: v.array(v.string()),
   },
@@ -80,7 +82,7 @@ export const listReflectionSessions = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("reflectionSessions")
-      .withIndex("by_project", q => q.eq("projectId", args.projectId))
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .order("desc")
       .take(args.limit ?? 10);
   },
@@ -125,30 +127,21 @@ export const runNightlyReflection = action({
 
     // ── 4. Build context for Reflection ──────────────────────────────────
     const mutationBlock = pendingMutations.length
-      ? pendingMutations
-          .map(
-            (m, i) =>
-              `[${i + 1}] Target: ${m.mutationTarget} | Severity: ${m.severity}\n    Proposed: ${m.proposedMutation}`,
-          )
-          .join("\n")
+      ? pendingMutations.map((m: any, i: any) =>
+          `[${i + 1}] Target: ${m.mutationTarget} | Severity: ${m.severity}\n    Proposed: ${m.proposedMutation}`
+        ).join("\n")
       : "No pending mutations.";
 
     const retroBlock = recentRetros.length
-      ? recentRetros
-          .map(
-            r =>
-              `Score ${r.qualityScore}/10 — Failed: ${r.whatFailed.slice(0, 2).join("; ")} | Worked: ${r.whatWorked.slice(0, 2).join("; ")}`,
-          )
-          .join("\n")
+      ? recentRetros.map((r: any) =>
+          `Score ${r.qualityScore}/10 — Failed: ${r.whatFailed.slice(0, 2).join("; ")} | Worked: ${r.whatWorked.slice(0, 2).join("; ")}`
+        ).join("\n")
       : "No recent retrospectives.";
 
     const forensicBlock = forensicReports.length
-      ? forensicReports
-          .map(
-            r =>
-              `[${r.failureClass}] ${r.rootCause} → ${r.proposedMutation.slice(0, 80)}`,
-          )
-          .join("\n")
+      ? forensicReports.map((r: any) =>
+          `[${r.failureClass}] ${r.rootCause} → ${r.proposedMutation.slice(0, 80)}`
+        ).join("\n")
       : "No forensic reports.";
 
     const reflectionPrompt = `You are the Reflection Agent in CodeForge — an autonomous coding platform's self-improvement system.
@@ -195,25 +188,21 @@ Respond with JSON only:
     });
 
     // Parse
-    let decisions: Array<{ index: number; decision: string; reason: string }> =
-      [];
+    let decisions: Array<{ index: number; decision: string; reason: string }> = [];
     let lessonsLearned: string[] = [];
     let healthScore = 5;
     let summary = "Reflection complete.";
     let nextActions: string[] = [];
 
     try {
-      const jsonMatch =
-        raw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? raw.match(/(\{[\s\S]*\})/);
+      const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? raw.match(/(\{[\s\S]*\})/);
       const parsed = JSON.parse(jsonMatch ? jsonMatch[1]! : raw.trim());
       decisions = parsed.mutationDecisions ?? [];
       lessonsLearned = parsed.lessonsLearned ?? [];
       healthScore = Math.min(10, Math.max(1, parsed.healthScore ?? 5));
       summary = parsed.summary ?? summary;
       nextActions = parsed.nextActions ?? [];
-    } catch {
-      /* use defaults */
-    }
+    } catch { /* use defaults */ }
 
     // ── 5. Apply approved mutations, reject others ────────────────────────
     let approved = 0;
@@ -256,25 +245,21 @@ Respond with JSON only:
     }
 
     // ── 7. Save reflection session ────────────────────────────────────────
-    const sessionId = await ctx.runMutation(
-      api.reflection.saveReflectionSession,
-      {
-        projectId: args.projectId,
-        mutationsReviewed: pendingMutations.length,
-        mutationsApproved: approved,
-        mutationsRejected: rejected,
-        retrospectivesRead: recentRetros.length,
-        forensicReportsRead: forensicReports.length,
-        lessonsLearned,
-        overallHealthScore: healthScore,
-        summary,
-        nextActions,
-      },
-    );
+    const sessionId = await ctx.runMutation(api.reflection.saveReflectionSession, {
+      projectId: args.projectId,
+      mutationsReviewed: pendingMutations.length,
+      mutationsApproved: approved,
+      mutationsRejected: rejected,
+      retrospectivesRead: recentRetros.length,
+      forensicReportsRead: forensicReports.length,
+      lessonsLearned,
+      overallHealthScore: healthScore,
+      summary,
+      nextActions,
+    });
 
     // ── 8. Broadcast summary ──────────────────────────────────────────────
-    const healthEmoji =
-      healthScore >= 8 ? "💚" : healthScore >= 5 ? "💛" : "🔴";
+    const healthEmoji = healthScore >= 8 ? "💚" : healthScore >= 5 ? "💛" : "🔴";
     await ctx.runMutation(api.agentThoughts.emit, {
       projectId: args.projectId,
       agentId: "reflection-agent",
@@ -314,27 +299,20 @@ export const runWeeklyStrategy = action({
     });
 
     const sessionBlock = sessions.length
-      ? sessions
-          .map(
-            s =>
-              `Health ${s.overallHealthScore}/10 | Mutations approved: ${s.mutationsApproved} | Lessons: ${s.lessonsLearned.join("; ")}`,
-          )
-          .join("\n")
+      ? sessions.map((s: any) =>
+          `Health ${s.overallHealthScore}/10 | Mutations approved: ${s.mutationsApproved} | Lessons: ${s.lessonsLearned.join("; ")}`
+        ).join("\n")
       : "No prior reflection sessions.";
 
     // Pull applied mutations to understand what's changed
-    const appliedMutations = await ctx.runQuery(
-      api.mutation.getActiveMutations,
-      {
-        projectId: args.projectId,
-      },
-    );
+    const appliedMutations = await ctx.runQuery(api.mutation.getActiveMutations, {
+      projectId: args.projectId,
+    });
 
     const mutationBlock = appliedMutations.length
-      ? appliedMutations
-          .slice(0, 10)
-          .map(m => `[${m.mutationTarget}] ${m.proposedMutation.slice(0, 80)}`)
-          .join("\n")
+      ? appliedMutations.slice(0, 10).map((m: any) =>
+          `[${m.mutationTarget}] ${m.proposedMutation.slice(0, 80)}`
+        ).join("\n")
       : "No active mutations.";
 
     const prompt = `You are the Strategist in CodeForge — the weekly topology evaluator.
@@ -377,28 +355,26 @@ JSON only:
     let summary = "Weekly strategy complete.";
 
     try {
-      const jsonMatch =
-        raw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? raw.match(/(\{[\s\S]*\})/);
+      const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/) ?? raw.match(/(\{[\s\S]*\})/);
       const parsed = JSON.parse(jsonMatch ? jsonMatch[1]! : raw.trim());
       topologyChanges = parsed.topologyChanges ?? [];
       recommendations = parsed.recommendations ?? [];
       summary = parsed.summary ?? summary;
-    } catch {
-      /* use defaults */
-    }
+    } catch { /* use defaults */ }
 
     await ctx.runMutation(api.agentThoughts.emit, {
       projectId: args.projectId,
       agentId: "strategist-agent",
       agentName: "♟️ Strategist",
       type: "complete",
-      content: `📊 Weekly strategy: ${summary}\n${recommendations
-        .slice(0, 3)
-        .map(r => `→ ${r}`)
-        .join("\n")}`,
+      content: `📊 Weekly strategy: ${summary}\n${recommendations.slice(0, 3).map((r) => `→ ${r}`).join("\n")}`,
       isStreaming: false,
     });
 
     return { recommendations, topologyChanges, summary };
   },
 });
+
+
+
+
