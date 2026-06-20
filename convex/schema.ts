@@ -13,7 +13,9 @@ const schema = defineSchema({
     onboarded: v.optional(v.boolean()),
     plan: v.optional(v.string()),
     subscriptionStatus: v.optional(v.string()),
-  }).index("by_email", ["email"]),
+  })
+    // @convex-dev/auth requires an index named exactly "email" on the users table
+    .index("email", ["email"]),
 
   // Projects (imported repos or new projects)
   projects: defineTable({
