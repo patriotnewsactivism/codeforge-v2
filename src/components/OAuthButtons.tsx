@@ -1,5 +1,6 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
+import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "./ui/button";
 
@@ -11,10 +12,21 @@ import { Button } from "./ui/button";
 export function OAuthButtons({ redirectTo }: { redirectTo: string }) {
   const { signIn } = useAuthActions();
   const enabled = useQuery(api.auth.enabledOAuthProviders);
+  const [error, setError] = useState("");
 
   // While the query loads, render nothing to avoid flashing broken buttons.
   if (!enabled) return null;
   if (!enabled.github && !enabled.google) return null;
+
+  const handleOAuth = async (provider: "github" | "google") => {
+    setError("");
+    try {
+      await signIn(provider, { redirectTo });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(`Could not sign in with ${provider === "github" ? "GitHub" : "Google"}. ${message}`);
+    }
+  };
 
   return (
     <>
@@ -29,13 +41,19 @@ export function OAuthButtons({ redirectTo }: { redirectTo: string }) {
         </div>
       </div>
 
+      {error && (
+        <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2 mb-2">
+          {error}
+        </p>
+      )}
+
       <div className="space-y-2">
         {enabled.github && (
           <Button
             type="button"
             variant="outline"
             className="w-full h-11 bg-background hover:bg-accent hover:text-accent-foreground"
-            onClick={() => void signIn("github", { redirectTo })}
+            onClick={() => void handleOAuth("github")}
           >
             <svg
               role="img"
@@ -54,7 +72,7 @@ export function OAuthButtons({ redirectTo }: { redirectTo: string }) {
             type="button"
             variant="outline"
             className="w-full h-11 bg-background hover:bg-accent hover:text-accent-foreground"
-            onClick={() => void signIn("google", { redirectTo })}
+            onClick={() => void handleOAuth("google")}
           >
             <svg
               role="img"
