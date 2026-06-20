@@ -24,7 +24,9 @@ export function OAuthButtons({ redirectTo }: { redirectTo: string }) {
       await signIn(provider, { redirectTo });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      setError(`Could not sign in with ${provider === "github" ? "GitHub" : "Google"}. ${message}`);
+      setError(
+        `Could not sign in with ${provider === "github" ? "GitHub" : "Google"}. ${message}`,
+      );
     }
   };
 

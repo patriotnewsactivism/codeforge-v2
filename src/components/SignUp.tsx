@@ -50,7 +50,8 @@ export function SignUp() {
                   setStep({ email });
                 }
               } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message =
+                  err instanceof Error ? err.message : String(err);
                 if (/already exists/i.test(message)) {
                   setError(
                     "An account with this email already exists. Please sign in instead.",
