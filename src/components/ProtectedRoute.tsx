@@ -1,4 +1,5 @@
 import { useConvexAuth, useQuery } from "convex/react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { api } from "../../convex/_generated/api";
 import {
@@ -68,6 +69,26 @@ export function ProtectedRoute() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const user = useQuery(api.auth.currentUser);
   const location = useLocation();
+
+  // If auth has settled but currentUser query is stuck (possible query error),
+  // redirect to login after a grace period instead of showing skeleton forever.
+  const [authStuck, setAuthStuck] = useState(false);
+  const stuckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user === undefined) {
+      stuckTimerRef.current = setTimeout(() => setAuthStuck(true), 8000);
+    } else {
+      if (stuckTimerRef.current) clearTimeout(stuckTimerRef.current);
+      setAuthStuck(false);
+    }
+    return () => {
+      if (stuckTimerRef.current) clearTimeout(stuckTimerRef.current);
+    };
+  }, [isLoading, isAuthenticated, user]);
+
+  if (authStuck) {
+    return <Navigate to="/login" replace />;
+  }
 
   if (isLoading || (isAuthenticated && user === undefined)) {
     return <AppSkeleton />;
