@@ -103,11 +103,11 @@ export const runNightlyReflection = action({
     healthScore: v.number(),
     summary: v.string(),
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ sessionId: any; mutationsApproved: number; mutationsRejected: number; lessonsLearned: number; healthScore: number; summary: string }> => {
     const maxMutations = args.maxMutationsToReview ?? 20;
 
     // ── 1. Load pending mutations ─────────────────────────────────────────
-    const pendingMutations = await ctx.runQuery(api.mutation.listMutations, {
+    const pendingMutations: any[] = await ctx.runQuery(api.mutation.listMutations, {
       projectId: args.projectId,
       status: "pending_review",
       limit: maxMutations,
@@ -245,7 +245,7 @@ Respond with JSON only:
     }
 
     // ── 7. Save reflection session ────────────────────────────────────────
-    const sessionId = await ctx.runMutation(api.reflection.saveReflectionSession, {
+    const sessionId: any = await ctx.runMutation(api.reflection.saveReflectionSession, {
       projectId: args.projectId,
       mutationsReviewed: pendingMutations.length,
       mutationsApproved: approved,

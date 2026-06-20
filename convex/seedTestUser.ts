@@ -37,7 +37,6 @@ export const seedTestUser = internalAction({
         profile: {
           email: TEST_USER.email,
           name: TEST_USER.name,
-          emailVerificationTime: Date.now(),
         },
         shouldLinkViaEmail: false,
       });

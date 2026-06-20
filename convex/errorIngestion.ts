@@ -133,8 +133,8 @@ export const autoFix = action({
     fixSummary: v.optional(v.string()),
     error: v.optional(v.string()),
   }),
-  handler: async (ctx, args) => {
-    const incident = await ctx.runQuery(internal.errorIngestion.getIncidentById, { incidentId: args.incidentId });
+  handler: async (ctx, args): Promise<{ success: boolean; prUrl?: string; fixSummary?: string; error?: string }> => {
+    const incident: any = await ctx.runQuery(internal.errorIngestion.getIncidentById, { incidentId: args.incidentId });
     if (!incident) return { success: false, error: "Incident not found" };
 
     await ctx.runMutation(api.errorIngestion.updateIncidentStatus, {
@@ -269,7 +269,7 @@ export const ingestFromWebhook = action({
     autoFixTriggered: v.boolean(),
     error: v.optional(v.string()),
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ incidentId?: any; autoFixTriggered: boolean; error?: string }> => {
     let payload: Record<string, any>;
     try {
       payload = JSON.parse(args.rawPayload);
@@ -310,7 +310,7 @@ export const ingestFromWebhook = action({
 
     const fingerprint = `${args.projectId}:${errorType}:${affectedFile ?? ""}`;
 
-    const incidentId = await ctx.runMutation(api.errorIngestion.recordIncident, {
+    const incidentId: any = await ctx.runMutation(api.errorIngestion.recordIncident, {
       projectId: args.projectId,
       source: args.source as any,
       errorType,
@@ -353,7 +353,7 @@ export const ingestFromWebhookInternal = internalAction({
     autoFixTriggered: v.boolean(),
     error: v.optional(v.string()),
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ incidentId?: any; autoFixTriggered: boolean; error?: string }> => {
     // Delegate to the full public action handler (same logic, internal surface)
     return await ctx.runAction(api.errorIngestion.ingestFromWebhook, args);
   },

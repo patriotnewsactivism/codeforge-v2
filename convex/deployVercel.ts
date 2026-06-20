@@ -68,7 +68,7 @@ export const deploy = action({
 
     const deployment = (await createRes.json()) as { id: string; url: string };
 
-    await ctx.runMutation(api.gitops.recordDeployment, {
+    await ctx.runMutation((api.gitops as any).recordDeployment, {
       projectId: args.projectId,
       platform: "vercel",
       deploymentId: deployment.id,

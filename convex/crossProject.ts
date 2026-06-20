@@ -112,7 +112,7 @@ export const extractGlobalInsights = action({
     recentLessons: v.array(v.string()), // from Reflection session
   },
   returns: v.object({ extracted: v.number() }),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ extracted: number }> => {
     if (!args.recentLessons.length) return { extracted: 0 };
 
     // Load the project's existing memories for context
@@ -208,8 +208,8 @@ export const injectCrossProjectContext = action({
     injectedInsights: v.array(v.string()),
     warningCount: v.number(),
   }),
-  handler: async (ctx, args) => {
-    const allInsights = await ctx.runQuery(
+  handler: async (ctx, args): Promise<{ injectedInsights: string[]; warningCount: number }> => {
+    const allInsights: any[] = await ctx.runQuery(
       api.crossProject.listGlobalInsights,
       {
         userId: args.userId,
@@ -285,8 +285,8 @@ export const matchAntiPatterns = action({
       }),
     ),
   }),
-  handler: async (ctx, args) => {
-    const antiPatterns = await ctx.runQuery(
+  handler: async (ctx, args): Promise<{ matches: Array<{ pattern: string; detail: string; severity: string }> }> => {
+    const antiPatterns: any[] = await ctx.runQuery(
       api.crossProject.listGlobalInsights,
       {
         userId: args.userId,

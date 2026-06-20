@@ -462,7 +462,7 @@ export const launchPipeline = action({
     certificateIssued: v.boolean(),
     error: v.optional(v.string()),
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ success: boolean; deploymentId?: any; prUrl?: string; prNumber?: number; commitSha?: string; certificateIssued: boolean; error?: string }> => {
     try {
       // 1. Push to GitHub + create PR
       const pushResult: any = await ctx.runAction(api.git.pushToGitHub, {
@@ -482,13 +482,13 @@ export const launchPipeline = action({
       }
 
       // 2. Get list of changed files for certificate
-      const files = await ctx.runQuery(api.files.listByProject, {
+      const files: any[] = await ctx.runQuery(api.files.listByProject, {
         projectId: args.projectId,
       });
-      const fileList = files.filter((f: any) => !f.isDirectory).map((f: any) => f.path);
+      const fileList: any = files.filter((f: any) => !f.isDirectory).map((f: any) => f.path);
 
       // 3. Generate Deployment Certificate (Reviewer signs off)
-      const certResult = await ctx.runAction(api.gitops.generateDeploymentCertificate, {
+      const certResult: any = await ctx.runAction(api.gitops.generateDeploymentCertificate, {
         projectId: args.projectId,
         commitMessage: args.commitMessage,
         branchName: args.branchName,
@@ -497,7 +497,7 @@ export const launchPipeline = action({
       });
 
       // 4. Create deployment record
-      const deploymentId = await ctx.runMutation(api.gitops.createDeployment, {
+      const deploymentId: any = await ctx.runMutation(api.gitops.createDeployment, {
         projectId: args.projectId,
         branchName: args.branchName,
         prNumber: pushResult.prNumber,

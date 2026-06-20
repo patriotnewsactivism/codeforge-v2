@@ -151,7 +151,7 @@ export const runBenchmark = action({
     judgeReasoning: v.string(),
     recommendation: v.string(),
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ benchmarkId: any; winner: "A" | "B" | "tie"; scoreA: number; scoreB: number; judgeReasoning: string; recommendation: string }> => {
     const fullPrompt = `${args.systemPrompt}\n\nTask: ${args.taskDescription}`;
 
     // Run A and B in "parallel" (sequential in Convex, but fast enough)
@@ -246,7 +246,7 @@ JSON only:
       };
     } catch { /* use defaults */ }
 
-    const benchmarkId = await ctx.runMutation(api.benchmark.saveBenchmark, {
+    const benchmarkId: any = await ctx.runMutation(api.benchmark.saveBenchmark, {
       projectId: args.projectId,
       taskDescription: args.taskDescription,
       agentRole: args.agentRole,
