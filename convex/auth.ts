@@ -1,5 +1,6 @@
-import { Password } from "@convex-dev/auth/providers/Password";
 import GitHub from "@auth/core/providers/github";
+import Google from "@auth/core/providers/google";
+import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth, getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "./_generated/server";
 import { CodeForgeEmail, CodeForgePasswordReset } from "./email";
@@ -41,19 +42,47 @@ if (jwtPrivateKey) {
 
 const resendConfigured = Boolean(process.env.RESEND_API_KEY);
 
+// OAuth providers are only enabled when their credentials are present, so an
+// unconfigured provider never crashes the auth flow. @convex-dev/auth reads
+// AUTH_<PROVIDER>_ID / AUTH_<PROVIDER>_SECRET from the environment.
+const githubConfigured = Boolean(
+  process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET,
+);
+const googleConfigured = Boolean(
+  process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET,
+);
+
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
-    GitHub({
-      profile(profile, tokens) {
-        return {
-          id: profile.id.toString(),
-          name: profile.name,
-          email: profile.email,
-          image: profile.avatar_url,
-          githubToken: tokens.access_token,
-        };
-      },
-    }),
+    ...(githubConfigured
+      ? [
+          GitHub({
+            profile(profile, tokens) {
+              return {
+                id: profile.id.toString(),
+                name: profile.name,
+                email: profile.email,
+                image: profile.avatar_url,
+                githubToken: tokens.access_token,
+              };
+            },
+          }),
+        ]
+      : []),
+    ...(googleConfigured
+      ? [
+          Google({
+            profile(profile) {
+              return {
+                id: profile.sub,
+                name: profile.name,
+                email: profile.email,
+                image: profile.picture,
+              };
+            },
+          }),
+        ]
+      : []),
     Password({
       // Only require email verification when Resend is configured.
       // Without it, sign-up and sign-in both fail because OTP can't be sent.
@@ -63,6 +92,16 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     // Enable test credentials in preview/dev environments
     ...(process.env.IS_PREVIEW === "true" ? [TestCredentials] : []),
   ],
+});
+
+// Surfaced to the client so the UI can show only the OAuth buttons that
+// are actually configured.
+export const enabledOAuthProviders = query({
+  args: {},
+  handler: async () => ({
+    github: githubConfigured,
+    google: googleConfigured,
+  }),
 });
 
 export const currentUser = query({

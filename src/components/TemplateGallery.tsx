@@ -1,11 +1,9 @@
 import { motion } from "framer-motion";
 import {
   BarChart3,
-  BookOpen,
   Bot,
   Building2,
   Calendar,
-  Globe,
   Megaphone,
   Newspaper,
   Scale,
@@ -101,8 +99,7 @@ export const TEMPLATES: Template[] = [
   {
     id: "ecommerce",
     name: "E-Commerce Store",
-    description:
-      "Product catalog with cart, checkout, and order management.",
+    description: "Product catalog with cart, checkout, and order management.",
     icon: ShoppingCart,
     color: "text-pink-400",
     bgColor: "bg-pink-400/10",

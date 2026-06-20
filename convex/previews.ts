@@ -49,7 +49,7 @@ export const createShareLink = action({
       passwordHash: password || undefined,
     });
 
-    return { token, url: "https://preview.codeforge.dev/p/" + token };
+    return { token, url: `https://preview.codeforge.dev/p/${token}` };
   },
 });
 

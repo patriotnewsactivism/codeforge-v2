@@ -1,7 +1,9 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api.js";
 
-const client = new ConvexHttpClient(process.env.VITE_CONVEX_URL || "http://127.0.0.1:3210");
+const client = new ConvexHttpClient(
+  process.env.VITE_CONVEX_URL || "http://127.0.0.1:3210",
+);
 
 async function main() {
   try {
@@ -12,8 +14,8 @@ async function main() {
         email: "real@example.com",
         password: "password123",
         flow: "signUp",
-        redirectTo: "/onboarding"
-      }
+        redirectTo: "/onboarding",
+      },
     });
     console.log("Success:", res);
   } catch (err) {

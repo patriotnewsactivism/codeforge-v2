@@ -48,12 +48,17 @@ function deobfuscate(encoded: string): string {
 
 function maskKey(key: string): string {
   if (key.length <= 8) return "****";
-  return key.slice(0, 6).replace(/./g, "*") + "..." + key.slice(-4);
+  return `${key.slice(0, 6).replace(/./g, "*")}...${key.slice(-4)}`;
 }
 
 // ─── PROVIDER VALIDATION ──────────────────────────────────────────────────────
 
 const PROVIDER_ENDPOINTS: Record<string, { url: string; model: string }> = {
+  anthropic: {
+    // Anthropic's OpenAI-compatible endpoint accepts Bearer auth.
+    url: "https://api.anthropic.com/v1/chat/completions",
+    model: "claude-haiku-4-5-20251001",
+  },
   openai: {
     url: "https://api.openai.com/v1/chat/completions",
     model: "gpt-4o-mini",
@@ -66,6 +71,10 @@ const PROVIDER_ENDPOINTS: Record<string, { url: string; model: string }> = {
   moonshot: {
     url: "https://api.moonshot.cn/v1/chat/completions",
     model: "moonshot-v1-8k",
+  },
+  openrouter: {
+    url: "https://openrouter.ai/api/v1/chat/completions",
+    model: "meta-llama/llama-3.3-70b-instruct",
   },
 };
 
@@ -200,10 +209,12 @@ export const hasAnyKey = query({
 export const saveKey = action({
   args: {
     provider: v.union(
+      v.literal("anthropic"),
       v.literal("openai"),
       v.literal("deepseek"),
       v.literal("xai"),
       v.literal("moonshot"),
+      v.literal("openrouter"),
     ),
     apiKey: v.string(),
   },
@@ -252,10 +263,12 @@ export const upsertKey = mutation({
   args: {
     userId: v.id("users"),
     provider: v.union(
+      v.literal("anthropic"),
       v.literal("openai"),
       v.literal("deepseek"),
       v.literal("xai"),
       v.literal("moonshot"),
+      v.literal("openrouter"),
     ),
     encryptedKey: v.string(),
     maskedKey: v.string(),
@@ -295,10 +308,12 @@ export const upsertKey = mutation({
 export const deleteKey = mutation({
   args: {
     provider: v.union(
+      v.literal("anthropic"),
       v.literal("openai"),
       v.literal("deepseek"),
       v.literal("xai"),
       v.literal("moonshot"),
+      v.literal("openrouter"),
     ),
   },
   handler: async (ctx, args) => {

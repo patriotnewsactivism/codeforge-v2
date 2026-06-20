@@ -189,7 +189,7 @@ async function executeTool(
   call: ToolCall,
   spawnDepth: number,
   spawnCount: { value: number },
-  model: string,
+  _model: string,
   planLimits?: PlanLimits,
 ): Promise<ToolResult> {
   const toolCallId = await ctx.runMutation(api.engine.createToolCall, {
@@ -357,10 +357,16 @@ async function executeTool(
           query: searchQuery,
           topK: 10,
         });
-        
-        output = results.length > 0 
-          ? results.map((r: any) => `${r.path} (score: ${r.score.toFixed(1)}):\n${r.snippet}\n`).join("\n")
-          : "No matches found";
+
+        output =
+          results.length > 0
+            ? results
+                .map(
+                  (r: any) =>
+                    `${r.path} (score: ${r.score.toFixed(1)}):\n${r.snippet}\n`,
+                )
+                .join("\n")
+            : "No matches found";
         break;
       }
 
@@ -506,13 +512,17 @@ async function runAgentLoop(
   const role = agentName.toLowerCase();
   let roleSpecificPrompt = "";
   if (role === "orchestrator" || role === "lead architect") {
-    roleSpecificPrompt = "You are the Lead Architect. Break down complex requests and spawn specialized agents using the `spawn_agent` tool. Coordinate their work and consolidate the final result.";
+    roleSpecificPrompt =
+      "You are the Lead Architect. Break down complex requests and spawn specialized agents using the `spawn_agent` tool. Coordinate their work and consolidate the final result.";
   } else if (role === "frontend") {
-    roleSpecificPrompt = "You are a specialized Frontend Engineer. Focus on UI/UX, React components, Tailwind CSS, and frontend functionality. Write elegant, responsive code.";
+    roleSpecificPrompt =
+      "You are a specialized Frontend Engineer. Focus on UI/UX, React components, Tailwind CSS, and frontend functionality. Write elegant, responsive code.";
   } else if (role === "backend") {
-    roleSpecificPrompt = "You are a specialized Backend Engineer. Focus on Convex schemas, queries, mutations, actions, and overall data integrity and API design.";
+    roleSpecificPrompt =
+      "You are a specialized Backend Engineer. Focus on Convex schemas, queries, mutations, actions, and overall data integrity and API design.";
   } else if (role === "devops") {
-    roleSpecificPrompt = "You are a DevOps Engineer. Focus on builds, deployments, configs, and CI/CD. Use the deploy_project tool when deployment is requested.";
+    roleSpecificPrompt =
+      "You are a DevOps Engineer. Focus on builds, deployments, configs, and CI/CD. Use the deploy_project tool when deployment is requested.";
   } else {
     roleSpecificPrompt = `You are ${agentName}, an expert software engineer agent inside CodeForge.`;
   }
@@ -612,15 +622,15 @@ Rules:
           content: `AI error (attempt ${aiRetries}/3): ${errMsg}`,
           isStreaming: false,
         });
-        
+
         if (
-          aiRetries >= 3 || 
-          errMsg.includes("API key is invalid") || 
+          aiRetries >= 3 ||
+          errMsg.includes("API key is invalid") ||
           errMsg.includes("Add one in Settings")
         ) {
           break; // Stop retrying on hard failures or max retries
         }
-        
+
         // Wait briefly before retrying
         await new Promise(r => setTimeout(r, 2000 * aiRetries));
       }

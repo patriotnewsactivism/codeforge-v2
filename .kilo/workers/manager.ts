@@ -72,7 +72,7 @@ export async function pullImagesIfNeeded(
 ): Promise<void> {
   const domains = Array.from(new Set(templates.map(t => t.domain)));
   for (const d of domains) {
-    const img = IMAGE_MAP[d] ?? IMAGE_MAP["frontend"];
+    const img = IMAGE_MAP[d] ?? IMAGE_MAP.frontend;
     await execDocker(["pull", img]);
   }
 }
@@ -134,10 +134,9 @@ export async function runWorker(
     }
   }
 
-  const improvements =
-    artifacts && artifacts.improvements
-      ? artifacts.improvements
-      : [`Agent ${template.id} executed on ${task.description}`];
+  const improvements = artifacts?.improvements
+    ? artifacts.improvements
+    : [`Agent ${template.id} executed on ${task.description}`];
   const ok = artifacts != null && (artefactsHasCode(artifacts) || false);
   return { success: ok, artifacts: artifacts ?? { logs: "" }, improvements };
 }

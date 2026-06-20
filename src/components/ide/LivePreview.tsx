@@ -140,7 +140,7 @@ export function LivePreview({
     if (autoRefresh) {
       refresh();
     }
-  }, [files.map(f => f.content).join(""), autoRefresh, refresh]);
+  }, [autoRefresh, refresh]);
 
   const previewContent = buildPreviewContent();
 

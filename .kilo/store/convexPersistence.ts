@@ -10,7 +10,7 @@ const _kbPath = path.resolve(__dirname, "../knowledgeBase.json");
 function localTemplatesPath(): string {
   return _templatesPath;
 }
-function localKbPath(): string {
+function _localKbPath(): string {
   return _kbPath;
 }
 
@@ -49,7 +49,7 @@ export async function isConvexAvailable(): Promise<boolean> {
   return _convexAvailable;
 }
 
-async function ensureConvexClient(): Promise<any> {
+async function _ensureConvexClient(): Promise<any> {
   const c = await resolveClient();
   return c;
 }
@@ -96,7 +96,7 @@ async function writeTemplatesLocal(templates: any[]): Promise<void> {
   );
 }
 
-function localTemplatesPath(): string {
+function _localTemplatesPath(): string {
   return localTemplatesPathInternal();
 }
 function localTemplatesPathInternal(): string {

@@ -40,7 +40,10 @@ import { Button } from "@/components/ui/button";
 function TypingText({
   texts,
   className,
-}: { texts: string[]; className?: string }) {
+}: {
+  texts: string[];
+  className?: string;
+}) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentText, setCurrentText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -81,7 +84,11 @@ function AnimatedCounter({
   value,
   suffix = "",
   prefix = "",
-}: { value: number; suffix?: string; prefix?: string }) {
+}: {
+  value: number;
+  suffix?: string;
+  prefix?: string;
+}) {
   const [count, setCount] = useState(0);
   const ref = useRef<HTMLSpanElement>(null);
   const isInView = useInView(ref, { once: true });
@@ -120,7 +127,12 @@ function FloatingParticle({
   size,
   x,
   y,
-}: { delay: number; size: number; x: string; y: string }) {
+}: {
+  delay: number;
+  size: number;
+  x: string;
+  y: string;
+}) {
   return (
     <motion.div
       className="absolute rounded-full bg-primary/20"
@@ -146,7 +158,11 @@ function FadeInSection({
   children,
   className,
   delay = 0,
-}: { children: React.ReactNode; className?: string; delay?: number }) {
+}: {
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+}) {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-80px" });
 
@@ -737,9 +753,7 @@ export function LandingPage() {
                     <div
                       className={`w-10 h-10 rounded-lg ${feature.bgColor} flex items-center justify-center ring-1 ring-inset ring-white/5`}
                     >
-                      <feature.icon
-                        className={`h-5 w-5 ${feature.color}`}
-                      />
+                      <feature.icon className={`h-5 w-5 ${feature.color}`} />
                     </div>
                     <span
                       className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${feature.badgeColor}`}
@@ -856,10 +870,7 @@ export function LandingPage() {
               <div className="relative z-10">
                 <div className="flex justify-center gap-1 mb-4">
                   {[1, 2, 3, 4, 5].map(i => (
-                    <CheckCircle2
-                      key={i}
-                      className="h-5 w-5 text-primary"
-                    />
+                    <CheckCircle2 key={i} className="h-5 w-5 text-primary" />
                   ))}
                 </div>
                 <blockquote className="text-lg md:text-xl font-medium mb-4 leading-relaxed">

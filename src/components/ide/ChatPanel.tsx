@@ -13,8 +13,8 @@ import { useAuthToken } from "@/hooks/useAuthToken";
 import { cn } from "@/lib/utils";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { UsageMeter } from "./UsageMeter";
 import { QuickActions } from "./QuickActions";
+import { UsageMeter } from "./UsageMeter";
 
 const MODELS = [
   {
@@ -113,13 +113,13 @@ export function ChatPanel({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, []);
 
   // Auto-grow textarea, max 120px
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     e.target.style.height = "auto";
-    e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+    e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
   };
 
   const handleSend = async () => {
@@ -342,7 +342,7 @@ export function ChatPanel({
       {currentFileName && !input && (
         <QuickActions
           disabled={isLoading}
-          onSelect={(prompt) => {
+          onSelect={prompt => {
             setInput(prompt);
             setTimeout(() => {
               if (inputRef.current) inputRef.current.focus();

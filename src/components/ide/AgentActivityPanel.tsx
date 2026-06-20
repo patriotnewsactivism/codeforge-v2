@@ -8,7 +8,7 @@
  * Automatically switches to Agents view when a mission starts.
  * Every agent gets its own color + icon + status indicator.
  */
-import { useQuery, useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   Activity,
   Bot,
@@ -150,7 +150,7 @@ export function AgentActivityPanel({ projectId }: Props) {
     if (autoScroll && bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [toolCalls?.length, thoughts?.length, autoScroll]);
+  }, [autoScroll]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
@@ -195,25 +195,25 @@ export function AgentActivityPanel({ projectId }: Props) {
             : 0),
       });
     }
-// Orchestrator first, rest in middle
-type Lane = (typeof agents extends Map<string, infer T> ? T : never);
-const sorted = Array.from(agents.values()).sort((a: Lane, b: Lane) => {
-  const roleA = getRoleFromAgentId(a.agentId);
-  const roleB = getRoleFromAgentId(b.agentId);
-  if (roleA === "orchestrator") return -1;
-  if (roleB === "orchestrator") return 1;
-  return 0;
-});
+    // Orchestrator first, rest in middle
+    type Lane = typeof agents extends Map<string, infer T> ? T : never;
+    const sorted = Array.from(agents.values()).sort((a: Lane, b: Lane) => {
+      const roleA = getRoleFromAgentId(a.agentId);
+      const roleB = getRoleFromAgentId(b.agentId);
+      if (roleA === "orchestrator") return -1;
+      if (roleB === "orchestrator") return 1;
+      return 0;
+    });
 
-return sorted;
-}, [thoughts]);
+    return sorted;
+  }, [thoughts]);
 
-// Active tool calls across all agents
-const activeCalls =
-toolCalls?.filter(
-  (c: { status: string; tool: string; args: string; _id: string }) =>
-    c.status === "running" || c.status === "pending",
-) ?? [];
+  // Active tool calls across all agents
+  const activeCalls =
+    toolCalls?.filter(
+      (c: { status: string; tool: string; args: string; _id: string }) =>
+        c.status === "running" || c.status === "pending",
+    ) ?? [];
 
   const totalCalls = toolCalls?.length ?? 0;
   const isRunning =
@@ -266,7 +266,7 @@ toolCalls?.filter(
         {/* Autonomy Level Selector */}
         <select
           value={autonomousLevel}
-          onChange={(e) => {
+          onChange={e => {
             const val = e.target.value;
             setAutonomousMode({
               projectId,

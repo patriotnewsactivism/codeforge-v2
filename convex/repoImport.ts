@@ -20,7 +20,6 @@ import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
 
 declare const process: { env: Record<string, string | undefined> };
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
 // ─── DB ──────────────────────────────────────────────────────────────────────
 
@@ -40,7 +39,13 @@ export const saveImportJob = mutation({
   handler: async (ctx, args) => {
     return await ctx.db.insert("importJobs", {
       ...args,
-      status: args.status as "queued" | "analyzing" | "cloning" | "indexing" | "ready" | "failed",
+      status: args.status as
+        | "queued"
+        | "analyzing"
+        | "cloning"
+        | "indexing"
+        | "ready"
+        | "failed",
       startedAt: Date.now(),
     });
   },
@@ -130,7 +135,17 @@ export const importRepo = action({
     success: v.boolean(),
     error: v.optional(v.string()),
   }),
-  handler: async (ctx, args): Promise<{ jobId: any; filesImported: number; detectedStack: string[]; brief: string; success: boolean; error?: string }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    jobId: any;
+    filesImported: number;
+    detectedStack: string[];
+    brief: string;
+    success: boolean;
+    error?: string;
+  }> => {
     // ── Parse repo URL ────────────────────────────────────────────────────
     const urlMatch = args.repoUrl.match(/github\.com\/([^/]+\/[^/\s]+)/);
     const repoFullName = urlMatch

@@ -150,7 +150,7 @@ function applyImprovementsToTemplates(templateId, improvements, templates) {
           promptTemplate:
             t.promptTemplate +
             "\n" +
-            improvements.map(i => "// " + i).join("\n"),
+            improvements.map(i => `// ${i}`).join("\n"),
         }
       : t,
   );

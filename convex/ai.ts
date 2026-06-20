@@ -19,7 +19,14 @@ declare const process: { env: Record<string, string | undefined> };
 export interface ModelConfig {
   id: string;
   name: string;
-  provider: "deepseek" | "xai" | "moonshot" | "openai" | "azure";
+  provider:
+    | "anthropic"
+    | "deepseek"
+    | "xai"
+    | "moonshot"
+    | "openai"
+    | "openrouter"
+    | "azure";
   apiModel: string;
   inputCostPer1M: number;
   outputCostPer1M: number;
@@ -28,6 +35,39 @@ export interface ModelConfig {
 }
 
 export const MODELS: Record<string, ModelConfig> = {
+  // ── Anthropic Claude (latest) — wired via Anthropic's OpenAI-compatible
+  //    endpoint (https://api.anthropic.com/v1/chat/completions). Requires
+  //    ANTHROPIC_API_KEY; falls back to deepseek/gpt-4o-mini if unset.
+  "claude-opus-4-8": {
+    id: "claude-opus-4-8",
+    name: "Claude Opus 4.8",
+    provider: "anthropic",
+    apiModel: "claude-opus-4-8",
+    inputCostPer1M: 5.0,
+    outputCostPer1M: 25.0,
+    maxTokens: 16384,
+    tier: "strong",
+  },
+  "claude-sonnet-4-6": {
+    id: "claude-sonnet-4-6",
+    name: "Claude Sonnet 4.6",
+    provider: "anthropic",
+    apiModel: "claude-sonnet-4-6",
+    inputCostPer1M: 3.0,
+    outputCostPer1M: 15.0,
+    maxTokens: 16384,
+    tier: "strong",
+  },
+  "claude-haiku-4-5": {
+    id: "claude-haiku-4-5",
+    name: "Claude Haiku 4.5",
+    provider: "anthropic",
+    apiModel: "claude-haiku-4-5-20251001",
+    inputCostPer1M: 1.0,
+    outputCostPer1M: 5.0,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
   "deepseek-v3": {
     id: "deepseek-v3",
     name: "DeepSeek V3",
@@ -108,22 +148,72 @@ export const MODELS: Record<string, ModelConfig> = {
     maxTokens: 8192,
     tier: "strong",
   },
+
+  // ── OpenRouter — one key, dozens of cheap models (OpenAI-compatible).
+  //    Ideal for spawning many agents cheaply. Requires OPENROUTER_API_KEY.
+  "or-deepseek-v3": {
+    id: "or-deepseek-v3",
+    name: "DeepSeek V3 (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "deepseek/deepseek-chat",
+    inputCostPer1M: 0.28,
+    outputCostPer1M: 1.14,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
+  "or-llama-3.3-70b": {
+    id: "or-llama-3.3-70b",
+    name: "Llama 3.3 70B (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "meta-llama/llama-3.3-70b-instruct",
+    inputCostPer1M: 0.12,
+    outputCostPer1M: 0.3,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
+  "or-qwen-coder": {
+    id: "or-qwen-coder",
+    name: "Qwen 2.5 Coder 32B (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "qwen/qwen-2.5-coder-32b-instruct",
+    inputCostPer1M: 0.06,
+    outputCostPer1M: 0.15,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
+  "or-gemini-flash": {
+    id: "or-gemini-flash",
+    name: "Gemini 2.0 Flash (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "google/gemini-2.0-flash-001",
+    inputCostPer1M: 0.1,
+    outputCostPer1M: 0.4,
+    maxTokens: 8192,
+    tier: "fast",
+  },
 };
 
 export const DEFAULT_MODEL = "deepseek-v3";
 
+// Agents are spawned in large numbers, so the defaults are deliberately the
+// cheapest-yet-capable models: DeepSeek for reasoning/coding and Kimi K2 for
+// high-volume utility roles. Premium models (Claude, Grok 4, GPT-4o) remain
+// selectable per-call or per-user but are never the swarm default.
+//   deepseek-reasoner  $0.55 / $2.19   — strong reasoning, very cheap
+//   deepseek-v3        $0.27 / $1.10   — excellent coder, very cheap
+//   kimi-k2            $0.12 / $0.12    — cheapest, fine for utility work
 export const AGENT_MODELS: Record<string, string> = {
-  orchestrator: "grok-4",
-  architect: "grok-4",
+  orchestrator: "deepseek-reasoner",
+  architect: "deepseek-reasoner",
   coder: "deepseek-v3",
-  reviewer: "grok-3-fast",
+  reviewer: "kimi-k2",
   debugger: "deepseek-v3",
-  tester: "deepseek-v3",
-  devops: "deepseek-v3",
-  sentry: "grok-3-fast",
-  forensic: "grok-4",
-  reflection: "grok-4",
-  strategist: "grok-4",
+  tester: "kimi-k2",
+  devops: "kimi-k2",
+  sentry: "kimi-k2",
+  forensic: "deepseek-reasoner",
+  reflection: "deepseek-reasoner",
+  strategist: "deepseek-reasoner",
   default: "deepseek-v3",
 };
 
@@ -131,6 +221,8 @@ export const AGENT_MODELS: Record<string, string> = {
 
 function getBaseUrl(provider: ModelConfig["provider"]): string {
   switch (provider) {
+    case "anthropic":
+      return "https://api.anthropic.com/v1";
     case "deepseek":
       return "https://api.deepseek.com/v1";
     case "xai":
@@ -139,6 +231,8 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
       return "https://api.moonshot.cn/v1";
     case "openai":
       return "https://api.openai.com/v1";
+    case "openrouter":
+      return "https://openrouter.ai/api/v1";
     case "azure":
       return process.env.AZURE_OPENAI_ENDPOINT ?? "";
   }
@@ -146,10 +240,12 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
 
 // Provider → userApiKeys field mapping
 const PROVIDER_KEY_MAP: Record<ModelConfig["provider"], string> = {
+  anthropic: "anthropic",
   deepseek: "deepseek",
   xai: "xai",
   moonshot: "moonshot",
   openai: "openai",
+  openrouter: "openrouter",
   azure: "openai", // azure falls back to openai key in BYOK
 };
 
@@ -178,6 +274,8 @@ function getApiKey(
 
   // Platform keys for weekly/monthly/free
   switch (provider) {
+    case "anthropic":
+      return process.env.ANTHROPIC_API_KEY ?? "";
     case "deepseek":
       return process.env.DEEPSEEK_API_KEY ?? "";
     case "xai":
@@ -186,6 +284,8 @@ function getApiKey(
       return process.env.MOONSHOT_API_KEY ?? "";
     case "openai":
       return process.env.OPENAI_API_KEY ?? "";
+    case "openrouter":
+      return process.env.OPENROUTER_API_KEY ?? "";
     case "azure":
       return process.env.AZURE_OPENAI_API_KEY ?? "";
   }

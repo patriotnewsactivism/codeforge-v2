@@ -208,7 +208,10 @@ export const injectCrossProjectContext = action({
     injectedInsights: v.array(v.string()),
     warningCount: v.number(),
   }),
-  handler: async (ctx, args): Promise<{ injectedInsights: string[]; warningCount: number }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ injectedInsights: string[]; warningCount: number }> => {
     const allInsights: any[] = await ctx.runQuery(
       api.crossProject.listGlobalInsights,
       {
@@ -285,7 +288,12 @@ export const matchAntiPatterns = action({
       }),
     ),
   }),
-  handler: async (ctx, args): Promise<{ matches: Array<{ pattern: string; detail: string; severity: string }> }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    matches: Array<{ pattern: string; detail: string; severity: string }>;
+  }> => {
     const antiPatterns: any[] = await ctx.runQuery(
       api.crossProject.listGlobalInsights,
       {
@@ -306,7 +314,7 @@ Content (first 3000 chars):
 ${args.fileContent.slice(0, 3000)}
 
 Known anti-patterns:
-${antiPatterns.map((p: any, i: number) => `[${i + 1}] ${p.pattern}: ${p.detail}${p.exampleCode ? "\nExample: " + p.exampleCode : ""}`).join("\n\n")}
+${antiPatterns.map((p: any, i: number) => `[${i + 1}] ${p.pattern}: ${p.detail}${p.exampleCode ? `\nExample: ${p.exampleCode}` : ""}`).join("\n\n")}
 
 List ONLY the anti-patterns that are CLEARLY present in this file.
 JSON array (empty if none found):

@@ -24,8 +24,14 @@ export function useIdleTimeout() {
     };
 
     // Events to track activity
-    const events = ["mousedown", "mousemove", "keypress", "scroll", "touchstart"];
-    
+    const events = [
+      "mousedown",
+      "mousemove",
+      "keypress",
+      "scroll",
+      "touchstart",
+    ];
+
     // Initial start
     resetTimeout();
 

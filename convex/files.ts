@@ -214,10 +214,13 @@ export const bulkInsert = mutation({
       const isDirectory = f.type === "folder";
 
       if (existing) {
-        await ctx.db.patch(existing._id, {
+        // Build the patch without an explicit `language: undefined`, which
+        // Convex's patch validator rejects for an optional string field.
+        const patch: { content: string; language?: string } = {
           content: f.content ?? "",
-          language: f.language,
-        });
+        };
+        if (f.language !== undefined) patch.language = f.language;
+        await ctx.db.patch(existing._id, patch);
       } else {
         await ctx.db.insert("files", {
           projectId,

@@ -1,6 +1,6 @@
 import { useAction, useMutation, useQuery } from "convex/react";
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AgentActivityPanel } from "@/components/ide/AgentActivityPanel";
 import { AgentPanel } from "@/components/ide/AgentPanel";
@@ -60,7 +60,10 @@ import {
   Github,
   Lightbulb,
   MessageSquare,
+  Rocket,
   Save,
+  Settings,
+  Target,
   X,
   Zap,
 } from "lucide-react";
@@ -166,7 +169,7 @@ export function IDEPage() {
         activeFile: activeFilePath ?? undefined,
       }).catch(() => {});
     };
-    
+
     sendHeartbeat();
     const interval = setInterval(sendHeartbeat, 30_000);
     return () => clearInterval(interval);
@@ -195,7 +198,12 @@ export function IDEPage() {
     generateSuggestions({ projectId: projectId as Id<"projects"> }).catch(
       () => {},
     );
-  }, [projectId, files?.length]);
+  }, [
+    projectId,
+    files?.length, // Fire-and-forget: generate suggestions in background
+    generateSuggestions,
+    files,
+  ]);
 
   // Autonomous mode: run a build cycle every autoIntervalMinutes
   // Missions list for Cinema panel picker
@@ -222,6 +230,7 @@ export function IDEPage() {
     projectId,
     autonomousSettings?.autonomousMode,
     autonomousSettings?.autoIntervalMinutes,
+    runAutonomousCycle,
   ]);
 
   const activeFile =
@@ -347,6 +356,7 @@ export function IDEPage() {
     activeFile?.content,
     fileBuffers,
     updateFileContent,
+    activeFile,
   ]);
 
   // Keyboard shortcut: Ctrl+S / Cmd+S
@@ -379,7 +389,7 @@ export function IDEPage() {
           setOpenFilePaths(prev => [...prev, path]);
           setActiveFilePath(path);
         }
-      } catch (e) {
+      } catch (_e) {
         toast.error("Failed to create file");
       }
     },
@@ -790,7 +800,8 @@ export function IDEPage() {
                 if (item.panel) setRightPanel(item.panel);
               }}
               className={`flex-1 min-w-[72px] shrink-0 flex flex-col items-center justify-center gap-0.5 py-2.5 min-h-[56px] transition-colors active:bg-white/5 snap-start ${
-                mobileView === item.view && (!item.panel || rightPanel === item.panel)
+                mobileView === item.view &&
+                (!item.panel || rightPanel === item.panel)
                   ? "text-primary bg-primary/5 border-t border-primary"
                   : "text-muted-foreground border-t border-transparent"
               }`}

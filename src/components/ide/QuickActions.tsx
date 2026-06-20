@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Bug, Sparkles, Code2, Paintbrush } from "lucide-react";
+import { Bug, Code2, Paintbrush, Sparkles } from "lucide-react";
 
 interface QuickAction {
   id: string;
@@ -25,7 +25,8 @@ const ACTIONS: QuickAction[] = [
     id: "refactor",
     label: "Refactor",
     icon: Paintbrush,
-    prompt: "Refactor this code to be cleaner, more maintainable, and follow best practices.",
+    prompt:
+      "Refactor this code to be cleaner, more maintainable, and follow best practices.",
   },
   {
     id: "optimize",

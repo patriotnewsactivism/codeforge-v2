@@ -37,8 +37,11 @@ describe("tasks", () => {
   test("creates and updates an agent task", async () => {
     const t = convexTest(schema, modules);
     const { identity } = await seedUser(t);
-    const projectId = await seedProject(t, (identity.subject.split("|")[0]) as any);
-    const asUser = t.withIdentity(identity);
+    const projectId = await seedProject(
+      t,
+      identity.subject.split("|")[0] as any,
+    );
+    const _asUser = t.withIdentity(identity);
 
     const taskId = await t.mutation(api.tasks.createTask, {
       projectId,

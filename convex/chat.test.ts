@@ -221,9 +221,23 @@ describe("chat", () => {
 
   test("getSession returns null for nonexistent session", async () => {
     const t = convexTest(schema, modules);
-    const result = await t.query(api.chat.getSession, {
-      sessionId: "nonexistent" as Id<"chatSessions">,
+    const { userId } = await seedUser(t);
+    const projectId = await seedProject(t, userId);
+    // Obtain a valid-format id that no longer exists by inserting + deleting.
+    const sessionId = await t.run(async ctx => {
+      const id = await ctx.db.insert("chatSessions", {
+        projectId,
+        userId,
+        title: "Temp",
+        model: "gpt-4o",
+        totalTokensUsed: 0,
+        totalCost: 0,
+        createdAt: Date.now(),
+      });
+      await ctx.db.delete(id);
+      return id;
     });
+    const result = await t.query(api.chat.getSession, { sessionId });
     expect(result).toBeNull();
   });
 
@@ -239,9 +253,12 @@ describe("chat", () => {
 
   test("throws when calling auth-gated mutation without identity", async () => {
     const t = convexTest(schema, modules);
+    const { userId } = await seedUser(t);
+    const projectId = await seedProject(t, userId);
+    // No identity attached → handler should reject before doing any work.
     await expect(
       t.mutation(api.chat.createSession, {
-        projectId: "none" as Id<"projects">,
+        projectId,
         title: "Test",
       }),
     ).rejects.toThrow("Not authenticated");

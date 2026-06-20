@@ -81,7 +81,11 @@ export function ProtectedRoute() {
     return <Navigate to="/onboarding" replace />;
   }
 
-  if (user && user.subscriptionStatus === "past_due" && location.pathname !== "/pricing") {
+  if (
+    user &&
+    user.subscriptionStatus === "past_due" &&
+    location.pathname !== "/pricing"
+  ) {
     return <Navigate to="/pricing?past_due=true" replace />;
   }
 

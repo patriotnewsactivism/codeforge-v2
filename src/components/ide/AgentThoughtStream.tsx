@@ -46,7 +46,7 @@ export function AgentThoughtStream({ projectId }: ThoughtStreamProps) {
     if (autoScroll && bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [thoughts, autoScroll]);
+  }, [autoScroll]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;

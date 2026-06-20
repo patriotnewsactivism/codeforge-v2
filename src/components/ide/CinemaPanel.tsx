@@ -324,7 +324,9 @@ export function CinemaPanel({
           {Object.entries(summary.byType ?? {}).map(([type, count]) => (
             <div key={type} className="flex items-center gap-1 shrink-0">
               {FRAME_ICONS[type]}
-              <span className="text-[10px] text-muted-foreground">{String(count)}</span>
+              <span className="text-[10px] text-muted-foreground">
+                {String(count)}
+              </span>
             </div>
           ))}
         </div>

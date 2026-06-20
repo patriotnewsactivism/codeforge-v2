@@ -143,13 +143,19 @@ export const applyMutation = action({
     status: v.string(),
     patch: v.optional(v.string()),
   }),
-  handler: async (ctx, args): Promise<{ mutationId: any; status: string; patch?: string }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ mutationId: any; status: string; patch?: string }> => {
     if (args.mutationTarget === "none") {
       // Nothing to apply — just log it as rejected
-      const mutationId: any = await ctx.runMutation(api.mutation.queueMutation, {
-        ...args,
-        autoApply: false,
-      });
+      const mutationId: any = await ctx.runMutation(
+        api.mutation.queueMutation,
+        {
+          ...args,
+          autoApply: false,
+        },
+      );
       await ctx.runMutation(api.mutation.updateMutationStatus, {
         mutationId,
         status: "rejected",
@@ -159,7 +165,10 @@ export const applyMutation = action({
     }
 
     // Queue the mutation
-    const mutationId: any = await ctx.runMutation(api.mutation.queueMutation, args);
+    const mutationId: any = await ctx.runMutation(
+      api.mutation.queueMutation,
+      args,
+    );
 
     if (!args.autoApply) {
       // Queued for Reflection Agent to review tonight

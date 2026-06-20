@@ -17,10 +17,8 @@
  *   - Learning loop health
  */
 
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
-import { action, query } from "./_generated/server";
+import { query } from "./_generated/server";
 
 // ─── MAIN DASHBOARD QUERY ─────────────────────────────────────────────────────
 

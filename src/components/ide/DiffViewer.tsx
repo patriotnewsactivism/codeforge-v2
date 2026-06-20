@@ -5,12 +5,12 @@
 
 import { useMutation, useQuery } from "convex/react";
 import {
+  Check,
   ChevronLeft,
   ChevronRight,
   File,
   GitCompareArrows,
   Undo2,
-  Check,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -68,7 +68,9 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
   const undoChange = useMutation(api.changeHistory.undoChange);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [historyIndex, setHistoryIndex] = useState<number>(0);
-  const [comparisonMode, setComparisonMode] = useState<"step" | "cumulative">("step");
+  const [comparisonMode, setComparisonMode] = useState<"step" | "cumulative">(
+    "step",
+  );
 
   const selectedChange =
     changeHistory &&
@@ -86,7 +88,9 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
   const diffLines = useMemo(() => {
     if (comparisonMode === "cumulative" && currentTargetPath) {
       // Find the OLDEST change for this file to get the "original" content
-      const historyForFile = changeHistory?.filter((c: any) => c.filePath === currentTargetPath) ?? [];
+      const historyForFile =
+        changeHistory?.filter((c: any) => c.filePath === currentTargetPath) ??
+        [];
       const oldest = historyForFile[historyForFile.length - 1];
       const original = oldest?.previousContent ?? "";
       return computeDiff(original, content);
@@ -99,7 +103,14 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
       selectedChange.previousContent,
       selectedChange.newContent,
     );
-  }, [selectedChange, selectedFile, content, comparisonMode, changeHistory, currentTargetPath]);
+  }, [
+    selectedChange,
+    selectedFile,
+    content,
+    comparisonMode,
+    changeHistory,
+    currentTargetPath,
+  ]);
 
   const addedCount = diffLines.filter(l => l.type === "add").length;
   const removedCount = diffLines.filter(l => l.type === "remove").length;
@@ -166,7 +177,7 @@ export function DiffViewer({ projectId }: DiffViewerProps) {
                 try {
                   await undoChange({ changeId: selectedChange._id });
                   toast.success("Change rejected and reverted");
-                } catch (e) {
+                } catch (_e) {
                   toast.error("Rejection failed");
                 }
               }}

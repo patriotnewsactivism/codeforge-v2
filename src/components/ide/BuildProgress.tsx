@@ -40,7 +40,7 @@ export function BuildProgress({
       lastNotified.current = activeSession._id;
       onMissionActive?.(activeSession._id);
     }
-  }, [activeSession?._id, onMissionActive]);
+  }, [activeSession?._id, onMissionActive, activeSession]);
 
   if (!activeSession) return null;
 
