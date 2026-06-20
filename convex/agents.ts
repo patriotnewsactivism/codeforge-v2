@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { action, mutation, query } from "./_generated/server";
+import { action } from "./_generated/server";
 import { callAIWithFallback } from "./ai";
 
 // ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
@@ -135,7 +135,7 @@ type ThoughtType =
   | "done";
 
 async function think(
-  ctx: { runMutation: Function },
+  ctx: { runMutation: (...args: any[]) => Promise<any> },
   projectId: Id<"projects">,
   agentId: string,
   agentName: string,

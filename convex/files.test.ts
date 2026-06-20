@@ -342,9 +342,12 @@ describe("files", () => {
 
   test("throws when creating file without auth", async () => {
     const t = convexTest(schema, modules);
+    const { userId } = await seedUser(t);
+    const projectId = await seedProject(t, userId);
+    // No identity attached → handler should reject before doing any work.
     await expect(
       t.mutation(api.files.create, {
-        projectId: "none" as Id<"projects">,
+        projectId,
         path: "test.ts",
         name: "test.ts",
         isDirectory: false,

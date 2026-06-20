@@ -434,7 +434,7 @@ export function OneClickTemplates({
                   if (e.target.value)
                     setCustomPrompt(
                       prev =>
-                        prev + "\n\nExtra requirements: " + e.target.value,
+                        `${prev}\n\nExtra requirements: ${e.target.value}`,
                     );
                 }}
               />

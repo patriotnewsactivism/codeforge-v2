@@ -6,7 +6,7 @@ import {
   Clock,
   Crown,
   GitBranch,
-  Infinity,
+  Infinity as InfinityIcon,
   Lock,
   Sparkles,
   TrendingUp,
@@ -435,7 +435,7 @@ export function PricingPage() {
             </p>
           </div>
           <div className="space-y-2">
-            <Infinity className="h-6 w-6 text-blue-400 mx-auto" />
+            <InfinityIcon className="h-6 w-6 text-blue-400 mx-auto" />
             <h3 className="font-semibold text-sm">
               Cancel Anytime, Keep the Code
             </h3>

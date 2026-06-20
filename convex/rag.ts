@@ -61,7 +61,8 @@ export const indexProject = action({
       if (content.includes("convex")) tags.push("convex");
       if (content.includes("interface ") || content.includes("type "))
         tags.push("types");
-      if (content.includes("test(") || content.includes("it(")) tags.push("test");
+      if (content.includes("test(") || content.includes("it("))
+        tags.push("test");
 
       await ctx.runMutation(api.rag.updateFileTags, {
         fileId: file._id,
@@ -92,12 +93,20 @@ export const search = action({
       snippet: v.string(),
     }),
   ),
-  handler: async (ctx, args): Promise<Array<{ path: string; score: number; tags: string[]; snippet: string }>> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<
+    Array<{ path: string; score: number; tags: string[]; snippet: string }>
+  > => {
     const files: any[] = await ctx.runQuery(api.rag.listAllProjectFiles, {
       projectId: args.projectId,
     });
 
-    const queryWords = args.query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    const queryWords = args.query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(w => w.length > 2);
     if (!queryWords.length) return [];
 
     const results = (files as any[]).filter((f: any) => {
@@ -122,7 +131,8 @@ export const search = action({
       const tagBonus =
         entry.tags?.filter((tag: string) =>
           queryWords.some(
-            (w: string) => tag.toLowerCase().includes(w) || w.includes(tag.toLowerCase()),
+            (w: string) =>
+              tag.toLowerCase().includes(w) || w.includes(tag.toLowerCase()),
           ),
         ).length ?? 0 * 0.15;
 
@@ -130,8 +140,8 @@ export const search = action({
 
       // Bonus for path matching query words
       const pathBonus =
-        queryWords.filter((w: string) => entry.path.toLowerCase().includes(w)).length *
-        0.1;
+        queryWords.filter((w: string) => entry.path.toLowerCase().includes(w))
+          .length * 0.1;
 
       score += pathBonus;
 
@@ -158,8 +168,8 @@ export const search = action({
       const start = Math.max(0, bestIndex - 100);
       const end = Math.min(content.length, bestIndex + 200);
       let snippet = content.slice(start, end);
-      if (start > 0) snippet = "..." + snippet;
-      if (end < content.length) snippet = snippet + "...";
+      if (start > 0) snippet = `...${snippet}`;
+      if (end < content.length) snippet = `${snippet}...`;
 
       return {
         path: s.entry.path,
@@ -198,7 +208,7 @@ export const getContextForPrompt = action({
 
     // Rough token limit
     if (args.maxTokens && block.length > args.maxTokens * 4) {
-      block = block.slice(0, args.maxTokens * 4) + "... [truncated]";
+      block = `${block.slice(0, args.maxTokens * 4)}... [truncated]`;
     }
 
     return block;

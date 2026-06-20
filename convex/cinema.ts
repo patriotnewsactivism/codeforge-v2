@@ -11,7 +11,6 @@
 
 import { v } from "convex/values";
 import { api } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
 
 // ─── MUTATIONS ───────────────────────────────────────────────────────────────
@@ -190,9 +189,12 @@ export const buildCinemaFromExisting = action({
     const thoughts: any[] = await ctx.runQuery(api.intelligence.listThoughts, {
       projectId: args.projectId,
     });
-    const toolCalls: any[] = await ctx.runQuery(api.intelligence.listToolCalls, {
-      missionId: args.missionId,
-    });
+    const toolCalls: any[] = await ctx.runQuery(
+      api.intelligence.listToolCalls,
+      {
+        missionId: args.missionId,
+      },
+    );
 
     let created = 0;
 

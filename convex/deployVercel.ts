@@ -48,13 +48,23 @@ export const deploy = action({
             encoding: "utf-8",
           })),
         projectSettings: {
-          framework: files.some((f: any) => f.path === "vite.config.ts" || f.path === "vite.config.js") 
-            ? "vite" 
-            : files.some((f: any) => f.path === "package.json") 
-              ? null 
+          framework: files.some(
+            (f: any) =>
+              f.path === "vite.config.ts" || f.path === "vite.config.js",
+          )
+            ? "vite"
+            : files.some((f: any) => f.path === "package.json")
+              ? null
               : null,
-          buildCommand: files.some((f: any) => f.path === "package.json") ? "npm run build" : "",
-          outputDirectory: files.some((f: any) => f.path === "vite.config.ts" || f.path === "vite.config.js") ? "dist" : "",
+          buildCommand: files.some((f: any) => f.path === "package.json")
+            ? "npm run build"
+            : "",
+          outputDirectory: files.some(
+            (f: any) =>
+              f.path === "vite.config.ts" || f.path === "vite.config.js",
+          )
+            ? "dist"
+            : "",
         },
       }),
     });
@@ -88,7 +98,7 @@ export const getStatus = action({
   args: {
     deploymentId: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     const vercelToken = process.env.VERCEL_TOKEN;
     if (!vercelToken) throw new Error("VERCEL_TOKEN not configured");
 
@@ -112,4 +122,3 @@ export const getStatus = action({
     };
   },
 });
-

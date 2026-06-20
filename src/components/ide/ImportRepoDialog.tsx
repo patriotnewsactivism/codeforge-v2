@@ -8,7 +8,7 @@ import {
   Search,
   Star,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,22 +54,22 @@ export function ImportRepoDialog({
   const importRepo = useAction(api.github.importRepo);
   const createProject = useMutation(api.projects.create);
 
-  useEffect(() => {
-    if (open && repos.length === 0) {
-      loadRepos();
-    }
-  }, [open]);
-
-  const loadRepos = async () => {
+  const loadRepos = useCallback(async () => {
     setIsLoading(true);
     try {
       const result = await listRepos({});
       setRepos(result);
-    } catch (e) {
+    } catch (_e) {
       toast.error("Failed to load repos");
     }
     setIsLoading(false);
-  };
+  }, [listRepos]);
+
+  useEffect(() => {
+    if (open && repos.length === 0) {
+      loadRepos();
+    }
+  }, [open, repos.length, loadRepos]);
 
   const handleImport = async (repo: Repo) => {
     setIsImporting(repo.fullName);
@@ -95,7 +95,7 @@ export function ImportRepoDialog({
       } else {
         toast.error(result.error || "Import failed");
       }
-    } catch (e) {
+    } catch (_e) {
       toast.error("Failed to import repo");
     }
     setIsImporting(null);

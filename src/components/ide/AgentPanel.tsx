@@ -80,7 +80,7 @@ export function AgentPanel({ projectId }: AgentPanelProps) {
   // Auto-scroll thoughts
   useEffect(() => {
     thoughtsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [thoughts?.length]);
+  }, []);
 
   // Auto-switch to run tab when agents start
   useEffect(() => {

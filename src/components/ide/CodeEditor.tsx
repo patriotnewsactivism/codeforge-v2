@@ -61,7 +61,7 @@ export function CodeEditor({ file, onChange, onSave }: CodeEditorProps) {
         editorRef.current.setValue(file.content);
       }
     }
-  }, [file?._id]);
+  }, [file?._id, file?.content, file]);
 
   if (!file) {
     return (

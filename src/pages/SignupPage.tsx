@@ -39,17 +39,15 @@ export function SignupPage() {
           transition={{ delay: 0.2 }}
           className="flex flex-wrap justify-center gap-2 mb-6"
         >
-          {["Free to start", "No credit card", "Instant setup"].map(
-            text => (
-              <span
-                key={text}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/5 border border-primary/10 text-[10px] text-primary/80"
-              >
-                <Zap className="h-2.5 w-2.5" />
-                {text}
-              </span>
-            ),
-          )}
+          {["Free to start", "No credit card", "Instant setup"].map(text => (
+            <span
+              key={text}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/5 border border-primary/10 text-[10px] text-primary/80"
+            >
+              <Zap className="h-2.5 w-2.5" />
+              {text}
+            </span>
+          ))}
         </motion.div>
 
         <SignUp />

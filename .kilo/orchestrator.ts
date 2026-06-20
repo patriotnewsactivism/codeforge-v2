@@ -1,7 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
 import { loadGovernance } from "./governance";
-import { runWorker } from "./workers/manager";
 
 type SubTask = {
   id: string;
@@ -112,7 +111,7 @@ function decomposeTask(taskDesc: string): SubTask[] {
   ];
 }
 
-function sleep(ms: number) {
+function _sleep(ms: number) {
   return new Promise(res => setTimeout(res, ms));
 }
 
@@ -131,7 +130,7 @@ export async function runPlan(taskDesc: string) {
     usage[dom] = (usage[dom] || 0) + 1;
   });
 
-  const inFlight: AgentInstance[] = [];
+  const _inFlight: AgentInstance[] = [];
   const results: { sub: SubTask; tmpl: AgentTemplate; res: any }[] = [];
 
   // basic concurrency control
@@ -162,7 +161,7 @@ export async function runPlan(taskDesc: string) {
       tmpl.promptTemplate =
         tmpl.promptTemplate +
         "\n" +
-        res.improvements.map(i => "// " + i).join("\n");
+        res.improvements.map(i => `// ${i}`).join("\n");
     }
     results.push({ sub, tmpl, res });
     return true;

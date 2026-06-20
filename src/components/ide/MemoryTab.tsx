@@ -4,6 +4,7 @@ import {
   BookOpen,
   Brain,
   Bug,
+  CheckCircle,
   ChevronDown,
   ChevronUp,
   Heart,
@@ -12,10 +13,9 @@ import {
   Package,
   RefreshCw,
   Sparkles,
+  Star,
   Trash2,
   Wrench,
-  Star,
-  CheckCircle,
   XCircle,
 } from "lucide-react";
 import { useState } from "react";
@@ -71,7 +71,7 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
   // Group memories by category
   const groupedLessons: Record<string, typeof memories> = {};
   const skillsList: typeof memories = [];
-  
+
   for (const mem of memories ?? []) {
     if (mem.category === "skill") {
       skillsList.push(mem);
@@ -139,7 +139,9 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
             {Object.keys(groupedLessons).length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                 <Brain className="h-8 w-8 text-violet-400/30 mb-3" />
-                <p className="text-sm text-muted-foreground">No lessons learned yet</p>
+                <p className="text-sm text-muted-foreground">
+                  No lessons learned yet
+                </p>
                 <p className="text-xs text-muted-foreground/60 mt-1">
                   Run agents to start building the memory bank
                 </p>
@@ -189,7 +191,9 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
                             </div>
                             <button
                               type="button"
-                              onClick={() => deleteMemory({ memoryId: mem._id })}
+                              onClick={() =>
+                                deleteMemory({ memoryId: mem._id })
+                              }
                               className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all shrink-0"
                             >
                               <Trash2 className="h-3 w-3" />
@@ -211,16 +215,17 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
             {skillsList?.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                 <Star className="h-8 w-8 text-yellow-400/30 mb-3" />
-                <p className="text-sm text-muted-foreground">No approved skills yet</p>
+                <p className="text-sm text-muted-foreground">
+                  No approved skills yet
+                </p>
                 <p className="text-xs text-muted-foreground/60 mt-1">
                   Agents will suggest new skills. You can approve them here.
                 </p>
               </div>
             )}
             {skillsList?.map((mem: NonNullable<typeof skillsList>[number]) => {
-              const strength = mem.importance * mem.decayFactor;
               const isApproved = mem.isApproved;
-              
+
               return (
                 <div
                   key={mem._id}
@@ -232,18 +237,32 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
                         {mem.content}
                       </p>
                       <div className="flex items-center gap-3 mt-3">
-                        <span className={cn("text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded", 
-                          isApproved ? "bg-green-500/20 text-green-400" : 
-                          isApproved === false ? "bg-red-500/20 text-red-400" : 
-                          "bg-yellow-500/20 text-yellow-400"
-                        )}>
-                          {isApproved ? "Approved" : isApproved === false ? "Rejected" : "Pending Approval"}
+                        <span
+                          className={cn(
+                            "text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded",
+                            isApproved
+                              ? "bg-green-500/20 text-green-400"
+                              : isApproved === false
+                                ? "bg-red-500/20 text-red-400"
+                                : "bg-yellow-500/20 text-yellow-400",
+                          )}
+                        >
+                          {isApproved
+                            ? "Approved"
+                            : isApproved === false
+                              ? "Rejected"
+                              : "Pending Approval"}
                         </span>
-                        
+
                         <div className="ml-auto flex items-center gap-1">
                           <button
                             type="button"
-                            onClick={() => approveMemory({ memoryId: mem._id, isApproved: true })}
+                            onClick={() =>
+                              approveMemory({
+                                memoryId: mem._id,
+                                isApproved: true,
+                              })
+                            }
                             className="p-1 rounded bg-green-500/10 hover:bg-green-500/30 text-green-400 transition-colors"
                             title="Approve Skill"
                           >
@@ -251,7 +270,12 @@ export function MemoryTab({ projectId }: MemoryTabProps) {
                           </button>
                           <button
                             type="button"
-                            onClick={() => approveMemory({ memoryId: mem._id, isApproved: false })}
+                            onClick={() =>
+                              approveMemory({
+                                memoryId: mem._id,
+                                isApproved: false,
+                              })
+                            }
                             className="p-1 rounded bg-red-500/10 hover:bg-red-500/30 text-red-400 transition-colors"
                             title="Reject Skill"
                           >

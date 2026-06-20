@@ -48,7 +48,7 @@ function deobfuscate(encoded: string): string {
 
 function maskKey(key: string): string {
   if (key.length <= 8) return "****";
-  return key.slice(0, 6).replace(/./g, "*") + "..." + key.slice(-4);
+  return `${key.slice(0, 6).replace(/./g, "*")}...${key.slice(-4)}`;
 }
 
 // ─── PROVIDER VALIDATION ──────────────────────────────────────────────────────

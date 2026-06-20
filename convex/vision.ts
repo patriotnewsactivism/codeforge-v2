@@ -41,7 +41,7 @@ export const analyzeScreenshot = action({
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: "Bearer " + apiKey,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -55,7 +55,7 @@ export const analyzeScreenshot = action({
               {
                 type: "image_url",
                 image_url: {
-                  url: "data:" + mimeType + ";base64," + base64Data,
+                  url: `data:${mimeType};base64,${base64Data}`,
                   detail: "high",
                 },
               },
@@ -67,7 +67,7 @@ export const analyzeScreenshot = action({
 
     if (!response.ok) {
       const err = await response.text();
-      throw new Error("Vision API error: " + err);
+      throw new Error(`Vision API error: ${err}`);
     }
 
     const data = await response.json();

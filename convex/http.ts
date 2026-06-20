@@ -1,6 +1,6 @@
 import { httpRouter } from "convex/server";
-import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { httpAction } from "./_generated/server";
 import { auth } from "./auth";
 import { stripeWebhook } from "./stripe";
 
@@ -62,7 +62,9 @@ http.route({
     try {
       const tasks = await ctx.runQuery(internal.swarm.getPendingTasks, {});
       return ok({ tasks });
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -73,21 +75,26 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as {
-        taskId: string; status: string;
-        errorMessage?: string; totalAgentsSpawned?: number;
-        totalFilesChanged?: number; rootAgentId?: string;
+      const body = (await req.json()) as {
+        taskId: string;
+        status: string;
+        errorMessage?: string;
+        totalAgentsSpawned?: number;
+        totalFilesChanged?: number;
+        rootAgentId?: string;
       };
       const result = await ctx.runMutation(internal.swarm.updateTaskStatus, {
         taskId: body.taskId,
-        status: body.status as "queued"|"running"|"done"|"error",
+        status: body.status as "queued" | "running" | "done" | "error",
         errorMessage: body.errorMessage,
         totalAgentsSpawned: body.totalAgentsSpawned,
         totalFilesChanged: body.totalFilesChanged,
         rootAgentId: body.rootAgentId,
       });
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -98,14 +105,21 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as {
-        taskId: string; projectId: string; agentUid: string;
-        parentAgentUid?: string; role: string; assignment: string;
-        depth: number; filesOwned?: string[];
+      const body = (await req.json()) as {
+        taskId: string;
+        projectId: string;
+        agentUid: string;
+        parentAgentUid?: string;
+        role: string;
+        assignment: string;
+        depth: number;
+        filesOwned?: string[];
       };
       const result = await ctx.runMutation(internal.swarm.spawnAgent, body);
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -116,19 +130,24 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as {
-        taskId: string; agentUid: string; status: string;
-        result?: string; errorMessage?: string;
+      const body = (await req.json()) as {
+        taskId: string;
+        agentUid: string;
+        status: string;
+        result?: string;
+        errorMessage?: string;
       };
       const result = await ctx.runMutation(internal.swarm.updateAgentStatus, {
         taskId: body.taskId,
         agentUid: body.agentUid,
-        status: body.status as "queued"|"running"|"done"|"error",
+        status: body.status as "queued" | "running" | "done" | "error",
         result: body.result,
         errorMessage: body.errorMessage,
       });
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -141,9 +160,13 @@ http.route({
     try {
       const url = new URL(req.url);
       const taskId = url.searchParams.get("taskId") ?? "";
-      const agents = await ctx.runQuery(internal.swarm.getTaskAgents, { taskId });
+      const agents = await ctx.runQuery(internal.swarm.getTaskAgents, {
+        taskId,
+      });
       return ok({ agents });
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -154,13 +177,20 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as {
-        taskId: string; projectId: string; agentUid: string;
-        agentRole: string; type: string; content: string; metadata?: string;
+      const body = (await req.json()) as {
+        taskId: string;
+        projectId: string;
+        agentUid: string;
+        agentRole: string;
+        type: string;
+        content: string;
+        metadata?: string;
       };
       const result = await ctx.runMutation(internal.swarm.logEvent, body);
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -171,12 +201,14 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as { events: unknown[] };
+      const body = (await req.json()) as { events: unknown[] };
       const result = await ctx.runMutation(internal.swarm.logEventsBatch, {
         events: body.events as any[],
       });
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -189,9 +221,13 @@ http.route({
     try {
       const url = new URL(req.url);
       const projectId = url.searchParams.get("projectId") ?? "";
-      const files = await ctx.runQuery(internal.swarm.getProjectFiles, { projectId });
+      const files = await ctx.runQuery(internal.swarm.getProjectFiles, {
+        projectId,
+      });
       return ok({ files });
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -202,10 +238,16 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as { projectId: string; path: string; content: string };
+      const body = (await req.json()) as {
+        projectId: string;
+        path: string;
+        content: string;
+      };
       const result = await ctx.runMutation(internal.swarm.writeFile, body);
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -216,14 +258,24 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as {
-        taskId: string; projectId: string; agentUid: string;
-        command: string; stdout?: string; stderr?: string;
-        exitCode: number; durationMs: number;
+      const body = (await req.json()) as {
+        taskId: string;
+        projectId: string;
+        agentUid: string;
+        command: string;
+        stdout?: string;
+        stderr?: string;
+        exitCode: number;
+        durationMs: number;
       };
-      const result = await ctx.runMutation(internal.swarm.logSandboxResult, body);
+      const result = await ctx.runMutation(
+        internal.swarm.logSandboxResult,
+        body,
+      );
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -238,11 +290,17 @@ http.route({
     try {
       const url = new URL(req.url);
       const projectId = url.searchParams.get("projectId") ?? "";
-      const limit = parseInt(url.searchParams.get("limit") ?? "20");
+      const limit = parseInt(url.searchParams.get("limit") ?? "20", 10);
       const category = url.searchParams.get("category") ?? undefined;
-      const result = await ctx.runQuery(internal.swarm.getTopMemories, { projectId, limit, category });
+      const result = await ctx.runQuery(internal.swarm.getTopMemories, {
+        projectId,
+        limit,
+        category,
+      });
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -253,14 +311,20 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as {
-        projectId: string; category: string; title: string;
-        content: string; importance?: number;
-        sourceTaskId?: string; sourceAgentRole?: string;
+      const body = (await req.json()) as {
+        projectId: string;
+        category: string;
+        title: string;
+        content: string;
+        importance?: number;
+        sourceTaskId?: string;
+        sourceAgentRole?: string;
       };
       const result = await ctx.runMutation(internal.swarm.createMemory, body);
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -271,10 +335,12 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as { memoryId: string };
+      const body = (await req.json()) as { memoryId: string };
       const result = await ctx.runMutation(internal.swarm.useMemory, body);
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -287,16 +353,30 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as Parameters<typeof ctx.runMutation>[1];
-      const result = await ctx.runMutation(internal.swarm.createRetrospective, body as {
-        taskId: string; projectId: string; taskSummary: string;
-        totalAgents: number; totalFiles: number; durationMs: number;
-        sandboxPassedFirst: boolean; reviewPassedFirst: boolean;
-        retryCount: number; whatWorked: string[]; whatFailed: string[];
-        improvements: string[]; newMemories: string[]; qualityScore: number;
-      });
+      const body = (await req.json()) as Parameters<typeof ctx.runMutation>[1];
+      const result = await ctx.runMutation(
+        internal.swarm.createRetrospective,
+        body as {
+          taskId: string;
+          projectId: string;
+          taskSummary: string;
+          totalAgents: number;
+          totalFiles: number;
+          durationMs: number;
+          sandboxPassedFirst: boolean;
+          reviewPassedFirst: boolean;
+          retryCount: number;
+          whatWorked: string[];
+          whatFailed: string[];
+          improvements: string[];
+          newMemories: string[];
+          qualityScore: number;
+        },
+      );
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -309,15 +389,24 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as {
-        taskId: string; projectId: string;
-        fromAgentUid: string; fromAgentRole: string;
-        toAgentUid?: string; toAgentRole?: string;
-        messageType: string; content: string;
+      const body = (await req.json()) as {
+        taskId: string;
+        projectId: string;
+        fromAgentUid: string;
+        fromAgentRole: string;
+        toAgentUid?: string;
+        toAgentRole?: string;
+        messageType: string;
+        content: string;
       };
-      const result = await ctx.runMutation(internal.swarm.sendAgentMessage, body);
+      const result = await ctx.runMutation(
+        internal.swarm.sendAgentMessage,
+        body,
+      );
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -332,9 +421,15 @@ http.route({
       const taskId = url.searchParams.get("taskId") ?? "";
       const agentUid = url.searchParams.get("agentUid") ?? "";
       const agentRole = url.searchParams.get("agentRole") ?? "";
-      const result = await ctx.runQuery(internal.swarm.getMessagesForAgent, { taskId, agentUid, agentRole });
+      const result = await ctx.runQuery(internal.swarm.getMessagesForAgent, {
+        taskId,
+        agentUid,
+        agentRole,
+      });
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -347,7 +442,7 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as {
+      const body = (await req.json()) as {
         projectId: string;
         files: Array<{ path: string; content: string; language?: string }>;
       };
@@ -362,7 +457,9 @@ http.route({
         totalChunks += result.chunks;
       }
       return ok({ totalChunks, filesIndexed: body.files.length });
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -373,10 +470,17 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as { projectId: string; path: string; content: string; language?: string };
+      const body = (await req.json()) as {
+        projectId: string;
+        path: string;
+        content: string;
+        language?: string;
+      };
       const result = await ctx.runMutation(internal.swarm.ragIndexFile, body);
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -390,10 +494,16 @@ http.route({
       const url = new URL(req.url);
       const projectId = url.searchParams.get("projectId") ?? "";
       const query = url.searchParams.get("query") ?? "";
-      const limit = parseInt(url.searchParams.get("limit") ?? "15");
-      const result = await ctx.runQuery(internal.swarm.ragSearch, { projectId, query, limit });
+      const limit = parseInt(url.searchParams.get("limit") ?? "15", 10);
+      const result = await ctx.runQuery(internal.swarm.ragSearch, {
+        projectId,
+        query,
+        limit,
+      });
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -406,10 +516,20 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as { taskId: string; projectId: string; branchName: string; baseBranch?: string };
-      const result = await ctx.runMutation(internal.swarm.createGitBranch, body);
+      const body = (await req.json()) as {
+        taskId: string;
+        projectId: string;
+        branchName: string;
+        baseBranch?: string;
+      };
+      const result = await ctx.runMutation(
+        internal.swarm.createGitBranch,
+        body,
+      );
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -420,10 +540,12 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as { taskId: string; commitSHA: string };
+      const body = (await req.json()) as { taskId: string; commitSHA: string };
       const result = await ctx.runMutation(internal.swarm.addGitCommit, body);
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
 
@@ -434,13 +556,18 @@ http.route({
   handler: httpAction(async (ctx, req) => {
     if (!verifyOrchestratorSecret(req)) return unauthorized();
     try {
-      const body = await req.json() as { taskId: string; prNumber: number; prUrl: string };
+      const body = (await req.json()) as {
+        taskId: string;
+        prNumber: number;
+        prUrl: string;
+      };
       const result = await ctx.runMutation(internal.swarm.setGitPR, body);
       return ok(result);
-    } catch (e) { return serverError(e); }
+    } catch (e) {
+      return serverError(e);
+    }
   }),
 });
-
 
 // ═══════════════════════════════════════════════════════════════
 // ERROR INGESTION — Sentry / Datadog / Bugsnag / custom webhook
@@ -460,22 +587,29 @@ http.route({
       const autoFix = url.searchParams.get("autoFix") !== "false";
 
       if (!projectId) {
-        return new Response(JSON.stringify({ error: "projectId query param required" }), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ error: "projectId query param required" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }
 
       const rawPayload = await req.text();
 
       // Delegate to the full ingest+autofix action
-      const result = await ctx.runAction(internal.errorIngestion.ingestFromWebhookInternal, {
-        projectId: projectId as unknown as import("./_generated/dataModel").Id<"projects">,
-        source,
-        rawPayload,
-        autoFix,
-        repoFullName,
-      });
+      const result = await ctx.runAction(
+        internal.errorIngestion.ingestFromWebhookInternal,
+        {
+          projectId:
+            projectId as unknown as import("./_generated/dataModel").Id<"projects">,
+          source,
+          rawPayload,
+          autoFix,
+          repoFullName,
+        },
+      );
 
       return new Response(JSON.stringify({ ok: true, ...result }), {
         status: 200,
@@ -488,6 +622,3 @@ http.route({
 });
 
 export default http;
-
-
-

@@ -41,7 +41,7 @@ export function GitHubConnectDialog({
       } else {
         toast.error(res.error || "Invalid token");
       }
-    } catch (e) {
+    } catch (_e) {
       toast.error("Failed to validate token");
     }
     setIsValidating(false);

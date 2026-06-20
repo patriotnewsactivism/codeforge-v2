@@ -1,6 +1,5 @@
-import { useAction, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import {
-  AlertTriangle,
   Brain,
   CheckCircle2,
   DollarSign,

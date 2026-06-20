@@ -6,7 +6,6 @@ import {
   Check,
   Code2,
   FolderTree,
-  Github,
   Loader2,
   MessageSquare,
   Rocket,
@@ -17,10 +16,7 @@ import {
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import {
-  TemplateGallery,
-  type Template,
-} from "@/components/TemplateGallery";
+import { type Template, TemplateGallery } from "@/components/TemplateGallery";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -367,8 +363,9 @@ export function OnboardingPage() {
                       <Input
                         id="name"
                         placeholder={
-                          selectedTemplate?.name.toLowerCase().replace(/ /g, "-") ||
-                          "my-awesome-app"
+                          selectedTemplate?.name
+                            .toLowerCase()
+                            .replace(/ /g, "-") || "my-awesome-app"
                         }
                         value={projectName}
                         onChange={e => setProjectName(e.target.value)}

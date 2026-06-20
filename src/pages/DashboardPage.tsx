@@ -201,7 +201,9 @@ export function DashboardPage() {
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <div className="text-2xl font-bold">0</div>
-              <p className="text-xs text-muted-foreground mt-1">Currently running</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Currently running
+              </p>
             </CardContent>
           </Card>
           <Card className="bg-card/50 backdrop-blur-sm border-border/50">
@@ -212,7 +214,9 @@ export function DashboardPage() {
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <div className="text-2xl font-bold">0</div>
-              <p className="text-xs text-muted-foreground mt-1">Completed this week</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Completed this week
+              </p>
             </CardContent>
           </Card>
           <Card className="bg-card/50 backdrop-blur-sm border-border/50">
@@ -223,7 +227,9 @@ export function DashboardPage() {
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <div className="text-2xl font-bold">~0</div>
-              <p className="text-xs text-muted-foreground mt-1">Across all projects</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Across all projects
+              </p>
             </CardContent>
           </Card>
         </div>

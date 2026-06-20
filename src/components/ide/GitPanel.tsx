@@ -85,7 +85,7 @@ export function GitPanel({ projectId }: GitPanelProps) {
           failCount++;
           console.error(`Failed: ${file.path}`, result.error);
         }
-      } catch (e) {
+      } catch (_e) {
         failCount++;
       }
       setPushProgress({ done: i + 1, total: filesToPush.length });

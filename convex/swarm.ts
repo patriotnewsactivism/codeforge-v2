@@ -155,11 +155,7 @@ export const updateAgentStatus = internalMutation({
 export const getTaskAgents = internalQuery({
   args: { taskId: v.string() },
   handler: async (ctx, args) => {
-    const agents = await ctx.db
-      .query("agentTasks")
-      .filter(q => q.eq(q.field("agentId"), `swarm:${args.taskId}`))
-      .collect();
-    // Also get by prefix since agentId is "swarm:taskId:role:uid"
+    // agentId is "swarm:taskId:role:uid" — match by prefix
     const all = await ctx.db.query("agentTasks").collect();
     const filtered = all.filter(a =>
       a.agentId.startsWith(`swarm:${args.taskId}:`),
@@ -183,14 +179,6 @@ export const logEvent = internalMutation({
   },
   handler: async (ctx, args) => {
     const projectId = args.projectId as Id<"projects">;
-    const iconMap: Record<string, string> = {
-      planner: "🗺️",
-      "ui-agent": "🎨",
-      "logic-agent": "⚙️",
-      "debug-agent": "🔍",
-      reviewer: "🔎",
-      "qa-agent": "✅",
-    };
 
     await ctx.db.insert("agentThoughts", {
       projectId,
@@ -710,7 +698,7 @@ export const createGitBranch = internalMutation({
 /** POST /api/git/commit — record a commit */
 export const addGitCommit = internalMutation({
   args: { taskId: v.string(), commitSHA: v.string() },
-  handler: async (ctx, args) => {
+  handler: async (_ctx, _args) => {
     // We just log this — the full commit record is created by the git integration
     return { ok: true };
   },
@@ -719,7 +707,7 @@ export const addGitCommit = internalMutation({
 /** POST /api/git/pr — record a PR */
 export const setGitPR = internalMutation({
   args: { taskId: v.string(), prNumber: v.number(), prUrl: v.string() },
-  handler: async (ctx, args) => {
+  handler: async (_ctx, _args) => {
     return { ok: true };
   },
 });

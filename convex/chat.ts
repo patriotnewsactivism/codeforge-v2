@@ -100,10 +100,13 @@ export const listSessions = query({
 
     return sessions
       .filter(s => s.userId === userId && !s.isArchived)
-      .sort(
-        (a, b) =>
-          (b.createdAt ?? b._creationTime) - (a.createdAt ?? a._creationTime),
-      );
+      .sort((a, b) => {
+        const bt = b.createdAt ?? b._creationTime;
+        const at = a.createdAt ?? a._creationTime;
+        // Tie-break on _creationTime so ordering is deterministic when two
+        // sessions share the same createdAt millisecond.
+        return bt !== at ? bt - at : b._creationTime - a._creationTime;
+      });
   },
 });
 
@@ -260,7 +263,7 @@ export const sendMessage = action({
       });
       if (!gate.allowed) {
         const hint = (gate as any).upgradeHint ?? "";
-        throw new Error(`🚫 ${gate.reason}${hint ? " " + hint : ""}`);
+        throw new Error(`🚫 ${gate.reason}${hint ? ` ${hint}` : ""}`);
       }
     } catch (e) {
       if (e instanceof Error && e.message.startsWith("🚫")) throw e;
@@ -353,7 +356,7 @@ export const sendMessage = action({
       });
       if (!missionGate.allowed) {
         const hint = (missionGate as any).upgradeHint ?? "";
-        const msg = `🚫 ${missionGate.reason}${hint ? " " + hint : ""}`;
+        const msg = `🚫 ${missionGate.reason}${hint ? ` ${hint}` : ""}`;
         await ctx.runMutation(api.chat.addMessage, {
           sessionId: args.sessionId,
           projectId: args.projectId,

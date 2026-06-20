@@ -74,7 +74,7 @@ describe("projects", () => {
 
   test("get project returns null when project does not belong to user", async () => {
     const t = convexTest(schema, modules);
-    const { userId: userAId, identity: identityA } = await seedUser(t);
+    const { identity: identityA } = await seedUser(t);
 
     // Create a project as user A
     const asA = t.withIdentity(identityA);
@@ -98,7 +98,7 @@ describe("projects", () => {
 
   test("get project returns project when user is collaborator", async () => {
     const t = convexTest(schema, modules);
-    const { userId: ownerId, identity: ownerIdentity } = await seedUser(t);
+    const { identity: ownerIdentity } = await seedUser(t);
     const asOwner = t.withIdentity(ownerIdentity);
 
     const projectId = await asOwner.mutation(api.projects.create, {

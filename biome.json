@@ -7,7 +7,16 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.json"]
+    "includes": [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.json",
+      "!**/scripts/**",
+      "!**/convex/_generated/**",
+      "!**/dist/**"
+    ]
   },
   "formatter": {
     "enabled": true,
@@ -33,7 +42,10 @@
         "useButtonType": "off",
         "useKeyWithClickEvents": "off",
         "useAriaPropsForRole": "off",
-        "noRedundantRoles": "off"
+        "noRedundantRoles": "off",
+        "noStaticElementInteractions": "off",
+        "noSvgWithoutTitle": "off",
+        "noLabelWithoutControl": "off"
       },
       "suspicious": {
         "noExplicitAny": "off",

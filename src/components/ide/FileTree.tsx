@@ -125,7 +125,6 @@ function TreeItem({
           isActive && "bg-[oklch(0.22_0.02_260)] text-[oklch(0.75_0.18_190)]",
         )}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
-        tabIndex={0}
         onClick={() => {
           if (node.isDirectory) {
             setExpanded(!expanded);
@@ -257,7 +256,6 @@ export function FileTree({
                 setNewFileName("");
               }
             }}
-            autoFocus
           />
         </div>
       )}

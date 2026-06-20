@@ -40,7 +40,9 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
 
   const [deployingTo, setDeployingTo] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [activeDeploymentId, setActiveDeploymentId] = useState<string | null>(null);
+  const [activeDeploymentId, setActiveDeploymentId] = useState<string | null>(
+    null,
+  );
   const [deploymentStatus, setDeploymentStatus] = useState<string | null>(null);
 
   const getVercelStatus = useAction(api.deployVercel.getStatus);
@@ -69,7 +71,9 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
 
     const interval = setInterval(async () => {
       try {
-        const status = await getVercelStatus({ deploymentId: activeDeploymentId });
+        const status = await getVercelStatus({
+          deploymentId: activeDeploymentId,
+        });
         setDeploymentStatus(status.readyState);
 
         if (status.readyState === "READY") {
@@ -222,8 +226,8 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
       id: "vercel",
       label: "Vercel",
       desc:
-        deployingTo === "vercel" 
-          ? `Status: ${deploymentStatus || 'INITIALIZING'}` 
+        deployingTo === "vercel"
+          ? `Status: ${deploymentStatus || "INITIALIZING"}`
           : "Deploy directly to Vercel",
       icon:
         deployingTo === "vercel" ? (
@@ -233,18 +237,26 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
         ),
       action: handleVercelDeploy,
       badge: deploymentStatus || "Live",
-      badgeColor: deploymentStatus === "ERROR" ? "bg-red-500/10 text-red-400" : "bg-white/10 text-white",
+      badgeColor:
+        deploymentStatus === "ERROR"
+          ? "bg-red-500/10 text-red-400"
+          : "bg-white/10 text-white",
       disabled: deployingTo !== null,
       extra: activeDeploymentId && (
         <Button
           size="sm"
           variant="ghost"
           className="h-6 px-2 text-[10px] text-white/40 hover:text-white"
-          onClick={() => window.open(`https://vercel.com/deployments/${activeDeploymentId}`, "_blank")}
+          onClick={() =>
+            window.open(
+              `https://vercel.com/deployments/${activeDeploymentId}`,
+              "_blank",
+            )
+          }
         >
           Logs
         </Button>
-      )
+      ),
     },
   ];
 

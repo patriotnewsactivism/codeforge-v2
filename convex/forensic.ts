@@ -176,7 +176,18 @@ export const runForensicAnalysis = action({
     severity: v.string(),
     confidence: v.number(),
   }),
-  handler: async (ctx, args): Promise<{ reportId: any; failureClass: string; rootCause: string; proposedMutation: string; mutationTarget: string; severity: string; confidence: number }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    reportId: any;
+    failureClass: string;
+    rootCause: string;
+    proposedMutation: string;
+    mutationTarget: string;
+    severity: string;
+    confidence: number;
+  }> => {
     // Build evidence block
     const thoughtsBlock = args.agentThoughts?.length
       ? `\nAgent thoughts (recent):\n${args.agentThoughts
