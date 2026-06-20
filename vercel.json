@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx convex deploy && npm run build",
+  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then npx convex deploy && npm run build; else npm run build; fi",
   "outputDirectory": "dist",
   "rewrites": [
     {

@@ -60,7 +60,10 @@ import {
   Github,
   Lightbulb,
   MessageSquare,
+  Rocket,
   Save,
+  Settings,
+  Target,
   X,
   Zap,
 } from "lucide-react";
