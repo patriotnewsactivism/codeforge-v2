@@ -30,6 +30,22 @@ import { api } from "../../../convex/_generated/api";
 
 const PROVIDERS = [
   {
+    id: "openrouter" as const,
+    name: "OpenRouter",
+    label: "One key → dozens of cheap models",
+    placeholder: "sk-or-...",
+    docsUrl: "https://openrouter.ai/keys",
+    color: "#22D3EE", // cyan
+  },
+  {
+    id: "anthropic" as const,
+    name: "Anthropic",
+    label: "Claude Opus 4.8 / Sonnet 4.6 / Haiku 4.5",
+    placeholder: "sk-ant-...",
+    docsUrl: "https://console.anthropic.com/settings/keys",
+    color: "#D97757", // clay
+  },
+  {
     id: "openai" as const,
     name: "OpenAI",
     label: "GPT-4o / GPT-4o Mini",

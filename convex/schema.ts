@@ -431,10 +431,12 @@ const schema = defineSchema({
   userApiKeys: defineTable({
     userId: v.id("users"),
     provider: v.union(
+      v.literal("anthropic"),
       v.literal("openai"),
       v.literal("deepseek"),
       v.literal("xai"),
       v.literal("moonshot"),
+      v.literal("openrouter"),
     ),
     encryptedKey: v.string(),
     maskedKey: v.string(),
