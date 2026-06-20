@@ -11,7 +11,7 @@ import { v } from "convex/values";
 import { api } from "./_generated/api";
 import { action, httpAction, mutation, query } from "./_generated/server";
 
-const APP_URL = "https://codeforge.app";
+const APP_URL = process.env.APP_URL ?? "https://code.donmatthews.live";
 
 const PRICE_TO_PLAN: Record<string, string> = {
   price_1TT78bDmDTj65rCTbextWLwt: "weekly",
