@@ -6,16 +6,25 @@ const schema = defineSchema({
   ...authTables,
 
   users: defineTable({
+    // ── Fields written by @convex-dev/auth (must mirror authTables.users) ──
+    // These MUST be present or email verification / sign-in writes are
+    // rejected by the schema validator and every auth flow fails.
     name: v.optional(v.string()),
-    email: v.optional(v.string()),
     image: v.optional(v.string()),
+    email: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
+    // ── CodeForge-specific profile fields ──
     githubToken: v.optional(v.string()),
     onboarded: v.optional(v.boolean()),
     plan: v.optional(v.string()),
     subscriptionStatus: v.optional(v.string()),
   })
-    // @convex-dev/auth requires an index named exactly "email" on the users table
-    .index("email", ["email"]),
+    // @convex-dev/auth requires indexes named exactly "email" and "phone"
+    .index("email", ["email"])
+    .index("phone", ["phone"]),
 
   // Projects (imported repos or new projects)
   projects: defineTable({

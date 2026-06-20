@@ -276,7 +276,7 @@ export function SignIn() {
               name="newPassword"
               type="password"
               placeholder="••••••••"
-              minLength={6}
+              minLength={8}
               autoComplete="new-password"
               className="h-11"
               required

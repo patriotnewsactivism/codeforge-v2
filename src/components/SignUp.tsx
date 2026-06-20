@@ -83,13 +83,13 @@ export function SignUp() {
                 name="password"
                 type="password"
                 placeholder="••••••••"
-                minLength={6}
+                minLength={8}
                 autoComplete="new-password"
                 className="h-11"
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Must be at least 6 characters
+                Must be at least 8 characters
               </p>
             </div>
             <input name="flow" value="signUp" type="hidden" />
@@ -150,7 +150,7 @@ export function SignUp() {
             setLoading(true);
 
             const formData = new FormData(e.currentTarget);
-            const code = formData.get("code") as string;
+            const code = (formData.get("code") as string).replace(/\s/g, "");
             try {
               await signIn("password", {
                 code,
@@ -158,8 +158,16 @@ export function SignUp() {
                 flow: "email-verification",
                 redirectTo: "/onboarding",
               });
-            } catch {
-              setError("Invalid or expired code. Please try again.");
+            } catch (err) {
+              const message =
+                err instanceof Error ? err.message : String(err);
+              setError(
+                /expired/i.test(message)
+                  ? "That code has expired. Go back and sign up again to get a new one."
+                  : /too many|rate/i.test(message)
+                    ? "Too many attempts. Please wait a few minutes and try again."
+                    : "Invalid code. Double-check the 6 digits from your email.",
+              );
             } finally {
               setLoading(false);
             }
