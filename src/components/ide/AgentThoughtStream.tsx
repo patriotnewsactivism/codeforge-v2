@@ -76,8 +76,9 @@ export function AgentThoughtStream({ projectId }: ThoughtStreamProps) {
       >
         {thoughts.map(
           (thought: NonNullable<typeof thoughts>[number], i: number) => {
-            const icon = AGENT_ICONS[thought.agentId] ?? "🤖";
-            const color = THOUGHT_COLORS[thought.type] ?? "text-foreground";
+            const icon = AGENT_ICONS[thought.agentId ?? ""] ?? "🤖";
+            const color =
+              THOUGHT_COLORS[thought.type ?? ""] ?? "text-foreground";
             const isLast = i === thoughts.length - 1;
 
             return (

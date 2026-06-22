@@ -176,15 +176,19 @@ export function AgentActivityPanel({ projectId }: Props) {
     >();
 
     for (const t of thoughts) {
-      const existing = agents.get(t.agentId);
-      const isDone = t.type === "done";
+      // Legacy thoughts may lack these fields; fall back to safe defaults.
+      const agentId = t.agentId ?? "unknown";
+      const agentName = t.agentName ?? "Agent";
+      const thoughtType = t.type ?? "thinking";
+      const existing = agents.get(agentId);
+      const isDone = thoughtType === "done";
       const isActive = !isDone && Date.now() - t.timestamp < 30000; // active if thought < 30s ago
 
-      agents.set(t.agentId, {
-        agentId: t.agentId,
-        agentName: t.agentName,
+      agents.set(agentId, {
+        agentId,
+        agentName,
         latestThought: t.content,
-        latestType: t.type,
+        latestType: thoughtType,
         isActive: isDone ? false : (existing?.isActive ?? false) || isActive,
         isDone: isDone || (existing?.isDone ?? false),
         thoughtCount: (existing?.thoughtCount ?? 0) + 1,
@@ -471,8 +475,9 @@ export function AgentActivityPanel({ projectId }: Props) {
                 i: number,
                 arr: NonNullable<typeof thoughts>,
               ) => {
-                const color = THOUGHT_COLORS[t.type] ?? "text-foreground/70";
-                const role = getRoleFromAgentId(t.agentId);
+                const color =
+                  THOUGHT_COLORS[t.type ?? ""] ?? "text-foreground/70";
+                const role = getRoleFromAgentId(t.agentId ?? "");
                 const agentColor = (AGENT_COLORS[role] ?? DEFAULT_COLOR).text;
                 const isLast = i === arr.length - 1;
                 return (
@@ -496,7 +501,9 @@ export function AgentActivityPanel({ projectId }: Props) {
                         agentColor,
                       )}
                     >
-                      {t.agentName.replace(/^[^\s]+ /, "").slice(0, 8)}
+                      {(t.agentName ?? "Agent")
+                        .replace(/^[^\s]+ /, "")
+                        .slice(0, 8)}
                     </span>
                     <span
                       className={cn("shrink-0 text-[9px] pt-0.5 w-12", color)}

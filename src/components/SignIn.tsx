@@ -42,7 +42,11 @@ export function SignIn() {
                 // When the account's email isn't verified yet, the Password
                 // provider sends an OTP instead of signing in. Surface the
                 // verification step so the user isn't stuck on a no-op submit.
-                if (!isTestEmail(email) && result && result.signingIn === false) {
+                if (
+                  !isTestEmail(email) &&
+                  result &&
+                  result.signingIn === false
+                ) {
                   setStep({ type: "verify-email", email });
                 }
               } catch {
@@ -133,14 +137,19 @@ export function SignIn() {
                   redirectTo: "/dashboard",
                 });
               } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message =
+                  err instanceof Error ? err.message : String(err);
                 if (/expired/i.test(message)) {
                   setError(
                     "That code has expired. Try signing in again to get a new one.",
                   );
                 } else if (/too many|rate/i.test(message)) {
-                  setError("Too many attempts. Please wait a few minutes and try again.");
-                } else if (/could not verify|invalid.*code|not found/i.test(message)) {
+                  setError(
+                    "Too many attempts. Please wait a few minutes and try again.",
+                  );
+                } else if (
+                  /could not verify|invalid.*code|not found/i.test(message)
+                ) {
                   setError(
                     "Code not recognized. Make sure you're entering the 6 digits from your most recent email.",
                   );
