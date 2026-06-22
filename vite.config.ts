@@ -10,4 +10,13 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "src"),
     },
   },
+  server: {
+    // Cross-origin isolation so the in-browser WebContainer sandbox can run.
+    // `credentialless` (not require-corp) keeps Convex, auth, and cross-origin
+    // images working in dev.
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "credentialless",
+    },
+  },
 });

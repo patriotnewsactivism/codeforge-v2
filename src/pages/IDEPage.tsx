@@ -16,9 +16,9 @@ import { FileTree } from "@/components/ide/FileTree";
 import { GitHubConnectDialog } from "@/components/ide/GitHubConnectDialog";
 import { GitPanel } from "@/components/ide/GitPanel";
 import { ImportRepoDialog } from "@/components/ide/ImportRepoDialog";
-import { LivePreview } from "@/components/ide/LivePreview";
 import { MissionControlBar } from "@/components/ide/MissionControlBar";
 import { PanelErrorBoundary } from "@/components/ide/PanelErrorBoundary";
+import { SmartPreview } from "@/components/ide/SmartPreview";
 import { SuggestionsPanel } from "@/components/ide/SuggestionsPanel";
 import {
   ResizableHandle,
@@ -735,7 +735,7 @@ export function IDEPage() {
 
           {mobileView === "preview" && (
             <PanelErrorBoundary panelName="Live Preview">
-              <LivePreview
+              <SmartPreview
                 files={previewFiles}
                 autoRefresh={autoRefresh}
                 onToggleAutoRefresh={() => setAutoRefresh(!autoRefresh)}
@@ -945,7 +945,7 @@ export function IDEPage() {
                     <ResizableHandle />
                     <ResizablePanel defaultSize={45} minSize={20}>
                       <PanelErrorBoundary panelName="Live Preview">
-                        <LivePreview
+                        <SmartPreview
                           files={previewFiles}
                           autoRefresh={autoRefresh}
                           onToggleAutoRefresh={() =>

@@ -3,25 +3,25 @@
  * Instant preview, share link, ZIP export, GitHub Pages, Vercel/Netlify.
  */
 
-import { useAction, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import {
   Check,
   Download,
   ExternalLink,
   Eye,
   Github,
-  Globe,
   Link2,
   Loader2,
   Rocket,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { PublishButton } from "./PublishButton";
 
 interface DeployPanelProps {
   projectId: Id<"projects"> | null;
@@ -40,63 +40,6 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
 
   const [deployingTo, setDeployingTo] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [activeDeploymentId, setActiveDeploymentId] = useState<string | null>(
-    null,
-  );
-  const [deploymentStatus, setDeploymentStatus] = useState<string | null>(null);
-
-  const getVercelStatus = useAction(api.deployVercel.getStatus);
-  const deployToVercel = useAction(api.deployVercel.deploy);
-
-  const handleVercelDeploy = useCallback(async () => {
-    setDeployingTo("vercel");
-    setDeploymentStatus("INITIALIZING");
-    try {
-      const result = await deployToVercel({ projectId: projectId! });
-      setActiveDeploymentId(result.deploymentId);
-      setPreviewUrl(result.url);
-      setDeploymentStatus("QUEUED");
-    } catch (e) {
-      toast.error("Vercel deploy failed", {
-        description: e instanceof Error ? e.message : "Unknown error",
-      });
-      setDeployingTo(null);
-      setDeploymentStatus(null);
-    }
-  }, [deployToVercel, projectId]);
-
-  // Poll Vercel status
-  useEffect(() => {
-    if (!activeDeploymentId || deployingTo !== "vercel") return;
-
-    const interval = setInterval(async () => {
-      try {
-        const status = await getVercelStatus({
-          deploymentId: activeDeploymentId,
-        });
-        setDeploymentStatus(status.readyState);
-
-        if (status.readyState === "READY") {
-          setPreviewUrl(`https://${status.url}`);
-          toast.success("Project is live on Vercel!");
-          clearInterval(interval);
-          setDeployingTo(null);
-          setActiveDeploymentId(null);
-        } else if (status.readyState === "ERROR") {
-          toast.error("Vercel build failed", {
-            description: "Check Vercel dashboard for details",
-          });
-          clearInterval(interval);
-          setDeployingTo(null);
-          setActiveDeploymentId(null);
-        }
-      } catch (e) {
-        console.error("Failed to poll Vercel status", e);
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [activeDeploymentId, deployingTo, getVercelStatus]);
 
   const handleInstantPreview = useCallback(() => {
     if (!files) return;
@@ -222,42 +165,6 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
         : "bg-white/5 text-white/30",
       disabled: !githubSettings?.connected,
     },
-    {
-      id: "vercel",
-      label: "Vercel",
-      desc:
-        deployingTo === "vercel"
-          ? `Status: ${deploymentStatus || "INITIALIZING"}`
-          : "Deploy directly to Vercel",
-      icon:
-        deployingTo === "vercel" ? (
-          <Loader2 className="h-4 w-4 text-white animate-spin" />
-        ) : (
-          <Globe className="h-4 w-4 text-white" />
-        ),
-      action: handleVercelDeploy,
-      badge: deploymentStatus || "Live",
-      badgeColor:
-        deploymentStatus === "ERROR"
-          ? "bg-red-500/10 text-red-400"
-          : "bg-white/10 text-white",
-      disabled: deployingTo !== null,
-      extra: activeDeploymentId && (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-6 px-2 text-[10px] text-white/40 hover:text-white"
-          onClick={() =>
-            window.open(
-              `https://vercel.com/deployments/${activeDeploymentId}`,
-              "_blank",
-            )
-          }
-        >
-          Logs
-        </Button>
-      ),
-    },
   ];
 
   return (
@@ -278,6 +185,31 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
 
       <ScrollArea className="flex-1">
         <div className="p-3 space-y-2">
+          {/* Primary one-click publish */}
+          <div className="rounded-lg border border-primary/20 bg-primary/[0.04] p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Rocket className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-semibold text-white/80">
+                Publish to Live
+              </span>
+              <Badge className="text-[8px] h-3.5 px-1 border-0 bg-primary/15 text-primary ml-auto">
+                One click
+              </Badge>
+            </div>
+            <p className="text-[10px] text-white/30">
+              Build &amp; deploy this project to a live URL on Vercel.
+            </p>
+            <PublishButton projectId={projectId} />
+          </div>
+
+          <div className="flex items-center gap-2 py-1">
+            <span className="h-px flex-1 bg-white/5" />
+            <span className="text-[9px] uppercase tracking-wider text-white/25">
+              More options
+            </span>
+            <span className="h-px flex-1 bg-white/5" />
+          </div>
+
           {/* Active preview URL */}
           {previewUrl && (
             <div className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/5 px-3 py-2">
@@ -321,7 +253,6 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
                 <p className="text-[10px] text-white/30 truncate">{opt.desc}</p>
               </div>
               <div className="flex flex-col items-end gap-1">
-                {opt.extra}
                 <Button
                   size="sm"
                   variant="outline"
