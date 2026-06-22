@@ -128,6 +128,11 @@ const MODELS = [
   { id: "or-o3-mini", name: "o3-mini", provider: "OpenRouter", reason: 5, quality: 4, speed: 4, price: "$1.10 / $4.40", costLevel: "$$" },
   { id: "or-gpt-4-5", name: "GPT-4.5 Preview", provider: "OpenRouter", reason: 5, quality: 5, speed: 2, price: "$3.00 / $15.00", costLevel: "$$$" },
   { id: "or-claude-haiku", name: "Claude 3.5 Haiku", provider: "OpenRouter", reason: 4, quality: 4, speed: 4, price: "$0.80 / $4.00", costLevel: "$$" },
+  { id: "or-llama-4-maverick", name: "Llama 4 Maverick", provider: "OpenRouter", reason: 4, quality: 4, speed: 4, price: "$0.20 / $0.60", costLevel: "$" },
+  { id: "or-qwen-3-235b", name: "Qwen 3 235B", provider: "OpenRouter", reason: 4, quality: 4, speed: 4, price: "$0.20 / $0.60", costLevel: "$" },
+  { id: "or-codestral", name: "Codestral", provider: "OpenRouter", reason: 3, quality: 4, speed: 4, price: "$0.30 / $0.90", costLevel: "$" },
+  { id: "or-hermes-3-405b", name: "Hermes 3 405B", provider: "OpenRouter", reason: 4, quality: 4, speed: 3, price: "$0.80 / $0.80", costLevel: "$$" },
+  { id: "or-gemini-pro", name: "Gemini 2.5 Pro", provider: "OpenRouter", reason: 5, quality: 4, speed: 4, price: "$1.25 / $10.00", costLevel: "$$" },
 ];
 
 export function AIModelsTab() {
