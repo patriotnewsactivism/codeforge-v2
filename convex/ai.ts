@@ -191,9 +191,51 @@ export const MODELS: Record<string, ModelConfig> = {
     maxTokens: 8192,
     tier: "fast",
   },
+  // Kimi and Grok via OpenRouter — one key (OPENROUTER_API_KEY) instead of
+  // separate Moonshot/xAI (or Azure) accounts.
+  "or-kimi-k2": {
+    id: "or-kimi-k2",
+    name: "Kimi K2 (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "moonshotai/kimi-k2",
+    inputCostPer1M: 0.14,
+    outputCostPer1M: 0.14,
+    maxTokens: 8192,
+    tier: "fast",
+  },
+  "or-deepseek-reasoner": {
+    id: "or-deepseek-reasoner",
+    name: "DeepSeek R1 (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "deepseek/deepseek-r1",
+    inputCostPer1M: 0.55,
+    outputCostPer1M: 2.19,
+    maxTokens: 8192,
+    tier: "strong",
+  },
+  "or-grok-4": {
+    id: "or-grok-4",
+    name: "Grok 4 (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "x-ai/grok-4",
+    inputCostPer1M: 5.0,
+    outputCostPer1M: 25.0,
+    maxTokens: 16384,
+    tier: "strong",
+  },
+  "or-grok-3": {
+    id: "or-grok-3",
+    name: "Grok 3 (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "x-ai/grok-3",
+    inputCostPer1M: 3.0,
+    outputCostPer1M: 15.0,
+    maxTokens: 8192,
+    tier: "fast",
+  },
 };
 
-export const DEFAULT_MODEL = "deepseek-v3";
+export const DEFAULT_MODEL = "or-deepseek-v3";
 
 // Agents are spawned in large numbers, so the defaults are deliberately the
 // cheapest-yet-capable models: DeepSeek for reasoning/coding and Kimi K2 for
@@ -202,19 +244,22 @@ export const DEFAULT_MODEL = "deepseek-v3";
 //   deepseek-reasoner  $0.55 / $2.19   — strong reasoning, very cheap
 //   deepseek-v3        $0.27 / $1.10   — excellent coder, very cheap
 //   kimi-k2            $0.12 / $0.12    — cheapest, fine for utility work
+// Routed entirely through OpenRouter so the swarm needs only one key
+// (OPENROUTER_API_KEY) — no separate DeepSeek / Moonshot / xAI / Azure
+// accounts required.
 export const AGENT_MODELS: Record<string, string> = {
-  orchestrator: "deepseek-reasoner",
-  architect: "deepseek-reasoner",
-  coder: "deepseek-v3",
-  reviewer: "kimi-k2",
-  debugger: "deepseek-v3",
-  tester: "kimi-k2",
-  devops: "kimi-k2",
-  sentry: "kimi-k2",
-  forensic: "deepseek-reasoner",
-  reflection: "deepseek-reasoner",
-  strategist: "deepseek-reasoner",
-  default: "deepseek-v3",
+  orchestrator: "or-deepseek-reasoner",
+  architect: "or-deepseek-reasoner",
+  coder: "or-deepseek-v3",
+  reviewer: "or-kimi-k2",
+  debugger: "or-deepseek-v3",
+  tester: "or-kimi-k2",
+  devops: "or-kimi-k2",
+  sentry: "or-kimi-k2",
+  forensic: "or-deepseek-reasoner",
+  reflection: "or-deepseek-reasoner",
+  strategist: "or-deepseek-reasoner",
+  default: "or-deepseek-v3",
 };
 
 // ─── PROVIDER BASE URLS ────────────────────────────────────────────────────
@@ -411,12 +456,22 @@ export async function callAI(
     );
   }
 
+  // OpenRouter recommends app-identifying headers for attribution and to
+  // avoid request deprioritization. Harmless for other providers, but only
+  // sent for OpenRouter.
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${apiKey}`,
+  };
+  if (config.provider === "openrouter") {
+    headers["HTTP-Referer"] =
+      process.env.SITE_URL ?? "https://code.donmatthews.live";
+    headers["X-Title"] = "CodeForge";
+  }
+
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
+    headers,
     body: JSON.stringify({
       model: config.apiModel,
       messages,
@@ -476,8 +531,9 @@ export async function callAIWithFallback(
   const requested = options.model ?? DEFAULT_MODEL;
   const isLifetime = options.callerPlan === "lifetime";
 
-  // Build fallback chain
-  const fullChain = [requested, "deepseek-v3", "gpt-4o-mini"].filter(
+  // Build fallback chain. Defaults stay on OpenRouter so a single
+  // OPENROUTER_API_KEY can serve the whole chain.
+  const fullChain = [requested, "or-deepseek-v3", "or-kimi-k2"].filter(
     (m, i, arr) => arr.indexOf(m) === i && MODELS[m],
   );
 
