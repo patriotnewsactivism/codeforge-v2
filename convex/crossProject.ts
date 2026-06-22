@@ -153,7 +153,7 @@ Output JSON array (may be empty if nothing is universal):
 JSON only, no other text.`;
 
     const { text: raw } = await callAIWithFallback(prompt, {
-      model: getModelForRole("reviewer"),
+      model: await getModelForRole(ctx, "reviewer"),
       temperature: 0.3,
     });
 
@@ -321,7 +321,7 @@ JSON array (empty if none found):
 [{ "index": <1-based>, "explanation": "why this applies here" }]`;
 
     const { text: raw } = await callAIWithFallback(prompt, {
-      model: getModelForRole("reviewer"),
+      model: await getModelForRole(ctx, "reviewer"),
       temperature: 0.1,
     });
 

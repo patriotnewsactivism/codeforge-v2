@@ -11,6 +11,8 @@
  * All other code (MODELS, DEFAULT_MODEL, AGENT_MODELS, etc.) unchanged.
  */
 
+import { api } from "./_generated/api";
+
 declare const process: { env: Record<string, string | undefined> };
 
 // ─── MODEL REGISTRY ────────────────────────────────────────────────────────
@@ -232,6 +234,66 @@ export const MODELS: Record<string, ModelConfig> = {
     outputCostPer1M: 15.0,
     maxTokens: 8192,
     tier: "fast",
+  },
+  "or-claude-sonnet": {
+    id: "or-claude-sonnet",
+    name: "Claude 3.5 Sonnet (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "anthropic/claude-3.5-sonnet",
+    inputCostPer1M: 3.0,
+    outputCostPer1M: 15.0,
+    maxTokens: 16384,
+    tier: "strong",
+  },
+  "or-claude-haiku": {
+    id: "or-claude-haiku",
+    name: "Claude 3.5 Haiku (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "anthropic/claude-3.5-haiku",
+    inputCostPer1M: 0.8,
+    outputCostPer1M: 4.0,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
+  "or-gpt-4o-mini": {
+    id: "or-gpt-4o-mini",
+    name: "GPT-4o Mini (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "openai/gpt-4o-mini",
+    inputCostPer1M: 0.15,
+    outputCostPer1M: 0.6,
+    maxTokens: 8192,
+    tier: "fast",
+  },
+  "or-gpt-4o": {
+    id: "or-gpt-4o",
+    name: "GPT-4o (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "openai/gpt-4o",
+    inputCostPer1M: 2.5,
+    outputCostPer1M: 10.0,
+    maxTokens: 8192,
+    tier: "strong",
+  },
+  "or-o3-mini": {
+    id: "or-o3-mini",
+    name: "o3-mini (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "openai/o3-mini",
+    inputCostPer1M: 1.1,
+    outputCostPer1M: 4.4,
+    maxTokens: 8192,
+    tier: "strong",
+  },
+  "or-gpt-4-5": {
+    id: "or-gpt-4-5",
+    name: "GPT-4.5 Preview (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "openai/gpt-4.5-preview",
+    inputCostPer1M: 3.0,
+    outputCostPer1M: 15.0,
+    maxTokens: 8192,
+    tier: "strong",
   },
 };
 
@@ -582,9 +644,89 @@ export async function callAIWithFallback(
   throw new Error(`All models failed:\n${errors.join("\n")}`);
 }
 
+export const MODEL_PROFILES: Record<string, Record<string, string>> = {
+  viktor: {
+    orchestrator: "or-deepseek-reasoner",
+    architect: "or-deepseek-reasoner",
+    coder: "or-gemini-flash",
+    reviewer: "or-claude-haiku",
+    debugger: "or-gemini-flash",
+    tester: "or-claude-haiku",
+    devops: "or-kimi-k2",
+    sentry: "or-kimi-k2",
+    forensic: "or-deepseek-reasoner",
+    reflection: "or-deepseek-reasoner",
+    strategist: "or-deepseek-reasoner",
+    default: "or-gemini-flash",
+  },
+  budget: {
+    orchestrator: "or-qwen-coder",
+    architect: "or-qwen-coder",
+    coder: "or-kimi-k2",
+    reviewer: "or-gemini-flash",
+    debugger: "or-kimi-k2",
+    tester: "or-kimi-k2",
+    devops: "or-kimi-k2",
+    sentry: "or-kimi-k2",
+    forensic: "or-qwen-coder",
+    reflection: "or-qwen-coder",
+    strategist: "or-qwen-coder",
+    default: "or-kimi-k2",
+  },
+  premium: {
+    orchestrator: "or-claude-sonnet",
+    architect: "or-claude-sonnet",
+    coder: "or-gpt-4-5",
+    reviewer: "or-claude-sonnet",
+    debugger: "or-claude-sonnet",
+    tester: "or-claude-sonnet",
+    devops: "or-gpt-4o",
+    sentry: "or-gpt-4o",
+    forensic: "or-claude-sonnet",
+    reflection: "or-claude-sonnet",
+    strategist: "or-claude-sonnet",
+    default: "or-claude-sonnet",
+  },
+  reasoning: {
+    orchestrator: "or-o3-mini",
+    architect: "or-o3-mini",
+    coder: "or-deepseek-reasoner",
+    reviewer: "or-claude-haiku",
+    debugger: "or-deepseek-reasoner",
+    tester: "or-claude-haiku",
+    devops: "or-gpt-4o-mini",
+    sentry: "or-gpt-4o-mini",
+    forensic: "or-deepseek-reasoner",
+    reflection: "or-deepseek-reasoner",
+    strategist: "or-deepseek-reasoner",
+    default: "or-deepseek-reasoner",
+  },
+  speed: {
+    orchestrator: "or-gemini-flash",
+    architect: "or-gemini-flash",
+    coder: "or-kimi-k2",
+    reviewer: "or-gpt-4o-mini",
+    debugger: "or-kimi-k2",
+    tester: "or-gpt-4o-mini",
+    devops: "or-gpt-4o-mini",
+    sentry: "or-gpt-4o-mini",
+    forensic: "or-gemini-flash",
+    reflection: "or-gemini-flash",
+    strategist: "or-gemini-flash",
+    default: "or-gemini-flash",
+  },
+};
+
 /**
  * getModelForRole — returns the best model ID for a given agent role.
  */
-export function getModelForRole(role: string): string {
-  return AGENT_MODELS[role.toLowerCase()] ?? AGENT_MODELS.default;
+export async function getModelForRole(ctx: any, role: string): Promise<string> {
+  let profile = "viktor";
+  try {
+    profile = await ctx.runQuery(api.users.getAiProfileInternal, {});
+  } catch (_err) {
+    // Fall back to default profile if query fails or auth issues
+  }
+  const profileMap = MODEL_PROFILES[profile] ?? MODEL_PROFILES.viktor;
+  return profileMap[role.toLowerCase()] ?? profileMap.default ?? AGENT_MODELS[role.toLowerCase()] ?? AGENT_MODELS.default;
 }

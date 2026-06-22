@@ -180,7 +180,7 @@ Do NOT hedge. You are arguing FOR this change.`;
     const { text: proponentArgument } = await callAIWithFallback(
       proponentPrompt,
       {
-        model: getModelForRole("architect"),
+        model: await getModelForRole(ctx, "architect"),
         temperature: 0.4,
         callerPlan: byok?.callerPlan,
         userKeys: byok?.userKeys,
@@ -203,7 +203,7 @@ Do NOT agree with the proponent. You are finding problems.`;
     const { text: opponentArgument } = await callAIWithFallback(
       opponentPrompt,
       {
-        model: getModelForRole("reviewer"),
+        model: await getModelForRole(ctx, "reviewer"),
         temperature: 0.4,
         callerPlan: byok?.callerPlan,
         userKeys: byok?.userKeys,
@@ -245,7 +245,7 @@ Verdict definitions:
 - ESCALATE: too risky, uncertain, or irreversible — requires human approval`;
 
     const { text: moderatorRaw } = await callAIWithFallback(moderatorPrompt, {
-      model: getModelForRole("orchestrator"),
+      model: await getModelForRole(ctx, "orchestrator"),
       temperature: 0.2,
       callerPlan: byok?.callerPlan,
       userKeys: byok?.userKeys,

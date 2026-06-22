@@ -10,6 +10,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
+  Brain,
   CheckCircle2,
   ChevronRight,
   Eye,
@@ -26,6 +27,7 @@ import {
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { AIModelsTab } from "@/components/settings/AIModelsTab";
 import { ApiKeysTab } from "@/components/settings/ApiKeysTab";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -44,13 +46,14 @@ import { Switch } from "@/components/ui/switch";
 import { useTheme } from "@/contexts/ThemeContext";
 import { api } from "../../convex/_generated/api";
 
-type SettingsTab = "account" | "appearance" | "github" | "api-keys";
+type SettingsTab = "account" | "appearance" | "github" | "api-keys" | "ai-models";
 
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: "account", label: "Account", icon: User },
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "github", label: "GitHub", icon: Github },
   { id: "api-keys", label: "API Keys", icon: Key },
+  { id: "ai-models", label: "AI Models", icon: Brain },
 ];
 
 export function SettingsPage() {
@@ -437,6 +440,19 @@ export function SettingsPage() {
               }}
             >
               <ApiKeysTab />
+            </div>
+          )}
+
+          {/* ── AI Models & Profiles ── */}
+          {activeTab === "ai-models" && (
+            <div
+              className="rounded-xl p-5"
+              style={{
+                background: "#0D1117",
+                border: "1px solid rgba(255,255,255,0.08)",
+              }}
+            >
+              <AIModelsTab />
             </div>
           )}
         </div>

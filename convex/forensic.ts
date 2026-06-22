@@ -250,7 +250,7 @@ Respond with JSON only:
     // BYOK: resolve caller plan + keys for lifetime users
     const byok = await resolveByok(ctx);
     const { text: raw } = await callAIWithFallback(prompt, {
-      model: getModelForRole("orchestrator"), // Strong model — forensic needs deep reasoning
+      model: await getModelForRole(ctx, "orchestrator"), // Strong model — forensic needs deep reasoning
       temperature: 0.2,
       callerPlan: byok?.callerPlan,
       userKeys: byok?.userKeys,

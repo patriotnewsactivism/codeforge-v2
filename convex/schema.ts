@@ -21,6 +21,7 @@ const schema = defineSchema({
     onboarded: v.optional(v.boolean()),
     plan: v.optional(v.string()),
     subscriptionStatus: v.optional(v.string()),
+    aiProfile: v.optional(v.string()),
   })
     // @convex-dev/auth requires indexes named exactly "email" and "phone"
     .index("email", ["email"])

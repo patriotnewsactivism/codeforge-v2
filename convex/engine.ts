@@ -395,7 +395,7 @@ async function executeTool(
 
         spawnCount.value++;
         const { role, task } = call.args as { role: string; task: string };
-        const childModel = getModelForRole(role);
+        const childModel = await getModelForRole(ctx, role);
 
         await ctx.runMutation(api.agentThoughts.emit, {
           projectId,
@@ -757,7 +757,7 @@ export const runMission = action({
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
     const missionId = `mission_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const model = args.model ?? getModelForRole("orchestrator");
+    const model = args.model ?? await getModelForRole(ctx, "orchestrator");
     const spawnCount = { value: 0 };
 
     // Fetch plan limits

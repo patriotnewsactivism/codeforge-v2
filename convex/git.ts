@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import JSZip from "jszip";
 import { api } from "./_generated/api";
 import { action, mutation, query } from "./_generated/server";
 
@@ -372,13 +373,26 @@ export const importFromGitHub = action({
       }
 
       // Get tree recursively
-      const treeRes = await fetch(
-        `${apiBase}/git/trees/${branch}?recursive=1`,
-        { headers: ghHeaders },
-      );
-      const treeData = (await treeRes.json()) as {
-        tree: Array<{ path: string; type: string; url: string; size?: number }>;
-      };
+      let treeRes: Response | undefined;
+      let treeData: any = null;
+      let useZipFallback = false;
+
+      try {
+        treeRes = await fetch(
+          `${apiBase}/git/trees/${branch}?recursive=1`,
+          { headers: ghHeaders },
+        );
+        if (treeRes.ok) {
+          treeData = (await treeRes.json());
+          if (!treeData.tree) {
+            useZipFallback = true;
+          }
+        } else {
+          useZipFallback = true;
+        }
+      } catch (_) {
+        useZipFallback = true;
+      }
 
       const CODE_EXTENSIONS = [
         ".ts",
@@ -414,53 +428,132 @@ export const importFromGitHub = action({
         ".astro",
       ];
 
-      const codeFiles = treeData.tree.filter(
-        f =>
-          f.type === "blob" &&
-          (f.size ?? 0) < 100_000 &&
-          CODE_EXTENSIONS.some(ext => f.path.endsWith(ext)) &&
-          !f.path.includes("node_modules") &&
-          !f.path.includes(".git"),
-      );
-
       let imported = 0;
-      for (const file of codeFiles.slice(0, 250)) {
-        const contentRes = await fetch(file.url, { headers: ghHeaders });
-        const contentData = (await contentRes.json()) as {
-          content: string;
-          encoding: string;
-        };
-        let content = "";
-        if (contentData.encoding === "base64") {
-          content = atob(contentData.content.replace(/\n/g, ""));
-        } else {
-          content = contentData.content;
+
+      if (useZipFallback) {
+        // Emit a thought to let user know we are falling back to ZIP
+        try {
+          await ctx.runMutation(api.agentThoughts.emit, {
+            projectId: args.projectId,
+            agentId: "repo-import",
+            agentName: "📦 Repo Import",
+            type: "action",
+            content: `GitHub API rate limit or error encountered. Falling back to ZIP archive import…`,
+            isStreaming: false,
+          });
+        } catch (_) {}
+
+        const zipUrl = `https://github.com/${args.repoFullName}/archive/refs/heads/${branch}.zip`;
+        const zipRes = await fetch(zipUrl, { headers: { ...ghHeaders, Accept: "*/*" } });
+        if (!zipRes.ok) {
+          throw new Error(`Failed to download repository ZIP archive: ${zipRes.statusText} (${zipRes.status})`);
+        }
+        const arrayBuffer = await zipRes.arrayBuffer();
+        const zip = await JSZip.loadAsync(arrayBuffer);
+        
+        const filesToImport: Array<{ path: string; content: string }> = [];
+
+        for (const [relativePath, file] of Object.entries(zip.files)) {
+          if (file.dir) continue;
+          
+          // Strip repo prefix (first segment of folder in archive, e.g. "repo-name-main/")
+          const parts = relativePath.split("/");
+          if (parts.length <= 1) continue;
+          const cleanedPath = parts.slice(1).join("/");
+
+          // Check extensions & lockfile exclusions
+          const matchesExtension = CODE_EXTENSIONS.some(ext => cleanedPath.endsWith(ext));
+          const isNodeModules = cleanedPath.includes("node_modules");
+          const isGit = cleanedPath.includes(".git");
+          const isLockFile = cleanedPath.includes("package-lock.json") || cleanedPath.includes("bun.lock") || cleanedPath.includes("yarn.lock");
+
+          if (matchesExtension && !isNodeModules && !isGit && !isLockFile) {
+            const content = await file.async("string");
+            if (content.length < 100_000) {
+              filesToImport.push({ path: cleanedPath, content });
+            }
+          }
         }
 
-        const parts = file.path.split("/");
-        const name = parts[parts.length - 1];
+        // Import up to 500 files for smart context
+        for (const file of filesToImport.slice(0, 500)) {
+          const parts = file.path.split("/");
+          const name = parts[parts.length - 1];
 
-        const existing = await ctx.runQuery(api.files.getByPath, {
-          projectId: args.projectId,
-          path: file.path,
-        });
-
-        if (existing) {
-          await ctx.runMutation(api.files.updateContent, {
-            fileId: existing._id,
-            content,
-          });
-        } else {
-          await ctx.runMutation(api.files.create, {
+          const existing = await ctx.runQuery(api.files.getByPath, {
             projectId: args.projectId,
             path: file.path,
-            name,
-            content,
-            isDirectory: false,
-            parentPath: parts.slice(0, -1).join("/") || undefined,
           });
+
+          if (existing) {
+            await ctx.runMutation(api.files.updateContent, {
+              fileId: existing._id,
+              content: file.content,
+            });
+          } else {
+            await ctx.runMutation(api.files.create, {
+              projectId: args.projectId,
+              path: file.path,
+              name,
+              content: file.content,
+              isDirectory: false,
+              parentPath: parts.slice(0, -1).join("/") || undefined,
+            });
+          }
+          imported++;
         }
-        imported++;
+      } else {
+        // Tree API flow
+        const codeFiles = treeData.tree.filter(
+          (f: any) =>
+            f.type === "blob" &&
+            (f.size ?? 0) < 100_000 &&
+            CODE_EXTENSIONS.some(ext => f.path.endsWith(ext)) &&
+            !f.path.includes("node_modules") &&
+            !f.path.includes(".git") &&
+            !f.path.includes("package-lock.json") &&
+            !f.path.includes("bun.lock") &&
+            !f.path.includes("yarn.lock"),
+        );
+
+        for (const file of codeFiles.slice(0, 500)) {
+          const contentRes = await fetch(file.url, { headers: ghHeaders });
+          const contentData = (await contentRes.json()) as {
+            content: string;
+            encoding: string;
+          };
+          let content = "";
+          if (contentData.encoding === "base64") {
+            content = atob(contentData.content.replace(/\n/g, ""));
+          } else {
+            content = contentData.content;
+          }
+
+          const parts = file.path.split("/");
+          const name = parts[parts.length - 1];
+
+          const existing = await ctx.runQuery(api.files.getByPath, {
+            projectId: args.projectId,
+            path: file.path,
+          });
+
+          if (existing) {
+            await ctx.runMutation(api.files.updateContent, {
+              fileId: existing._id,
+              content,
+            });
+          } else {
+            await ctx.runMutation(api.files.create, {
+              projectId: args.projectId,
+              path: file.path,
+              name,
+              content,
+              isDirectory: false,
+              parentPath: parts.slice(0, -1).join("/") || undefined,
+            });
+          }
+          imported++;
+        }
       }
 
       // Store the github repo reference on the project

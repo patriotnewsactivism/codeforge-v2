@@ -143,7 +143,7 @@ export const generateDeploymentCertificate = action({
     rejectionReason: v.optional(v.string()),
     reviewerNotes: v.string(),
   }),
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
     // Reviewer cannot be same agent that triggered the deploy
     if (args.triggeredByAgentId === "reviewer-agent") {
       return {
@@ -177,7 +177,7 @@ Respond with JSON only:
 }`;
 
     const { text: raw } = await callAIWithFallback(reviewPrompt, {
-      model: getModelForRole("reviewer"),
+      model: await getModelForRole(ctx, "reviewer"),
       temperature: 0.2,
     });
 

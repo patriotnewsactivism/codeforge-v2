@@ -222,7 +222,7 @@ Write ONLY the fixed code for the affected file/function.
 Output the complete fixed code block.`;
 
     const { text: fixCode } = await callAIWithFallback(fixPrompt, {
-      model: getModelForRole("coder"),
+      model: await getModelForRole(ctx, "coder"),
       temperature: 0.2,
     });
 

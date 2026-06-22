@@ -1,5 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+import { mutation, query } from "./_generated/server";
 
 export const deleteAccount = mutation({
   args: {},
@@ -37,5 +38,34 @@ export const completeOnboarding = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
     await ctx.db.patch(userId, { onboarded: true });
+  },
+});
+
+export const getProfile = query({
+  args: {},
+  handler: async ctx => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    return await ctx.db.get(userId);
+  },
+});
+
+export const updateAiProfile = mutation({
+  args: { aiProfile: v.string() },
+  handler: async (ctx, { aiProfile }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    await ctx.db.patch(userId, { aiProfile });
+    return { success: true };
+  },
+});
+
+export const getAiProfileInternal = query({
+  args: {},
+  handler: async ctx => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return "viktor";
+    const user = await ctx.db.get(userId);
+    return user?.aiProfile ?? "viktor";
   },
 });

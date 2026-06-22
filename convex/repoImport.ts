@@ -291,7 +291,7 @@ Write a PROJECT_BRIEF.md with these sections:
 Be specific and technical. This is for AI agents, not humans. Mention exact file paths.`;
 
       const { text: brief } = await callAIWithFallback(briefPrompt, {
-        model: getModelForRole("architect"),
+        model: await getModelForRole(ctx, "architect"),
         temperature: 0.2,
       });
 

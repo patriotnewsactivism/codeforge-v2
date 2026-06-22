@@ -229,7 +229,7 @@ For "retry_strategy":
 JSON only, no other text.`;
 
     const { text: patchRaw } = await callAIWithFallback(patchPrompt, {
-      model: getModelForRole("reviewer"),
+      model: await getModelForRole(ctx, "reviewer"),
       temperature: 0.1,
     });
 
