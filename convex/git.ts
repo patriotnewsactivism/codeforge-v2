@@ -378,12 +378,11 @@ export const importFromGitHub = action({
       let useZipFallback = false;
 
       try {
-        treeRes = await fetch(
-          `${apiBase}/git/trees/${branch}?recursive=1`,
-          { headers: ghHeaders },
-        );
+        treeRes = await fetch(`${apiBase}/git/trees/${branch}?recursive=1`, {
+          headers: ghHeaders,
+        });
         if (treeRes.ok) {
-          treeData = (await treeRes.json());
+          treeData = await treeRes.json();
           if (!treeData.tree) {
             useZipFallback = true;
           }
@@ -444,28 +443,37 @@ export const importFromGitHub = action({
         } catch (_) {}
 
         const zipUrl = `https://github.com/${args.repoFullName}/archive/refs/heads/${branch}.zip`;
-        const zipRes = await fetch(zipUrl, { headers: { ...ghHeaders, Accept: "*/*" } });
+        const zipRes = await fetch(zipUrl, {
+          headers: { ...ghHeaders, Accept: "*/*" },
+        });
         if (!zipRes.ok) {
-          throw new Error(`Failed to download repository ZIP archive: ${zipRes.statusText} (${zipRes.status})`);
+          throw new Error(
+            `Failed to download repository ZIP archive: ${zipRes.statusText} (${zipRes.status})`,
+          );
         }
         const arrayBuffer = await zipRes.arrayBuffer();
         const zip = await JSZip.loadAsync(arrayBuffer);
-        
+
         const filesToImport: Array<{ path: string; content: string }> = [];
 
         for (const [relativePath, file] of Object.entries(zip.files)) {
           if (file.dir) continue;
-          
+
           // Strip repo prefix (first segment of folder in archive, e.g. "repo-name-main/")
           const parts = relativePath.split("/");
           if (parts.length <= 1) continue;
           const cleanedPath = parts.slice(1).join("/");
 
           // Check extensions & lockfile exclusions
-          const matchesExtension = CODE_EXTENSIONS.some(ext => cleanedPath.endsWith(ext));
+          const matchesExtension = CODE_EXTENSIONS.some(ext =>
+            cleanedPath.endsWith(ext),
+          );
           const isNodeModules = cleanedPath.includes("node_modules");
           const isGit = cleanedPath.includes(".git");
-          const isLockFile = cleanedPath.includes("package-lock.json") || cleanedPath.includes("bun.lock") || cleanedPath.includes("yarn.lock");
+          const isLockFile =
+            cleanedPath.includes("package-lock.json") ||
+            cleanedPath.includes("bun.lock") ||
+            cleanedPath.includes("yarn.lock");
 
           if (matchesExtension && !isNodeModules && !isGit && !isLockFile) {
             const content = await file.async("string");

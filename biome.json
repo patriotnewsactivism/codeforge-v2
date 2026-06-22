@@ -13,9 +13,9 @@
       "**/*.js",
       "**/*.jsx",
       "**/*.json",
-      "!**/scripts/**",
-      "!**/convex/_generated/**",
-      "!**/dist/**"
+      "!**/scripts",
+      "!**/convex/_generated",
+      "!**/dist"
     ]
   },
   "formatter": {
