@@ -300,8 +300,8 @@ export const MODELS: Record<string, ModelConfig> = {
     name: "Llama 4 Maverick (OpenRouter)",
     provider: "openrouter",
     apiModel: "meta-llama/llama-4-maverick",
-    inputCostPer1M: 0.20,
-    outputCostPer1M: 0.60,
+    inputCostPer1M: 0.2,
+    outputCostPer1M: 0.6,
     maxTokens: 8192,
     tier: "balanced",
   },
@@ -310,8 +310,8 @@ export const MODELS: Record<string, ModelConfig> = {
     name: "Qwen 3 235B (OpenRouter)",
     provider: "openrouter",
     apiModel: "qwen/qwen-3-235b",
-    inputCostPer1M: 0.20,
-    outputCostPer1M: 0.60,
+    inputCostPer1M: 0.2,
+    outputCostPer1M: 0.6,
     maxTokens: 8192,
     tier: "balanced",
   },
@@ -320,8 +320,8 @@ export const MODELS: Record<string, ModelConfig> = {
     name: "Codestral (OpenRouter)",
     provider: "openrouter",
     apiModel: "mistralai/codestral",
-    inputCostPer1M: 0.30,
-    outputCostPer1M: 0.90,
+    inputCostPer1M: 0.3,
+    outputCostPer1M: 0.9,
     maxTokens: 8192,
     tier: "balanced",
   },
@@ -330,8 +330,8 @@ export const MODELS: Record<string, ModelConfig> = {
     name: "Hermes 3 405B (OpenRouter)",
     provider: "openrouter",
     apiModel: "nousresearch/hermes-3-llama-3.1-405b",
-    inputCostPer1M: 0.80,
-    outputCostPer1M: 0.80,
+    inputCostPer1M: 0.8,
+    outputCostPer1M: 0.8,
     maxTokens: 8192,
     tier: "strong",
   },
@@ -341,7 +341,7 @@ export const MODELS: Record<string, ModelConfig> = {
     provider: "openrouter",
     apiModel: "google/gemini-2.5-pro",
     inputCostPer1M: 1.25,
-    outputCostPer1M: 10.00,
+    outputCostPer1M: 10.0,
     maxTokens: 16384,
     tier: "strong",
   },
@@ -778,5 +778,10 @@ export async function getModelForRole(ctx: any, role: string): Promise<string> {
     // Fall back to default profile if query fails or auth issues
   }
   const profileMap = MODEL_PROFILES[profile] ?? MODEL_PROFILES.viktor;
-  return profileMap[role.toLowerCase()] ?? profileMap.default ?? AGENT_MODELS[role.toLowerCase()] ?? AGENT_MODELS.default;
+  return (
+    profileMap[role.toLowerCase()] ??
+    profileMap.default ??
+    AGENT_MODELS[role.toLowerCase()] ??
+    AGENT_MODELS.default
+  );
 }

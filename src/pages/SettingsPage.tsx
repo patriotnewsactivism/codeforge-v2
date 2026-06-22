@@ -46,7 +46,12 @@ import { Switch } from "@/components/ui/switch";
 import { useTheme } from "@/contexts/ThemeContext";
 import { api } from "../../convex/_generated/api";
 
-type SettingsTab = "account" | "appearance" | "github" | "api-keys" | "ai-models";
+type SettingsTab =
+  | "account"
+  | "appearance"
+  | "github"
+  | "api-keys"
+  | "ai-models";
 
 const TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: "account", label: "Account", icon: User },

@@ -131,6 +131,7 @@ export const getAutonomousMode = query({
   returns: v.union(
     v.object({
       _id: v.id("projectSettings"),
+      _creationTime: v.number(),
       projectId: v.id("projects"),
       autonomousMode: v.boolean(),
       autonomousLevel: v.optional(v.string()),

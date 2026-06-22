@@ -757,7 +757,7 @@ export const runMission = action({
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
     const missionId = `mission_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const model = args.model ?? await getModelForRole(ctx, "orchestrator");
+    const model = args.model ?? (await getModelForRole(ctx, "orchestrator"));
     const spawnCount = { value: 0 };
 
     // Fetch plan limits
