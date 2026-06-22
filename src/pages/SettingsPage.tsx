@@ -341,6 +341,33 @@ export function SettingsPage() {
                     Connected as @{githubSettings.username}
                   </div>
                 )}
+
+                {/* One-click OAuth — the easy path for everyone */}
+                <Button
+                  onClick={() =>
+                    void signIn("github", {
+                      redirectTo: "/settings?tab=github",
+                    })
+                  }
+                  className="w-full bg-slate-100 text-slate-900 hover:bg-white"
+                >
+                  <Github className="size-4" />
+                  {githubSettings?.connected
+                    ? "Reconnect GitHub"
+                    : "Continue with GitHub"}
+                </Button>
+
+                <div className="relative py-1">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-slate-800" />
+                  </div>
+                  <div className="relative flex justify-center text-[10px] uppercase">
+                    <span className="bg-slate-900 px-2 text-slate-500 tracking-wider">
+                      or use a token
+                    </span>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label className="text-slate-300">
                     Personal Access Token

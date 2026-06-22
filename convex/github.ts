@@ -59,12 +59,26 @@ export const getSettings = query({
       .query("githubSettings")
       .withIndex("by_user", q => q.eq("userId", userId))
       .first();
-    if (!settings) return { connected: false };
-    return {
-      connected: true,
-      username: settings.username,
-      avatarUrl: settings.avatarUrl,
-    };
+    if (settings) {
+      return {
+        connected: true,
+        username: settings.username,
+        avatarUrl: settings.avatarUrl,
+      };
+    }
+
+    // Also treat an OAuth-linked account (token stored on the user record at
+    // sign-in) as connected, so users who clicked "Continue with GitHub"
+    // see the linked state without saving a separate PAT.
+    const user = await ctx.db.get(userId);
+    if (user && "githubToken" in user && typeof user.githubToken === "string") {
+      return {
+        connected: true,
+        username: typeof user.name === "string" ? user.name : undefined,
+        avatarUrl: typeof user.image === "string" ? user.image : undefined,
+      };
+    }
+    return { connected: false };
   },
 });
 
