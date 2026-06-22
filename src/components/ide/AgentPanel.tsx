@@ -254,7 +254,7 @@ export function AgentPanel({ projectId }: AgentPanelProps) {
                         arr: NonNullable<typeof thoughts>[number][],
                       ) => {
                         const color =
-                          THOUGHT_COLORS[t.type] ?? "text-foreground/70";
+                          THOUGHT_COLORS[t.type ?? ""] ?? "text-foreground/70";
                         const isLast = i === arr.length - 1;
                         return (
                           <div
