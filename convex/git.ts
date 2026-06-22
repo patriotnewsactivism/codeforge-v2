@@ -157,15 +157,21 @@ export const pushToGitHub = action({
     error: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
-    if (!GITHUB_TOKEN) {
+    // Use the signed-in user's own GitHub token (OAuth or saved PAT), falling
+    // back to the platform token only if they haven't linked their account.
+    const userToken = await ctx.runQuery(api.github.getTokenInternal, {});
+    const token = userToken?.token ?? GITHUB_TOKEN;
+    if (!token) {
       return {
         success: false,
-        error: "GITHUB_TOKEN not configured. Add it in project settings.",
+        error:
+          "Connect your GitHub account to push — " +
+          'click "Continue with GitHub" to link it.',
       };
     }
 
     const ghHeaders = {
-      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
@@ -333,16 +339,23 @@ export const importFromGitHub = action({
     error: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
-    if (!GITHUB_TOKEN) {
+    // Prefer the signed-in user's own GitHub token — captured when they
+    // connect GitHub via OAuth, or a PAT they saved in settings. Fall back
+    // to the platform-wide GITHUB_TOKEN only when the user hasn't linked one.
+    const userToken = await ctx.runQuery(api.github.getTokenInternal, {});
+    const token = userToken?.token ?? GITHUB_TOKEN;
+    if (!token) {
       return {
         success: false,
         filesImported: 0,
-        error: "GITHUB_TOKEN not configured",
+        error:
+          "Connect your GitHub account to import repositories — " +
+          'click "Continue with GitHub" to link it.',
       };
     }
 
     const ghHeaders = {
-      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github+json",
       "User-Agent": "CodeForge-Agent",
     };

@@ -57,6 +57,13 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     ...(githubConfigured
       ? [
           GitHub({
+            // Request repo scope so the token captured at sign-in can read
+            // (and push to) the user's repositories — this is what powers
+            // one-click "Continue with GitHub" import/push without any
+            // platform-wide token.
+            authorization: {
+              params: { scope: "read:user user:email repo" },
+            },
             profile(profile, tokens) {
               return {
                 id: profile.id.toString(),
