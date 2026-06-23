@@ -13,7 +13,10 @@ import { action, mutation, query } from "./_generated/server";
 // ─── PLAN DEFINITIONS ────────────────────────────────────────────────────────
 // These are the source of truth — UI and enforcement both read from here.
 
-export type PlanKey = "free" | "weekly" | "monthly" | "lifetime";
+export type PlanKey = "free" | "weekly" | "monthly" | "lifetime" | "founder";
+
+// Founder accounts bypass all plan limits. Add emails here.
+const FOUNDER_EMAILS = new Set(["patriotnewsactivism@gmail.com"]);
 
 export interface PlanLimits {
   aiRequestsPerDay: number; // chat messages / AI calls per day
@@ -28,6 +31,26 @@ export interface PlanLimits {
 }
 
 export const PLAN_LIMITS: Record<PlanKey, PlanLimits> = {
+  founder: {
+    aiRequestsPerDay: 999_999,
+    missionsPerDay: 999_999,
+    maxConcurrentAgents: 100,
+    maxSpawnDepth: 6,
+    maxSpawnsPerMission: 1000,
+    maxProjects: 999_999,
+    hardCapUsdMonthly: 500,
+    includedComputeUsd: 500,
+    features: [
+      "Unlimited AI requests",
+      "Unlimited missions",
+      "100 concurrent agents",
+      "Spawn depth: 6",
+      "Unlimited projects",
+      "$500 compute / month",
+      "Full autonomous mode",
+      "Founder access — all features",
+    ],
+  },
   free: {
     aiRequestsPerDay: 15,
     missionsPerDay: 2,
@@ -132,6 +155,16 @@ export const getMyLimits = query({
         spend: null,
       };
 
+    const user = await ctx.db.get(userId);
+    if (user?.email && FOUNDER_EMAILS.has(user.email)) {
+      return {
+        plan: "founder" as PlanKey,
+        limits: PLAN_LIMITS.founder,
+        usage: null,
+        spend: null,
+      };
+    }
+
     const sub = await ctx.db
       .query("subscriptions")
       .withIndex("by_user", q => q.eq("userId", userId))
@@ -169,6 +202,11 @@ export const checkCanRun = query({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return { allowed: false, reason: "Not authenticated" };
+
+    const user = await ctx.db.get(userId);
+    if (user?.email && FOUNDER_EMAILS.has(user.email)) {
+      return { allowed: true };
+    }
 
     const sub = await ctx.db
       .query("subscriptions")
