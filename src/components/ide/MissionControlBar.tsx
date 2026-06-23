@@ -33,30 +33,29 @@ export function MissionControlBar({ projectId }: MissionControlBarProps) {
 
   // Active agents: unique agent IDs that have a streaming thought right now
   const streamingAgentIds = new Set(
-    (thoughts ?? [])
-      .filter((t) => t.isStreaming)
-      .map((t) => t.agentId),
+    (thoughts ?? []).filter(t => t.isStreaming).map(t => t.agentId),
   );
   const activeAgentCount = streamingAgentIds.size;
 
   // Fall back to task-based detection when nothing is streaming
   const runningTaskCount = tasks.filter(
-    (t) => t.status === "running" || t.status === "queued",
+    t => t.status === "running" || t.status === "queued",
   ).length;
 
-  const displayAgentCount = activeAgentCount > 0 ? activeAgentCount : runningTaskCount;
+  const displayAgentCount =
+    activeAgentCount > 0 ? activeAgentCount : runningTaskCount;
   const isRunning = displayAgentCount > 0;
 
   // Files modified: unique paths across all done tasks this session
-  const doneTasks = tasks.filter((t) => t.status === "done");
-  const allFilesChanged = doneTasks.flatMap((t) =>
+  const doneTasks = tasks.filter(t => t.status === "done");
+  const allFilesChanged = doneTasks.flatMap(t =>
     Array.isArray(t.filesChanged) ? t.filesChanged : [],
   );
   const uniqueFilesChanged = new Set(allFilesChanged).size;
 
   // Tasks done + success rate
   const totalFinished = tasks.filter(
-    (t) => t.status === "done" || t.status === "error",
+    t => t.status === "done" || t.status === "error",
   ).length;
   const successRate =
     totalFinished > 0
