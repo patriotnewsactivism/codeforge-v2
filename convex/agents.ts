@@ -2,7 +2,20 @@ import { v } from "convex/values";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action } from "./_generated/server";
-import { callAIWithFallback } from "./ai";
+import { AGENT_MODELS, callAIWithFallback, MODEL_PROFILES } from "./ai";
+
+// Maps agent IDs to the role keys used in MODEL_PROFILES / AGENT_MODELS.
+const AGENT_ROLE_MAP: Record<string, string> = {
+  "planner-agent": "orchestrator",
+  "ui-agent": "coder",
+  "mobile-agent": "coder",
+  "logic-agent": "coder",
+  "debug-agent": "debugger",
+  "feature-agent": "coder",
+  "test-agent": "tester",
+  "reviewer-agent": "reviewer",
+  "qa-agent": "reviewer",
+};
 
 // ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
 // Lifetime users get their stored keys injected into AI calls.
@@ -182,6 +195,29 @@ export const runMultiAgent = action({
       currentUser?._id ? String(currentUser._id) : undefined,
     );
 
+    // Load the user's selected AI profile (viktor/budget/premium/reasoning/speed).
+    // Falls back to the default AGENT_MODELS if the profile query fails.
+    let profileMap: Record<string, string> = MODEL_PROFILES.viktor ?? {};
+    try {
+      const profileName: string = await ctx.runQuery(
+        api.users.getAiProfileInternal,
+        {},
+      );
+      profileMap = MODEL_PROFILES[profileName] ?? MODEL_PROFILES.viktor ?? {};
+    } catch {
+      /* fall back to viktor profile */
+    }
+    const modelFor = (agentId: string): string => {
+      const role = AGENT_ROLE_MAP[agentId] ?? "default";
+      return (
+        profileMap[role] ??
+        profileMap.default ??
+        AGENT_MODELS[role] ??
+        AGENT_MODELS.default ??
+        "or-deepseek-v3"
+      );
+    };
+
     await think(
       ctx,
       projectId,
@@ -267,9 +303,21 @@ export const runMultiAgent = action({
     }
 
     const fileList = codeFiles.map((f: any) => f.path).join(", ");
-    const fileContext = codeFiles
-      .map((f: any) => `--- ${f.path} ---\n${f.content}`)
-      .join("\n\n");
+
+    // Brief summary for the planner — paths + first line of each file so it
+    // can route work without blowing the context window.
+    const fileSummary = codeFiles
+      .map((f: any) => {
+        const firstLine = (f.content ?? "").split("\n")[0]?.slice(0, 80) ?? "";
+        return `${f.path}${firstLine ? ` // ${firstLine}` : ""}`;
+      })
+      .join("\n");
+
+    // Full contents only for files actually needed by a given agent — built
+    // lazily below per-agent from the RAG results + explicitly named files.
+    const fileMap = new Map<string, string>(
+      codeFiles.map((f: any) => [f.path, f.content ?? ""]),
+    );
 
     // ── 3. PLANNER PHASE ──────────────────────────────────────────────────────
     await think(
@@ -288,7 +336,8 @@ USER REQUEST: "${args.prompt}"${soulSection}
 
 ${memoryContext ? `LEARNED CONTEXT FROM MEMORY:\n${memoryContext}\n` : ""}
 
-PROJECT FILES: ${fileList}
+PROJECT FILES (one per line, path // first line):
+${fileSummary}
 
 AVAILABLE SPECIALIST AGENTS:
 ${AGENT_TYPES.filter(a => a.id !== "planner-agent")
@@ -301,7 +350,7 @@ RULES:
 - Always include mobile-agent if the task touches any UI/CSS/layout files
 - For simple tasks: 2-3 agents max
 - For complex tasks: up to 6 agents (including reviewer + qa)
-- Make each task description extremely detailed and specific
+- Each task description MUST name the exact file paths the agent should read/edit
 - Agents run SEQUENTIALLY — each can see what previous agents did
 
 COMPLEXITY LEVELS:
@@ -314,13 +363,17 @@ Return ONLY valid JSON (no markdown fences):
   "complexity": "simple|moderate|complex",
   "reasoning": "detailed explanation of the approach",
   "agents": [
-    { "agentId": "ui-agent", "task": "Very specific, detailed task description with exact files to touch" }
+    {
+      "agentId": "ui-agent",
+      "task": "Very specific task with exact file paths to read and edit",
+      "files": ["src/index.html", "src/style.css"]
+    }
   ]
 }`;
 
     const planResult = await callAI(
       planPrompt,
-      "deepseek-v4-flash",
+      modelFor("planner-agent"),
       3000,
       byok,
     );
@@ -330,7 +383,7 @@ Return ONLY valid JSON (no markdown fences):
     const plan = JSON.parse(planMatch[0]) as {
       complexity: string;
       reasoning: string;
-      agents: Array<{ agentId: string; task: string }>;
+      agents: Array<{ agentId: string; task: string; files?: string[] }>;
     };
 
     await think(
@@ -349,6 +402,7 @@ Return ONLY valid JSON (no markdown fences):
       agentName: string;
       agentIcon: string;
       task: string;
+      files: string[];
     };
     const taskRecords: TaskRecord[] = [];
 
@@ -368,6 +422,7 @@ Return ONLY valid JSON (no markdown fences):
         agentName: agentDef.name,
         agentIcon: agentDef.icon,
         task: planned.task,
+        files: planned.files ?? [],
       });
     }
 
@@ -426,6 +481,23 @@ Return ONLY valid JSON (no markdown fences):
         ? `\n\nWHAT ALL AGENTS DID:\n${results.map(r => `[${r.agentName}] ${r.result ?? "no result"} — files: ${(r.filesChanged ?? []).join(", ")}`).join("\n")}`
         : "";
 
+      // Build focused file context for this agent: files the planner named +
+      // files surfaced by RAG. Avoids sending the entire project to every agent.
+      const agentFilePaths = new Set<string>(t.files);
+      // Always include files changed by earlier agents so this agent can integrate
+      for (const r of results) {
+        for (const fp of r.filesChanged ?? []) agentFilePaths.add(fp);
+      }
+      const agentFileContext =
+        agentFilePaths.size > 0
+          ? `RELEVANT FILES FOR YOUR TASK:\n${[...agentFilePaths]
+              .filter(p => fileMap.has(p))
+              .map(p => `--- ${p} ---\n${fileMap.get(p)}`)
+              .join("\n\n")}`
+          : ragContext
+            ? `MOST RELEVANT FILES (semantic search):\n${ragContext}`
+            : `ALL PROJECT FILES (no specific files identified):\n${[...fileMap.entries()].map(([p, c]) => `--- ${p} ---\n${c}`).join("\n\n")}`;
+
       const agentPrompt = `You are ${agentDef.name}, a specialist AI agent in the CodeForge autonomous coding system.
 Specialty: ${agentDef.specialty}${soulSection}
 
@@ -434,24 +506,22 @@ ${memoryContext ? `PERSISTENT MEMORY (what this project has learned over time):\
 ORIGINAL USER REQUEST: "${args.prompt}"
 YOUR SPECIFIC TASK: ${t.task}
 PLAN: ${plan.complexity} — ${plan.reasoning}
+ALL PROJECT FILE PATHS: ${fileList}
 ${priorContext}
 ${qaContext}
 
-${ragContext ? `MOST RELEVANT FILES (via semantic search):\n${ragContext}\n` : ""}
-
-ALL PROJECT FILES:
-${fileContext}
+${agentFileContext}
 
 INSTRUCTIONS:
 1. Focus on YOUR specific task only — don't redo what others did
 2. Write COMPLETE file contents — never partial diffs or placeholders
 3. Be thorough — check edge cases, handle errors, follow existing code style
 4. If you are mobile-agent: ensure ALL touch targets ≥44px, no horizontal scroll, all panels work on 375px width
-5. If you are reviewer-agent: review the actual file contents above for real issues and fix them
-6. If you are qa-agent: verify every agent's changes are consistent, catch regressions, check that mobile/desktop both work. ALSO verify that NO changes violate the Project Soul — if they do, flag it clearly in your summary and reject the change in your broadcast
+5. If you are reviewer-agent: review the file contents above for real issues and fix them
+6. If you are qa-agent: verify every agent's changes are consistent, catch regressions. ALSO verify NO changes violate the Project Soul — flag and reject anything that does
 7. Save key learnings in your broadcast so memory can be updated
 
-Return ONLY valid JSON (no markdown fences):
+Return ONLY valid JSON (no markdown fences, no code blocks):
 {
   "changes": [
     { "path": "src/path/file.tsx", "action": "edit", "content": "COMPLETE file content here" }
@@ -459,7 +529,7 @@ Return ONLY valid JSON (no markdown fences):
   "summary": "Detailed description of what you did and why",
   "broadcast": {
     "messageType": "finding|warning|context|resolved",
-    "content": "Specific message to other agents or for memory — mention patterns, gotchas, or decisions made"
+    "content": "Message to other agents — patterns, gotchas, decisions"
   },
   "learnings": [
     "Key pattern or insight worth remembering for future tasks"
@@ -480,7 +550,7 @@ Return ONLY valid JSON (no markdown fences):
 
         const agentResult = await callAI(
           agentPrompt,
-          "deepseek-v4-flash",
+          modelFor(t.agentId),
           8000,
           byok,
         );

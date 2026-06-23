@@ -160,7 +160,7 @@ export const MODELS: Record<string, ModelConfig> = {
     apiModel: "deepseek/deepseek-chat",
     inputCostPer1M: 0.28,
     outputCostPer1M: 1.14,
-    maxTokens: 8192,
+    maxTokens: 16384,
     tier: "balanced",
   },
   "or-llama-3.3-70b": {
@@ -212,7 +212,7 @@ export const MODELS: Record<string, ModelConfig> = {
     apiModel: "deepseek/deepseek-r1",
     inputCostPer1M: 0.55,
     outputCostPer1M: 2.19,
-    maxTokens: 8192,
+    maxTokens: 16384,
     tier: "strong",
   },
   "or-grok-4": {
