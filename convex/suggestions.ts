@@ -45,16 +45,19 @@ declare const process: { env: Record<string, string | undefined> };
 
 async function callAI(
   prompt: string,
-  model?: string,
-  _maxTokens?: number,
-  byok?: { callerPlan: string; userKeys?: Record<string, string> },
-): Promise<string> {
-  const { text } = await callAIWithFallback(prompt, {
-    model,
-    callerPlan: byok?.callerPlan,
-    userKeys: byok?.userKeys,
+  options?: {
+    model?: string;
+    maxTokens?: number;
+    callerPlan?: string;
+    userKeys?: Record<string, string>;
+  },
+) {
+  return await callAIWithFallback(prompt, {
+    model: options?.model,
+    maxTokens: options?.maxTokens,
+    callerPlan: options?.callerPlan,
+    userKeys: options?.userKeys,
   });
-  return text;
 }
 
 // ─── QUERIES ─────────────────────────────────────────────────────────────────
@@ -188,8 +191,19 @@ export const addSuggestion = mutation({
     impactScore: v.optional(v.number()),
     autoApproved: v.optional(v.boolean()),
   },
-  returns: v.id("suggestions"),
+  returns: v.union(v.id("suggestions"), v.null()),
   handler: async (ctx, args) => {
+    // DB-level dedup: skip if a suggestion with the same title already exists
+    // (regardless of status) to prevent duplicates across multiple generate runs
+    const existing = await ctx.db
+      .query("suggestions")
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
+      .collect();
+    const normalised = args.title.toLowerCase().trim();
+    const dupe = existing.find(
+      s => s.title.toLowerCase().trim() === normalised,
+    );
+    if (dupe) return null; // already exists, skip silently
     return await ctx.db.insert("suggestions", {
       ...args,
       status: "pending",
@@ -378,7 +392,21 @@ Return ONLY a JSON array (no markdown, no code fences):
 
     try {
       const byok = await resolveByok(ctx);
-      const text = await callAI(prompt, undefined, 4000, byok);
+      const aiResponse = await callAI(prompt, { maxTokens: 4000, ...byok });
+      const text = aiResponse.text;
+      // Log cost entry if we got usage data
+      if (aiResponse.usage) {
+        // DeepSeek V3 via OpenRouter pricing: $0.28/M input, $1.14/M output
+        const inputCost = (aiResponse.usage.promptTokens / 1_000_000) * 0.28;
+        const outputCost = (aiResponse.usage.completionTokens / 1_000_000) * 1.14;
+        await ctx.runMutation(api.costEntries.log, {
+          model: "deepseek/deepseek-chat",
+          inputTokens: aiResponse.usage.promptTokens,
+          outputTokens: aiResponse.usage.completionTokens,
+          cost: inputCost + outputCost,
+          operation: "generate_suggestions",
+        });
+      }
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (!jsonMatch) return 0;
 
@@ -409,7 +437,7 @@ Return ONLY a JSON array (no markdown, no code fences):
           : "functionality";
         const impactScore =
           typeof s.impactScore === "number" ? s.impactScore : 5;
-        await ctx.runMutation(api.suggestions.addSuggestion, {
+        const newId = await ctx.runMutation(api.suggestions.addSuggestion, {
           projectId: args.projectId,
           title: s.title,
           description: s.description,
@@ -419,7 +447,7 @@ Return ONLY a JSON array (no markdown, no code fences):
           impactScore,
           autoApproved: isLowRisk({ priority, impactScore, category }),
         });
-        added++;
+        if (newId !== null) added++;
       }
       return added;
     } catch (e) {
@@ -731,3 +759,4 @@ export const runAutonomousCycle = action({
     return `Built: "${top.title}" — ${result}`;
   },
 });
+
