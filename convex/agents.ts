@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action } from "./_generated/server";
 import { AGENT_MODELS, callAIWithFallback, MODEL_PROFILES } from "./ai";
@@ -266,7 +266,9 @@ export const runMultiAgent = action({
       : "";
 
     // ── 2. LOAD ALL FILES ─────────────────────────────────────────────────────
-    const files = await ctx.runQuery(api.files.listByProject, { projectId });
+    const files = await ctx.runQuery(internal.files.listByProjectInternal, {
+      projectId,
+    });
     const codeFiles = files.filter((f: any) => !f.isDirectory);
 
     await think(
@@ -565,32 +567,30 @@ Return ONLY valid JSON (no markdown fences, no code blocks):
           filesChanged?: string[];
         };
 
-        // Apply file changes
+        // Apply file changes — upsert: update if exists, create if not.
+        // Agents frequently return action:"edit" for new files too, so we
+        // never gate creation on the action field.
         const changedPaths: string[] = [];
         for (const change of parsed.changes ?? []) {
+          if (!change.path || !change.content) continue;
+          // Normalize path: strip leading ./ or / so it matches DB storage.
+          const normalizedPath = change.path.replace(/^\.?\//, "");
           try {
-            const existing = await ctx.runQuery(api.files.getByPath, {
+            // Use internal mutations — they bypass auth checks that would
+            // fail when called from scheduled actions (autonomous mode).
+            // createInternal is an upsert: it updates if the file exists,
+            // creates if it doesn't — so action:"edit" works for both cases.
+            const parts = normalizedPath.split("/");
+            await ctx.runMutation(internal.files.createInternal, {
               projectId,
-              path: change.path,
+              path: normalizedPath,
+              name: parts[parts.length - 1]!,
+              content: change.content,
+              isDirectory: false,
+              parentPath: parts.slice(0, -1).join("/") || undefined,
             });
-            if (existing) {
-              await ctx.runMutation(api.files.update, {
-                fileId: existing._id,
-                content: change.content,
-              });
-            } else if (change.action === "create") {
-              const parts = change.path.split("/");
-              await ctx.runMutation(api.files.create, {
-                projectId,
-                path: change.path,
-                name: parts[parts.length - 1]!,
-                content: change.content,
-                isDirectory: false,
-                parentPath: parts.slice(0, -1).join("/") || undefined,
-              });
-            }
-            changedPaths.push(change.path);
-            allChangedFiles.add(change.path);
+            changedPaths.push(normalizedPath);
+            allChangedFiles.add(normalizedPath);
           } catch (fileErr) {
             await think(
               ctx,
@@ -598,7 +598,7 @@ Return ONLY valid JSON (no markdown fences, no code blocks):
               t.agentId,
               t.agentName,
               "debug",
-              `Warning: could not write ${change.path} — ${String(fileErr)}`,
+              `Warning: could not write ${normalizedPath} — ${String(fileErr)}`,
             );
           }
         }
@@ -737,7 +737,86 @@ Return ONLY valid JSON (no markdown fences, no code blocks):
       console.error("Retrospective failed:", e);
     }
 
-    // ── 7. AUTO-PUSH TO GITHUB ────────────────────────────────────────────────
+    // ── 7. CODE VERIFICATION ─────────────────────────────────────────────────
+    // AI reviews all changed files against the original prompt and emits a
+    // confidence score + any concerns before the GitHub push.
+    if (allChangedFiles.size > 0) {
+      try {
+        await think(
+          ctx,
+          projectId,
+          "reviewer-agent",
+          "Code Verifier",
+          "review",
+          `Verifying ${allChangedFiles.size} changed file(s) match the original request...`,
+          true,
+        );
+
+        const changedFileContents = await ctx.runQuery(
+          internal.files.listByProjectInternal,
+          { projectId },
+        );
+        const changedOnly = changedFileContents.filter((f: any) =>
+          allChangedFiles.has(f.path),
+        );
+
+        const verifyPrompt = `You are a senior code reviewer performing a final verification pass.
+
+ORIGINAL REQUEST: "${args.prompt}"
+
+CHANGED FILES (${changedOnly.length} total):
+${changedOnly
+  .map((f: any) => `--- ${f.path} ---\n${f.content.slice(0, 2000)}`)
+  .join("\n\n")}
+
+Verify:
+1. Do the changes actually implement what was requested?
+2. Are there any obvious bugs, missing logic, or incomplete implementations?
+3. Does any change break existing functionality?
+
+Reply in this exact format (no markdown, no fences):
+{
+  "confidence": 85,
+  "verdict": "PASS|PARTIAL|FAIL",
+  "summary": "One sentence: what was implemented and how well",
+  "concerns": ["Any specific concern if verdict is not PASS"]
+}`;
+
+        const verifyResult = await callAI(
+          verifyPrompt,
+          modelFor("reviewer-agent"),
+          1500,
+          byok,
+        );
+        const verifyMatch = verifyResult.match(/\{[\s\S]*\}/);
+        if (verifyMatch) {
+          const v2 = JSON.parse(verifyMatch[0]) as {
+            confidence: number;
+            verdict: string;
+            summary: string;
+            concerns?: string[];
+          };
+          const icon =
+            v2.verdict === "PASS" ? "✓" : v2.verdict === "PARTIAL" ? "⚠" : "✗";
+          const concernText =
+            v2.concerns && v2.concerns.length > 0
+              ? `\nConcerns: ${v2.concerns.join("; ")}`
+              : "";
+          await think(
+            ctx,
+            projectId,
+            "reviewer-agent",
+            "Code Verifier",
+            "review",
+            `${icon} ${v2.verdict} (${v2.confidence}% confidence) — ${v2.summary}${concernText}`,
+          );
+        }
+      } catch {
+        /* non-fatal — skip verification if it fails */
+      }
+    }
+
+    // ── 8. AUTO-PUSH TO GITHUB ────────────────────────────────────────────────
     const successCount = results.filter(r => r.status === "done").length;
     const totalCount = results.length;
 

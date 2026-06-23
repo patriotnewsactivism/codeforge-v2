@@ -1,7 +1,14 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
-import { action, mutation, query } from "./_generated/server";
+import { api, internal } from "./_generated/api";
+import {
+  action,
+  internalAction,
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 import { callAIWithFallback } from "./ai";
 
 // ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
@@ -247,6 +254,62 @@ export const markAutoRunAt = mutation({
   },
 });
 
+// ─── INTERNAL (no-auth, used by scheduled jobs / cron) ───────────────────────
+
+export const updateStatusInternal = internalMutation({
+  args: {
+    suggestionId: v.id("suggestions"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("implementing"),
+      v.literal("done"),
+      v.literal("dismissed"),
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.suggestionId, { status: args.status });
+    return null;
+  },
+});
+
+export const markAutoRunAtInternal = internalMutation({
+  args: { projectId: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("projectSettings")
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
+      .unique();
+    if (existing) {
+      await ctx.db.patch(existing._id, { lastAutoRunAt: Date.now() });
+    }
+    return null;
+  },
+});
+
+export const getAllAutonomousProjects = internalQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("projectSettings"),
+      _creationTime: v.number(),
+      projectId: v.id("projects"),
+      autonomousMode: v.boolean(),
+      autonomousLevel: v.optional(v.string()),
+      autoIntervalMinutes: v.number(),
+      lastAutoRunAt: v.optional(v.number()),
+      projectSoul: v.optional(v.string()),
+    }),
+  ),
+  handler: async ctx => {
+    return await ctx.db
+      .query("projectSettings")
+      .filter(q => q.eq(q.field("autonomousMode"), true))
+      .collect();
+  },
+});
+
 // ─── ACTIONS ─────────────────────────────────────────────────────────────────
 
 // Proactive analysis: scan the project, generate smart ranked suggestions
@@ -455,6 +518,136 @@ export function isLowRisk(suggestion: {
 //                suggestion regardless of risk
 const FULL_AUTONOMY_LEVEL = "autopilot";
 const NON_BUILDING_LEVELS = new Set(["manual", "suggest"]);
+
+// Cron tick: called every minute, fires runAutonomousCycleInternal for each
+// project whose interval has elapsed. Uses scheduler so each project runs
+// independently and errors in one don't block others.
+export const tickAutonomousCycles = internalAction({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx): Promise<null> => {
+    const activeProjects = await ctx.runQuery(
+      internal.suggestions.getAllAutonomousProjects,
+      {},
+    );
+    const now = Date.now();
+
+    for (const settings of activeProjects) {
+      const level = settings.autonomousLevel ?? "autonomous";
+      if (level === "manual" || level === "suggest") continue;
+
+      const intervalMs = (settings.autoIntervalMinutes ?? 15) * 60 * 1000;
+      const lastRun = settings.lastAutoRunAt ?? 0;
+
+      if (now - lastRun >= intervalMs) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.suggestions.runAutonomousCycleInternal,
+          { projectId: settings.projectId },
+        );
+      }
+    }
+
+    return null;
+  },
+});
+
+// Internal version of runAutonomousCycle — uses internal mutations so it
+// works from the cron context where no user auth is available.
+export const runAutonomousCycleInternal = internalAction({
+  args: { projectId: v.id("projects") },
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    const settings = await ctx.runQuery(api.suggestions.getAutonomousMode, {
+      projectId: args.projectId,
+    });
+
+    if (!settings?.autonomousMode) return "Autonomous mode is off — skipping";
+
+    const level = settings.autonomousLevel ?? "autonomous";
+    if (NON_BUILDING_LEVELS.has(level)) {
+      return `Autonomous level is "${level}" — generating ideas only, not auto-building`;
+    }
+    const fullAutonomy = level === FULL_AUTONOMY_LEVEL;
+
+    const pending = await ctx.runQuery(api.suggestions.listPending, {
+      projectId: args.projectId,
+    });
+
+    if (pending.length < 3) {
+      await ctx.runAction(api.suggestions.generateSuggestions, {
+        projectId: args.projectId,
+      });
+    }
+
+    const freshPending: any[] = await ctx.runQuery(
+      api.suggestions.listPending,
+      {
+        projectId: args.projectId,
+      },
+    );
+
+    if (freshPending.length === 0) return "No pending suggestions to implement";
+
+    const eligible = fullAutonomy
+      ? freshPending
+      : freshPending.filter((s: any) => isLowRisk(s));
+
+    if (eligible.length === 0) {
+      return `${freshPending.length} suggestion(s) awaiting approval — none are low-risk enough to auto-build at this level. Switch to Full Autopilot or approve one manually.`;
+    }
+
+    const priorityRank: Record<string, number> = { high: 3, medium: 2, low: 1 };
+    const top = eligible.sort((a: any, b: any) => {
+      const scoreA = (a.impactScore ?? 5) + (priorityRank[a.priority] ?? 1) * 2;
+      const scoreB = (b.impactScore ?? 5) + (priorityRank[b.priority] ?? 1) * 2;
+      return scoreB - scoreA;
+    })[0];
+
+    if (!top) return "No suggestion to implement";
+
+    await ctx.runMutation(internal.suggestions.markAutoRunAtInternal, {
+      projectId: args.projectId,
+    });
+
+    await ctx.runMutation(internal.suggestions.updateStatusInternal, {
+      suggestionId: top._id,
+      status: "implementing",
+    });
+
+    const soulGuard: string = settings.projectSoul
+      ? `\n\nCRITICAL: This project has a core soul/identity. Do NOT violate it:\n${settings.projectSoul}\n`
+      : "";
+
+    const enrichedPrompt = `${top.implementationPrompt}${soulGuard}
+
+IMPORTANT: This is an additive improvement. Do NOT remove or break any existing functionality. Only add to what's already there.`;
+
+    try {
+      const result: string = await ctx.runAction(api.agents.runMultiAgent, {
+        projectId: args.projectId,
+        prompt: enrichedPrompt,
+      });
+
+      await ctx.runMutation(internal.suggestions.updateStatusInternal, {
+        suggestionId: top._id,
+        status: "done",
+      });
+
+      await ctx.runAction(api.suggestions.generateSuggestions, {
+        projectId: args.projectId,
+      });
+
+      return `Built: "${top.title}" — ${result}`;
+    } catch (e) {
+      await ctx.runMutation(internal.suggestions.updateStatusInternal, {
+        suggestionId: top._id,
+        status: "pending",
+      });
+      throw e;
+    }
+  },
+});
 
 export const runAutonomousCycle = action({
   args: { projectId: v.id("projects") },

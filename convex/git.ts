@@ -235,7 +235,7 @@ export const pushToGitHub = action({
           parents: [baseSha],
           author: {
             name: "CodeForge Agent",
-            email: "agent@codeforge.ai",
+            email: "mreardon@wtpnews.org",
             date: new Date().toISOString(),
           },
         }),
