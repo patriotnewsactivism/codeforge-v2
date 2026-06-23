@@ -22,23 +22,39 @@ interface MissionControlBarProps {
 
 export function MissionControlBar({ projectId }: MissionControlBarProps) {
   const [isPausing, setIsPausing] = useState(false);
+
   const tasks = useQuery(api.tasks.listTasks, { projectId });
+  const thoughts = useQuery(api.agentThoughts.listRecent, {
+    projectId,
+    limit: 200,
+  });
 
   if (!tasks) return null;
 
-  const activeTasks = tasks.filter(
-    (t) => t.status === "running" || t.status === "queued",
+  // Active agents: unique agent IDs that have a streaming thought right now
+  const streamingAgentIds = new Set(
+    (thoughts ?? [])
+      .filter((t) => t.isStreaming)
+      .map((t) => t.agentId),
   );
-  const doneTasks = tasks.filter((t) => t.status === "done");
-  const isRunning = activeTasks.length > 0;
+  const activeAgentCount = streamingAgentIds.size;
 
-  // Real files modified: unique file paths across all completed tasks
+  // Fall back to task-based detection when nothing is streaming
+  const runningTaskCount = tasks.filter(
+    (t) => t.status === "running" || t.status === "queued",
+  ).length;
+
+  const displayAgentCount = activeAgentCount > 0 ? activeAgentCount : runningTaskCount;
+  const isRunning = displayAgentCount > 0;
+
+  // Files modified: unique paths across all done tasks this session
+  const doneTasks = tasks.filter((t) => t.status === "done");
   const allFilesChanged = doneTasks.flatMap((t) =>
     Array.isArray(t.filesChanged) ? t.filesChanged : [],
   );
   const uniqueFilesChanged = new Set(allFilesChanged).size;
 
-  // Success rate from completed tasks
+  // Tasks done + success rate
   const totalFinished = tasks.filter(
     (t) => t.status === "done" || t.status === "error",
   ).length;
@@ -75,7 +91,7 @@ export function MissionControlBar({ projectId }: MissionControlBarProps) {
       <div className="flex items-center gap-4 text-xs flex-1">
         <div className="flex items-center gap-1.5 text-muted-foreground">
           <Brain className="h-3.5 w-3.5" />
-          <span className="tabular-nums font-mono">{activeTasks.length}</span>
+          <span className="tabular-nums font-mono">{displayAgentCount}</span>
           <span>agents</span>
         </div>
         <div className="flex items-center gap-1.5 text-muted-foreground">
