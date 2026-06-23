@@ -128,7 +128,6 @@ export function IDEPage() {
   const getOrCreateSession = useMutation(api.chat.getOrCreateSession);
   const heartbeat = useMutation(api.collaboration.heartbeat);
   const generateSuggestions = useAction(api.suggestions.generateSuggestions);
-  const runAutonomousCycle = useAction(api.suggestions.runAutonomousCycle);
 
   const [openFilePaths, setOpenFilePaths] = useState<string[]>([]);
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
@@ -205,33 +204,14 @@ export function IDEPage() {
     files,
   ]);
 
-  // Autonomous mode: run a build cycle every autoIntervalMinutes
+  // Autonomous mode is now driven server-side by the Convex cron job —
+  // no client-side setInterval needed.
+
   // Missions list for Cinema panel picker
   const missionsList = useQuery(
     api.missions.listByProject,
     projectId ? { projectId: projectId as Id<"projects"> } : "skip",
   );
-
-  const autonomousSettings = useQuery(
-    api.suggestions.getAutonomousMode,
-    projectId ? { projectId: projectId as Id<"projects"> } : "skip",
-  );
-  useEffect(() => {
-    if (!projectId || !autonomousSettings?.autonomousMode) return;
-    const intervalMs =
-      (autonomousSettings.autoIntervalMinutes ?? 15) * 60 * 1000;
-    const timer = setInterval(() => {
-      runAutonomousCycle({ projectId: projectId as Id<"projects"> }).catch(
-        () => {},
-      );
-    }, intervalMs);
-    return () => clearInterval(timer);
-  }, [
-    projectId,
-    autonomousSettings?.autonomousMode,
-    autonomousSettings?.autoIntervalMinutes,
-    runAutonomousCycle,
-  ]);
 
   const activeFile =
     files?.find(
