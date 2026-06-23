@@ -2,7 +2,6 @@ import { useQuery } from "convex/react";
 import {
   Brain,
   CheckCircle2,
-  DollarSign,
   FileCode2,
   Loader2,
   Pause,
@@ -24,23 +23,29 @@ interface MissionControlBarProps {
 export function MissionControlBar({ projectId }: MissionControlBarProps) {
   const [isPausing, setIsPausing] = useState(false);
   const tasks = useQuery(api.tasks.listTasks, { projectId });
-  const changeHistory = useQuery(api.changeHistory.listByProject, {
-    projectId,
-    limit: 50,
-  });
-
-  const activeTasks =
-    tasks?.filter(
-      (t: NonNullable<typeof tasks>[number]) =>
-        t.status === "running" || t.status === "queued",
-    ) ?? [];
-  const isRunning = activeTasks.length > 0;
-
-  const totalCost = 0.04; // TODO: aggregate from recent tasks/session
-  const filesChanged = changeHistory?.length ?? 0;
-  const confidence = 92; // TODO: Pull from agent stats
 
   if (!tasks) return null;
+
+  const activeTasks = tasks.filter(
+    (t) => t.status === "running" || t.status === "queued",
+  );
+  const doneTasks = tasks.filter((t) => t.status === "done");
+  const isRunning = activeTasks.length > 0;
+
+  // Real files modified: unique file paths across all completed tasks
+  const allFilesChanged = doneTasks.flatMap((t) =>
+    Array.isArray(t.filesChanged) ? t.filesChanged : [],
+  );
+  const uniqueFilesChanged = new Set(allFilesChanged).size;
+
+  // Success rate from completed tasks
+  const totalFinished = tasks.filter(
+    (t) => t.status === "done" || t.status === "error",
+  ).length;
+  const successRate =
+    totalFinished > 0
+      ? Math.round((doneTasks.length / totalFinished) * 100)
+      : null;
 
   return (
     <div className="flex items-center gap-4 px-4 py-2 border-t border-border bg-[oklch(0.12_0.02_260)] shrink-0 min-h-[48px]">
@@ -75,17 +80,28 @@ export function MissionControlBar({ projectId }: MissionControlBarProps) {
         </div>
         <div className="flex items-center gap-1.5 text-muted-foreground">
           <FileCode2 className="h-3.5 w-3.5" />
-          <span className="tabular-nums font-mono">{filesChanged}</span>
+          <span className="tabular-nums font-mono">{uniqueFilesChanged}</span>
           <span>files modified</span>
         </div>
-        <div className="flex items-center gap-1.5 text-green-400/80">
-          <DollarSign className="h-3.5 w-3.5" />
-          <span className="tabular-nums font-mono">{totalCost.toFixed(3)}</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-emerald-400/80">
+        <div className="flex items-center gap-1.5 text-muted-foreground">
           <CheckCircle2 className="h-3 w-3" />
-          <span>{confidence}% confidence</span>
+          <span className="tabular-nums font-mono">{doneTasks.length}</span>
+          <span>tasks done</span>
         </div>
+        {successRate !== null && (
+          <div
+            className={`flex items-center gap-1.5 ${
+              successRate >= 80
+                ? "text-emerald-400/80"
+                : successRate >= 50
+                  ? "text-amber-400/80"
+                  : "text-red-400/80"
+            }`}
+          >
+            <span className="tabular-nums font-mono">{successRate}%</span>
+            <span>success</span>
+          </div>
+        )}
       </div>
 
       {/* Controls */}
@@ -108,7 +124,7 @@ export function MissionControlBar({ projectId }: MissionControlBarProps) {
               setTimeout(() => {
                 setIsPausing(false);
                 toast.success("Swarm paused");
-              }, 1000); // TODO: actual API
+              }, 1000);
             }}
           >
             {isPausing ? (
