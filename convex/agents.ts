@@ -266,7 +266,9 @@ export const runMultiAgent = action({
       : "";
 
     // ── 2. LOAD ALL FILES ─────────────────────────────────────────────────────
-    const files = await ctx.runQuery(api.files.listByProject, { projectId });
+    const files = await ctx.runQuery(internal.files.listByProjectInternal, {
+      projectId,
+    });
     const codeFiles = files.filter((f: any) => !f.isDirectory);
 
     await think(
@@ -735,7 +737,86 @@ Return ONLY valid JSON (no markdown fences, no code blocks):
       console.error("Retrospective failed:", e);
     }
 
-    // ── 7. AUTO-PUSH TO GITHUB ────────────────────────────────────────────────
+    // ── 7. CODE VERIFICATION ─────────────────────────────────────────────────
+    // AI reviews all changed files against the original prompt and emits a
+    // confidence score + any concerns before the GitHub push.
+    if (allChangedFiles.size > 0) {
+      try {
+        await think(
+          ctx,
+          projectId,
+          "reviewer-agent",
+          "Code Verifier",
+          "review",
+          `Verifying ${allChangedFiles.size} changed file(s) match the original request...`,
+          true,
+        );
+
+        const changedFileContents = await ctx.runQuery(
+          internal.files.listByProjectInternal,
+          { projectId },
+        );
+        const changedOnly = changedFileContents.filter((f: any) =>
+          allChangedFiles.has(f.path),
+        );
+
+        const verifyPrompt = `You are a senior code reviewer performing a final verification pass.
+
+ORIGINAL REQUEST: "${args.prompt}"
+
+CHANGED FILES (${changedOnly.length} total):
+${changedOnly
+  .map((f: any) => `--- ${f.path} ---\n${f.content.slice(0, 2000)}`)
+  .join("\n\n")}
+
+Verify:
+1. Do the changes actually implement what was requested?
+2. Are there any obvious bugs, missing logic, or incomplete implementations?
+3. Does any change break existing functionality?
+
+Reply in this exact format (no markdown, no fences):
+{
+  "confidence": 85,
+  "verdict": "PASS|PARTIAL|FAIL",
+  "summary": "One sentence: what was implemented and how well",
+  "concerns": ["Any specific concern if verdict is not PASS"]
+}`;
+
+        const verifyResult = await callAI(
+          verifyPrompt,
+          modelFor("reviewer-agent"),
+          1500,
+          byok,
+        );
+        const verifyMatch = verifyResult.match(/\{[\s\S]*\}/);
+        if (verifyMatch) {
+          const v2 = JSON.parse(verifyMatch[0]) as {
+            confidence: number;
+            verdict: string;
+            summary: string;
+            concerns?: string[];
+          };
+          const icon =
+            v2.verdict === "PASS" ? "✓" : v2.verdict === "PARTIAL" ? "⚠" : "✗";
+          const concernText =
+            v2.concerns && v2.concerns.length > 0
+              ? `\nConcerns: ${v2.concerns.join("; ")}`
+              : "";
+          await think(
+            ctx,
+            projectId,
+            "reviewer-agent",
+            "Code Verifier",
+            "review",
+            `${icon} ${v2.verdict} (${v2.confidence}% confidence) — ${v2.summary}${concernText}`,
+          );
+        }
+      } catch {
+        /* non-fatal — skip verification if it fails */
+      }
+    }
+
+    // ── 8. AUTO-PUSH TO GITHUB ────────────────────────────────────────────────
     const successCount = results.filter(r => r.status === "done").length;
     const totalCount = results.length;
 

@@ -61,6 +61,29 @@ export const getByPath = query({
 });
 
 // Internal versions used by agent actions (scheduled jobs have no user auth context).
+export const listByProjectInternal = internalQuery({
+  args: { projectId: v.id("projects") },
+  returns: v.array(
+    v.object({
+      _id: v.id("files"),
+      _creationTime: v.number(),
+      projectId: v.id("projects"),
+      path: v.string(),
+      name: v.string(),
+      content: v.string(),
+      language: v.optional(v.string()),
+      isDirectory: v.boolean(),
+      parentPath: v.optional(v.string()),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("files")
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
+      .collect();
+  },
+});
+
 export const getByPathInternal = internalQuery({
   args: { projectId: v.id("projects"), path: v.string() },
   returns: v.union(
