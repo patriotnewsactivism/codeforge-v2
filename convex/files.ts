@@ -1,6 +1,11 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 
 export const listByProject = query({
   args: { projectId: v.id("projects") },
@@ -52,6 +57,76 @@ export const getByPath = query({
         q.eq("projectId", args.projectId).eq("path", args.path),
       )
       .unique();
+  },
+});
+
+// Internal versions used by agent actions (scheduled jobs have no user auth context).
+export const getByPathInternal = internalQuery({
+  args: { projectId: v.id("projects"), path: v.string() },
+  returns: v.union(
+    v.object({
+      _id: v.id("files"),
+      _creationTime: v.number(),
+      projectId: v.id("projects"),
+      path: v.string(),
+      name: v.string(),
+      content: v.string(),
+      language: v.optional(v.string()),
+      isDirectory: v.boolean(),
+      parentPath: v.optional(v.string()),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("files")
+      .withIndex("by_project_and_path", q =>
+        q.eq("projectId", args.projectId).eq("path", args.path),
+      )
+      .unique();
+  },
+});
+
+export const updateInternal = internalMutation({
+  args: { fileId: v.id("files"), content: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.fileId, { content: args.content });
+    return null;
+  },
+});
+
+export const createInternal = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    path: v.string(),
+    name: v.string(),
+    content: v.optional(v.string()),
+    isDirectory: v.boolean(),
+    language: v.optional(v.string()),
+    parentPath: v.optional(v.string()),
+  },
+  returns: v.id("files"),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("files")
+      .withIndex("by_project_and_path", q =>
+        q.eq("projectId", args.projectId).eq("path", args.path),
+      )
+      .unique();
+    if (existing) {
+      await ctx.db.patch(existing._id, { content: args.content ?? "" });
+      return existing._id;
+    }
+    return await ctx.db.insert("files", {
+      projectId: args.projectId,
+      path: args.path,
+      name: args.name,
+      content: args.content ?? "",
+      isDirectory: args.isDirectory,
+      language: detectLanguage(args.name),
+      parentPath: args.parentPath,
+    });
   },
 });
 

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action } from "./_generated/server";
 import { AGENT_MODELS, callAIWithFallback, MODEL_PROFILES } from "./ai";
@@ -565,32 +565,30 @@ Return ONLY valid JSON (no markdown fences, no code blocks):
           filesChanged?: string[];
         };
 
-        // Apply file changes
+        // Apply file changes — upsert: update if exists, create if not.
+        // Agents frequently return action:"edit" for new files too, so we
+        // never gate creation on the action field.
         const changedPaths: string[] = [];
         for (const change of parsed.changes ?? []) {
+          if (!change.path || !change.content) continue;
+          // Normalize path: strip leading ./ or / so it matches DB storage.
+          const normalizedPath = change.path.replace(/^\.?\//, "");
           try {
-            const existing = await ctx.runQuery(api.files.getByPath, {
+            // Use internal mutations — they bypass auth checks that would
+            // fail when called from scheduled actions (autonomous mode).
+            // createInternal is an upsert: it updates if the file exists,
+            // creates if it doesn't — so action:"edit" works for both cases.
+            const parts = normalizedPath.split("/");
+            await ctx.runMutation(internal.files.createInternal, {
               projectId,
-              path: change.path,
+              path: normalizedPath,
+              name: parts[parts.length - 1]!,
+              content: change.content,
+              isDirectory: false,
+              parentPath: parts.slice(0, -1).join("/") || undefined,
             });
-            if (existing) {
-              await ctx.runMutation(api.files.update, {
-                fileId: existing._id,
-                content: change.content,
-              });
-            } else if (change.action === "create") {
-              const parts = change.path.split("/");
-              await ctx.runMutation(api.files.create, {
-                projectId,
-                path: change.path,
-                name: parts[parts.length - 1]!,
-                content: change.content,
-                isDirectory: false,
-                parentPath: parts.slice(0, -1).join("/") || undefined,
-              });
-            }
-            changedPaths.push(change.path);
-            allChangedFiles.add(change.path);
+            changedPaths.push(normalizedPath);
+            allChangedFiles.add(normalizedPath);
           } catch (fileErr) {
             await think(
               ctx,
@@ -598,7 +596,7 @@ Return ONLY valid JSON (no markdown fences, no code blocks):
               t.agentId,
               t.agentName,
               "debug",
-              `Warning: could not write ${change.path} — ${String(fileErr)}`,
+              `Warning: could not write ${normalizedPath} — ${String(fileErr)}`,
             );
           }
         }
