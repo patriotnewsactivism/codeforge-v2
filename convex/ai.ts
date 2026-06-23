@@ -24,6 +24,7 @@ export interface ModelConfig {
   provider:
     | "anthropic"
     | "deepseek"
+    | "groq"
     | "xai"
     | "moonshot"
     | "openai"
@@ -87,6 +88,38 @@ export const MODELS: Record<string, ModelConfig> = {
     apiModel: "deepseek-chat",
     inputCostPer1M: 0.27,
     outputCostPer1M: 1.1,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
+  // ── Groq — ultra-fast inference, cheapest capable models.
+  //    Requires GROQ_API_KEY. OpenAI-compatible endpoint.
+  "groq-llama-3.3-70b": {
+    id: "groq-llama-3.3-70b",
+    name: "Llama 3.3 70B (Groq)",
+    provider: "groq",
+    apiModel: "llama-3.3-70b-versatile",
+    inputCostPer1M: 0.059,
+    outputCostPer1M: 0.079,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
+  "groq-llama-3.1-8b": {
+    id: "groq-llama-3.1-8b",
+    name: "Llama 3.1 8B (Groq)",
+    provider: "groq",
+    apiModel: "llama-3.1-8b-instant",
+    inputCostPer1M: 0.05,
+    outputCostPer1M: 0.08,
+    maxTokens: 8192,
+    tier: "fast",
+  },
+  "groq-llama-4-scout": {
+    id: "groq-llama-4-scout",
+    name: "Llama 4 Scout (Groq)",
+    provider: "groq",
+    apiModel: "meta-llama/llama-4-scout-17b-16e-instruct",
+    inputCostPer1M: 0.11,
+    outputCostPer1M: 0.34,
     maxTokens: 8192,
     tier: "balanced",
   },
@@ -347,7 +380,7 @@ export const MODELS: Record<string, ModelConfig> = {
   },
 };
 
-export const DEFAULT_MODEL = "or-deepseek-v3";
+export const DEFAULT_MODEL = "groq-llama-3.3-70b";
 
 // Agents are spawned in large numbers, so the defaults are deliberately the
 // cheapest-yet-capable models: DeepSeek for reasoning/coding and Kimi K2 for
@@ -360,18 +393,18 @@ export const DEFAULT_MODEL = "or-deepseek-v3";
 // (OPENROUTER_API_KEY) — no separate DeepSeek / Moonshot / xAI / Azure
 // accounts required.
 export const AGENT_MODELS: Record<string, string> = {
-  orchestrator: "or-deepseek-reasoner",
-  architect: "or-deepseek-reasoner",
-  coder: "or-deepseek-v3",
-  reviewer: "or-kimi-k2",
-  debugger: "or-deepseek-v3",
-  tester: "or-kimi-k2",
-  devops: "or-kimi-k2",
-  sentry: "or-kimi-k2",
-  forensic: "or-deepseek-reasoner",
-  reflection: "or-deepseek-reasoner",
-  strategist: "or-deepseek-reasoner",
-  default: "or-deepseek-v3",
+  orchestrator: "deepseek-v3",
+  architect: "deepseek-v3",
+  coder: "groq-llama-3.3-70b",
+  reviewer: "groq-llama-3.3-70b",
+  debugger: "deepseek-v3",
+  tester: "groq-llama-3.3-70b",
+  devops: "groq-llama-3.3-70b",
+  sentry: "groq-llama-3.3-70b",
+  forensic: "deepseek-v3",
+  reflection: "deepseek-v3",
+  strategist: "deepseek-v3",
+  default: "groq-llama-3.3-70b",
 };
 
 // ─── PROVIDER BASE URLS ────────────────────────────────────────────────────
@@ -388,6 +421,8 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
       return "https://api.moonshot.cn/v1";
     case "openai":
       return "https://api.openai.com/v1";
+    case "groq":
+      return "https://api.groq.com/openai/v1";
     case "openrouter":
       return "https://openrouter.ai/api/v1";
     case "azure":
@@ -399,11 +434,12 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
 const PROVIDER_KEY_MAP: Record<ModelConfig["provider"], string> = {
   anthropic: "anthropic",
   deepseek: "deepseek",
+  groq: "groq",
   xai: "xai",
   moonshot: "moonshot",
   openai: "openai",
   openrouter: "openrouter",
-  azure: "openai", // azure falls back to openai key in BYOK
+  azure: "openai",
 };
 
 /**
@@ -441,6 +477,8 @@ function getApiKey(
       return process.env.MOONSHOT_API_KEY ?? "";
     case "openai":
       return process.env.OPENAI_API_KEY ?? "";
+    case "groq":
+      return process.env.GROQ_API_KEY ?? "";
     case "openrouter":
       return process.env.OPENROUTER_API_KEY ?? "";
     case "azure":
@@ -645,7 +683,7 @@ export async function callAIWithFallback(
 
   // Build fallback chain. Defaults stay on OpenRouter so a single
   // OPENROUTER_API_KEY can serve the whole chain.
-  const fullChain = [requested, "or-deepseek-v3", "or-kimi-k2"].filter(
+  const fullChain = [requested, "groq-llama-3.3-70b", "deepseek-v3"].filter(
     (m, i, arr) => arr.indexOf(m) === i && MODELS[m],
   );
 
@@ -695,75 +733,80 @@ export async function callAIWithFallback(
 }
 
 export const MODEL_PROFILES: Record<string, Record<string, string>> = {
+  // Default: DeepSeek V3 for planning/reasoning, Groq Llama for fast execution
   viktor: {
-    orchestrator: "or-deepseek-reasoner",
-    architect: "or-deepseek-reasoner",
-    coder: "or-gemini-flash",
-    reviewer: "or-claude-haiku",
-    debugger: "or-gemini-flash",
-    tester: "or-claude-haiku",
-    devops: "or-kimi-k2",
-    sentry: "or-kimi-k2",
-    forensic: "or-deepseek-reasoner",
-    reflection: "or-deepseek-reasoner",
-    strategist: "or-deepseek-reasoner",
-    default: "or-gemini-flash",
+    orchestrator: "deepseek-v3",
+    architect: "deepseek-v3",
+    coder: "groq-llama-3.3-70b",
+    reviewer: "groq-llama-3.3-70b",
+    debugger: "deepseek-v3",
+    tester: "groq-llama-3.3-70b",
+    devops: "groq-llama-3.3-70b",
+    sentry: "groq-llama-3.3-70b",
+    forensic: "deepseek-v3",
+    reflection: "deepseek-v3",
+    strategist: "deepseek-v3",
+    default: "groq-llama-3.3-70b",
   },
+  // Budget: all Groq (~$0.06/M)
   budget: {
-    orchestrator: "or-qwen-coder",
-    architect: "or-qwen-coder",
-    coder: "or-kimi-k2",
-    reviewer: "or-gemini-flash",
-    debugger: "or-kimi-k2",
-    tester: "or-kimi-k2",
-    devops: "or-kimi-k2",
-    sentry: "or-kimi-k2",
-    forensic: "or-qwen-coder",
-    reflection: "or-qwen-coder",
-    strategist: "or-qwen-coder",
-    default: "or-kimi-k2",
+    orchestrator: "groq-llama-3.3-70b",
+    architect: "groq-llama-3.3-70b",
+    coder: "groq-llama-3.3-70b",
+    reviewer: "groq-llama-3.1-8b",
+    debugger: "groq-llama-3.3-70b",
+    tester: "groq-llama-3.1-8b",
+    devops: "groq-llama-3.1-8b",
+    sentry: "groq-llama-3.1-8b",
+    forensic: "groq-llama-3.3-70b",
+    reflection: "groq-llama-3.3-70b",
+    strategist: "groq-llama-3.3-70b",
+    default: "groq-llama-3.3-70b",
   },
+  // Premium: Anthropic Claude for everything
   premium: {
-    orchestrator: "or-claude-sonnet",
-    architect: "or-claude-sonnet",
-    coder: "or-gpt-4-5",
-    reviewer: "or-claude-sonnet",
-    debugger: "or-claude-sonnet",
-    tester: "or-claude-sonnet",
-    devops: "or-gpt-4o",
-    sentry: "or-gpt-4o",
-    forensic: "or-claude-sonnet",
-    reflection: "or-claude-sonnet",
-    strategist: "or-claude-sonnet",
-    default: "or-claude-sonnet",
+    orchestrator: "claude-opus-4-8",
+    architect: "claude-opus-4-8",
+    coder: "claude-sonnet-4-6",
+    reviewer: "claude-opus-4-8",
+    debugger: "claude-sonnet-4-6",
+    tester: "claude-haiku-4-5",
+    devops: "claude-haiku-4-5",
+    sentry: "claude-haiku-4-5",
+    forensic: "claude-opus-4-8",
+    reflection: "claude-opus-4-8",
+    strategist: "claude-opus-4-8",
+    default: "claude-sonnet-4-6",
   },
+  // Reasoning: DeepSeek R1 for deep analysis, Groq for fast tasks
   reasoning: {
-    orchestrator: "or-o3-mini",
-    architect: "or-o3-mini",
-    coder: "or-deepseek-reasoner",
-    reviewer: "or-claude-haiku",
-    debugger: "or-deepseek-reasoner",
-    tester: "or-claude-haiku",
-    devops: "or-gpt-4o-mini",
-    sentry: "or-gpt-4o-mini",
-    forensic: "or-deepseek-reasoner",
-    reflection: "or-deepseek-reasoner",
-    strategist: "or-deepseek-reasoner",
-    default: "or-deepseek-reasoner",
+    orchestrator: "deepseek-reasoner",
+    architect: "deepseek-reasoner",
+    coder: "deepseek-v3",
+    reviewer: "groq-llama-3.3-70b",
+    debugger: "deepseek-reasoner",
+    tester: "groq-llama-3.3-70b",
+    devops: "groq-llama-3.3-70b",
+    sentry: "groq-llama-3.3-70b",
+    forensic: "deepseek-reasoner",
+    reflection: "deepseek-reasoner",
+    strategist: "deepseek-reasoner",
+    default: "deepseek-v3",
   },
+  // Speed: all Groq Llama 3.1 8B — fastest possible, lowest cost
   speed: {
-    orchestrator: "or-gemini-flash",
-    architect: "or-gemini-flash",
-    coder: "or-kimi-k2",
-    reviewer: "or-gpt-4o-mini",
-    debugger: "or-kimi-k2",
-    tester: "or-gpt-4o-mini",
-    devops: "or-gpt-4o-mini",
-    sentry: "or-gpt-4o-mini",
-    forensic: "or-gemini-flash",
-    reflection: "or-gemini-flash",
-    strategist: "or-gemini-flash",
-    default: "or-gemini-flash",
+    orchestrator: "groq-llama-3.3-70b",
+    architect: "groq-llama-3.3-70b",
+    coder: "groq-llama-3.1-8b",
+    reviewer: "groq-llama-3.1-8b",
+    debugger: "groq-llama-3.3-70b",
+    tester: "groq-llama-3.1-8b",
+    devops: "groq-llama-3.1-8b",
+    sentry: "groq-llama-3.1-8b",
+    forensic: "groq-llama-3.3-70b",
+    reflection: "groq-llama-3.3-70b",
+    strategist: "groq-llama-3.3-70b",
+    default: "groq-llama-3.1-8b",
   },
 };
 
