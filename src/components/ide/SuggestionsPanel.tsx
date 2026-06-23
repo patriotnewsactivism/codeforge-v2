@@ -500,18 +500,22 @@ export function SuggestionsPanel({ projectId }: SuggestionsPanelProps) {
                       desc: "Auto-builds low-risk suggestions only",
                       icon: <Shield className="h-3 w-3" />,
                       color: "border-blue-500/40 bg-blue-500/10 text-blue-300",
-                      activeColor: "border-blue-400 bg-blue-500/20 text-blue-200",
+                      activeColor:
+                        "border-blue-400 bg-blue-500/20 text-blue-200",
                     },
                     {
                       id: "autopilot",
                       label: "Full Autopilot",
                       desc: "Builds everything — no approval needed",
                       icon: <Flame className="h-3 w-3" />,
-                      color: "border-orange-500/40 bg-orange-500/10 text-orange-300",
-                      activeColor: "border-orange-400 bg-orange-500/20 text-orange-200",
+                      color:
+                        "border-orange-500/40 bg-orange-500/10 text-orange-300",
+                      activeColor:
+                        "border-orange-400 bg-orange-500/20 text-orange-200",
                     },
-                  ].map((lvl) => {
-                    const current = autonomousSettings?.autonomousLevel ?? "autonomous";
+                  ].map(lvl => {
+                    const current =
+                      autonomousSettings?.autonomousLevel ?? "autonomous";
                     const isActive = current === lvl.id;
                     return (
                       <button
@@ -531,7 +535,9 @@ export function SuggestionsPanel({ projectId }: SuggestionsPanelProps) {
                         }}
                         className={cn(
                           "w-full flex items-center gap-2 px-2.5 py-2 rounded border text-left transition-colors",
-                          isActive ? lvl.activeColor : lvl.color + " opacity-60 hover:opacity-100",
+                          isActive
+                            ? lvl.activeColor
+                            : `${lvl.color} opacity-60 hover:opacity-100`,
                         )}
                       >
                         {lvl.icon}
@@ -540,7 +546,9 @@ export function SuggestionsPanel({ projectId }: SuggestionsPanelProps) {
                             {lvl.label}
                             {isActive && <Check className="h-2.5 w-2.5" />}
                           </div>
-                          <div className="text-[9px] opacity-70">{lvl.desc}</div>
+                          <div className="text-[9px] opacity-70">
+                            {lvl.desc}
+                          </div>
                         </div>
                       </button>
                     );
@@ -551,8 +559,8 @@ export function SuggestionsPanel({ projectId }: SuggestionsPanelProps) {
               {!autonomousOn && (
                 <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
                   When ON, the system automatically picks the highest-impact
-                  suggestion and builds it — always adding, never replacing.
-                  The Project Soul is enforced on every run.
+                  suggestion and builds it — always adding, never replacing. The
+                  Project Soul is enforced on every run.
                 </p>
               )}
 
