@@ -398,7 +398,8 @@ Return ONLY a JSON array (no markdown, no code fences):
       if (aiResponse.usage) {
         // DeepSeek V3 via OpenRouter pricing: $0.28/M input, $1.14/M output
         const inputCost = (aiResponse.usage.promptTokens / 1_000_000) * 0.28;
-        const outputCost = (aiResponse.usage.completionTokens / 1_000_000) * 1.14;
+        const outputCost =
+          (aiResponse.usage.completionTokens / 1_000_000) * 1.14;
         await ctx.runMutation(api.costEntries.log, {
           model: "deepseek/deepseek-chat",
           inputTokens: aiResponse.usage.promptTokens,
@@ -759,4 +760,3 @@ export const runAutonomousCycle = action({
     return `Built: "${top.title}" — ${result}`;
   },
 });
-
