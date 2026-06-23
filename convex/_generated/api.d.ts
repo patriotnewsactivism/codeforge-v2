@@ -21,6 +21,7 @@ import type * as cinema from "../cinema.js";
 import type * as collaboration from "../collaboration.js";
 import type * as constants from "../constants.js";
 import type * as costEntries from "../costEntries.js";
+import type * as crons from "../crons.js";
 import type * as crossProject from "../crossProject.js";
 import type * as dashboard from "../dashboard.js";
 import type * as debate from "../debate.js";
@@ -76,6 +77,7 @@ declare const fullApi: ApiFromModules<{
   collaboration: typeof collaboration;
   constants: typeof constants;
   costEntries: typeof costEntries;
+  crons: typeof crons;
   crossProject: typeof crossProject;
   dashboard: typeof dashboard;
   debate: typeof debate;
