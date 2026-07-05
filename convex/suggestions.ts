@@ -548,9 +548,20 @@ export function isLowRisk(suggestion: {
 const FULL_AUTONOMY_LEVEL = "autopilot";
 const NON_BUILDING_LEVELS = new Set(["manual", "suggest"]);
 
-// Cron tick: called every minute, fires runAutonomousCycleInternal for each
-// project whose interval has elapsed. Uses scheduler so each project runs
-// independently and errors in one don't block others.
+// Floor on how often any single project may auto-run, regardless of the
+// autoIntervalMinutes it stores. Prevents a misconfigured project from
+// triggering a cycle on every tick and running up compute/quota.
+const MIN_AUTO_INTERVAL_MINUTES = 10;
+
+// Global cap on how many cycles a single tick may launch. Bounds the agent
+// fan-out (and therefore cost/quota) even when many projects come due at once;
+// the rest simply wait for the next tick.
+const MAX_CYCLES_PER_TICK = 3;
+
+// Cron tick: called every 5 minutes, fires runAutonomousCycleInternal for each
+// project whose interval has elapsed (up to MAX_CYCLES_PER_TICK per tick). Uses
+// the scheduler so each project runs independently and errors in one don't
+// block others.
 export const tickAutonomousCycles = internalAction({
   args: {},
   returns: v.null(),
@@ -561,11 +572,19 @@ export const tickAutonomousCycles = internalAction({
     );
     const now = Date.now();
 
+    let launched = 0;
     for (const settings of activeProjects) {
+      if (launched >= MAX_CYCLES_PER_TICK) break;
+
       const level = settings.autonomousLevel ?? "autonomous";
       if (level === "manual" || level === "suggest") continue;
 
-      const intervalMs = (settings.autoIntervalMinutes ?? 15) * 60 * 1000;
+      const requestedMinutes = settings.autoIntervalMinutes ?? 15;
+      const effectiveMinutes = Math.max(
+        requestedMinutes,
+        MIN_AUTO_INTERVAL_MINUTES,
+      );
+      const intervalMs = effectiveMinutes * 60 * 1000;
       const lastRun = settings.lastAutoRunAt ?? 0;
 
       if (now - lastRun >= intervalMs) {
@@ -574,6 +593,7 @@ export const tickAutonomousCycles = internalAction({
           internal.suggestions.runAutonomousCycleInternal,
           { projectId: settings.projectId },
         );
+        launched++;
       }
     }
 

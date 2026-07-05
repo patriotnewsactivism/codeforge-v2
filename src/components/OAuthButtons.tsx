@@ -2,14 +2,29 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
+import ErrorBoundary from "./ErrorBoundary";
 import { Button } from "./ui/button";
 
 /**
  * Renders the OAuth sign-in buttons (GitHub, Google) that are actually
  * configured on the backend. Providers without credentials are hidden so
  * users never click a button that can't work.
+ *
+ * The backend query is isolated behind an ErrorBoundary with a null fallback:
+ * if `auth.enabledOAuthProviders` errors (e.g. the auth module fails to load
+ * because JWT keys are misconfigured), the OAuth section simply disappears
+ * instead of throwing during render and taking the whole page down with it.
+ * The email/password form on the same page keeps working.
  */
 export function OAuthButtons({ redirectTo }: { redirectTo: string }) {
+  return (
+    <ErrorBoundary fallback={null}>
+      <OAuthButtonsInner redirectTo={redirectTo} />
+    </ErrorBoundary>
+  );
+}
+
+function OAuthButtonsInner({ redirectTo }: { redirectTo: string }) {
   const { signIn } = useAuthActions();
   const enabled = useQuery(api.auth.enabledOAuthProviders);
   const [error, setError] = useState("");

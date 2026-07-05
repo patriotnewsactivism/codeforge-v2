@@ -18,8 +18,7 @@
 
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
-import { action, internalAction } from "./_generated/server";
+import { internalAction } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
 
 declare const process: { env: Record<string, string | undefined> };
@@ -147,7 +146,7 @@ export const planSpawn = internalAction({
         model,
         callerPlan,
         userKeys,
-      }
+      },
     );
 
     // Parse the spawn plan
@@ -172,7 +171,7 @@ export const planSpawn = internalAction({
       }
 
       return plan;
-    } catch (parseErr) {
+    } catch {
       // Fallback: single shard with all agents
       return {
         shards: [
@@ -200,7 +199,14 @@ export const executeSpawnPlan = internalAction({
     plan: v.string(), // JSON-serialized SpawnPlan
     goal: v.string(),
   },
-  handler: async (ctx, args): Promise<{ success: boolean; shardsCompleted: number; totalShards: number }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    success: boolean;
+    shardsCompleted: number;
+    totalShards: number;
+  }> => {
     const plan: SpawnPlan = JSON.parse(args.plan);
     const executed = new Set<number>();
     let safetyLimit = 20;
@@ -223,7 +229,7 @@ export const executeSpawnPlan = internalAction({
         .filter(
           ({ i }) =>
             !executed.has(i) &&
-            plan.shards[i].dependsOn.every((d) => executed.has(d)),
+            plan.shards[i].dependsOn.every(d => executed.has(d)),
         );
 
       if (ready.length === 0) break;
@@ -235,7 +241,7 @@ export const executeSpawnPlan = internalAction({
         agentId: "spawn-engine",
         agentName: "Spawn Engine",
         type: "broadcast",
-        content: `🚀 Launching parallel batch: ${ready.map((r) => r.shard.name).join(", ")}`,
+        content: `🚀 Launching parallel batch: ${ready.map(r => r.shard.name).join(", ")}`,
         isStreaming: false,
       });
 
@@ -244,8 +250,11 @@ export const executeSpawnPlan = internalAction({
         for (const agentRole of shard.agents) {
           // Build the task description with dependency context
           const depContext = shard.dependsOn
-            .filter((d) => executed.has(d))
-            .map((d) => `Completed shard "${plan.shards[d].name}": ${plan.shards[d].description}`)
+            .filter(d => executed.has(d))
+            .map(
+              d =>
+                `Completed shard "${plan.shards[d].name}": ${plan.shards[d].description}`,
+            )
             .join("\n");
 
           const task = `${shard.description}\n\nOverall goal: ${args.goal}\nExpected output files: ${shard.files.join(", ")}${depContext ? `\n\nCompleted dependencies:\n${depContext}` : ""}`;

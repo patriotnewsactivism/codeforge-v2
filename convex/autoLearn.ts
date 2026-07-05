@@ -19,9 +19,8 @@
  */
 
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
-import { action, internalAction, query } from "./_generated/server";
+import { api } from "./_generated/api";
+import { internalAction, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
 
 declare const process: { env: Record<string, string | undefined> };
@@ -105,14 +104,18 @@ SUCCESS: ${args.success}`;
         ],
         {
           model,
-        callerPlan,
-        userKeys,
-      });
+          callerPlan,
+          userKeys,
+        },
+      );
 
       // Parse the JSON response
       let learnings: any;
       try {
-        const cleaned = content.replace(/```json\n?/g, "").replace(/```/g, "").trim();
+        const cleaned = content
+          .replace(/```json\n?/g, "")
+          .replace(/```/g, "")
+          .trim();
         learnings = JSON.parse(cleaned);
       } catch {
         console.log("[autoLearn] Failed to parse AI response, skipping");
@@ -137,7 +140,11 @@ SUCCESS: ${args.success}`;
         });
       }
       for (const p of learnings.shortcuts ?? []) {
-        stores.push({ category: "tool", content: `SHORTCUT: ${p}`, importance: 0.7 });
+        stores.push({
+          category: "tool",
+          content: `SHORTCUT: ${p}`,
+          importance: 0.7,
+        });
       }
       for (const p of learnings.metaInsights ?? []) {
         stores.push({ category: "insight", content: p, importance: 0.75 });
@@ -176,12 +183,18 @@ export const getSmartContext = internalAction({
     try {
       const max = args.maxMemories ?? 12;
 
-      // Fetch memories sorted by importance
-      const memories = await ctx.runQuery(api.intelligence.getActiveMemories, {
-        projectId: args.projectId,
-      });
+      // Fetch memories sorted by importance, then cap to maxMemories so the
+      // injected context stays bounded regardless of how many are stored.
+      const allMemories = await ctx.runQuery(
+        api.intelligence.getActiveMemories,
+        {
+          projectId: args.projectId,
+        },
+      );
 
-      if (!memories || memories.length === 0) return "";
+      if (!allMemories || allMemories.length === 0) return "";
+
+      const memories = allMemories.slice(0, max);
 
       // Categorize
       const patterns = memories
@@ -191,10 +204,11 @@ export const getSmartContext = internalAction({
         .filter((m: any) => m.category === "anti_pattern")
         .slice(0, 3);
       const insights = memories
-        .filter((m: any) =>
-          m.category === "insight" ||
-          m.category === "tool" ||
-          m.category === "skill",
+        .filter(
+          (m: any) =>
+            m.category === "insight" ||
+            m.category === "tool" ||
+            m.category === "skill",
         )
         .slice(0, 3);
 
@@ -208,15 +222,15 @@ export const getSmartContext = internalAction({
       const lines = ["\n\n━━━ ACCUMULATED BUILD WISDOM ━━━"];
       if (patterns.length > 0) {
         lines.push("\n✓ PROVEN PATTERNS (apply these):");
-        patterns.forEach((p: any) => lines.push(`  • ${p.content}`));
+        for (const p of patterns) lines.push(`  • ${p.content}`);
       }
       if (antiPatterns.length > 0) {
         lines.push("\n✗ KNOWN FAILURES (avoid these):");
-        antiPatterns.forEach((f: any) => lines.push(`  • ${f.content}`));
+        for (const f of antiPatterns) lines.push(`  • ${f.content}`);
       }
       if (insights.length > 0) {
         lines.push("\n💡 META INSIGHTS:");
-        insights.forEach((m: any) => lines.push(`  • ${m.content}`));
+        for (const m of insights) lines.push(`  • ${m.content}`);
       }
       lines.push("━━━ END WISDOM ━━━\n");
       return lines.join("\n");
@@ -236,12 +250,12 @@ export const listRecentLearnings = query({
   handler: async (ctx, args) => {
     const memories = await ctx.db
       .query("agentMemories")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .take(args.limit ?? 20);
 
     return memories.filter(
-      (m) =>
+      m =>
         m.category === "pattern" ||
         m.category === "anti_pattern" ||
         m.category === "insight" ||

@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -12,22 +12,22 @@ import { LandingPage, LoginPage, SignupPage } from "./pages";
 
 // Lazy-load heavy pages to reduce initial bundle
 const DashboardPage = lazy(() =>
-  import("./pages/DashboardPage").then((m) => ({ default: m.DashboardPage })),
+  import("./pages/DashboardPage").then(m => ({ default: m.DashboardPage })),
 );
 const IDEPage = lazy(() =>
-  import("./pages/IDEPage").then((m) => ({ default: m.IDEPage })),
+  import("./pages/IDEPage").then(m => ({ default: m.IDEPage })),
 );
 const SettingsPage = lazy(() =>
-  import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })),
+  import("./pages/SettingsPage").then(m => ({ default: m.SettingsPage })),
 );
 const OnboardingPage = lazy(() =>
-  import("./pages/OnboardingPage").then((m) => ({ default: m.OnboardingPage })),
+  import("./pages/OnboardingPage").then(m => ({ default: m.OnboardingPage })),
 );
 const PricingPage = lazy(() =>
-  import("./pages/PricingPage").then((m) => ({ default: m.PricingPage })),
+  import("./pages/PricingPage").then(m => ({ default: m.PricingPage })),
 );
 const CheckoutSuccess = lazy(() =>
-  import("./pages/CheckoutSuccess").then((m) => ({
+  import("./pages/CheckoutSuccess").then(m => ({
     default: m.CheckoutSuccess,
   })),
 );

@@ -585,15 +585,18 @@ http.route({
       const source = url.searchParams.get("source") ?? "webhook";
       const repoFullName = url.searchParams.get("repo") ?? undefined;
       const autoFix = url.searchParams.get("autoFix") !== "false";
-      
+
       const ingestSecret = process.env.INGEST_SECRET;
       if (ingestSecret) {
         const authHeader = req.headers.get("Authorization");
         if (authHeader !== `Bearer ${ingestSecret}`) {
-          return new Response(JSON.stringify({ error: "Unauthorized webhook" }), {
-            status: 401,
-            headers: { "Content-Type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify({ error: "Unauthorized webhook" }),
+            {
+              status: 401,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
         }
       }
 
