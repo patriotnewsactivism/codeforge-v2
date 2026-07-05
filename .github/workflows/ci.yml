@@ -45,11 +45,13 @@ jobs:
           cache: npm
       - run: npm ci
       # convex/_generated is committed, so codegen is only needed to refresh it.
-      # Run it when a deploy key is configured; otherwise build from the
-      # committed generated files (codegen requires a deployment to run).
-      - name: Convex codegen (if deploy key available)
+      # Run it when a deploy key is configured, but best-effort: codegen needs a
+      # reachable deployment, so an invalid/expired key or a disabled/paused
+      # project must not fail the build — we fall back to the committed
+      # convex/_generated files, which is what `npm run build` consumes anyway.
+      - name: Convex codegen (best-effort; falls back to committed _generated)
         if: ${{ env.CONVEX_DEPLOY_KEY != '' }}
-        run: npx convex codegen
+        run: npx convex codegen || echo "codegen skipped (deployment unreachable) — building from committed convex/_generated"
       - run: npm run build
 
   test:
