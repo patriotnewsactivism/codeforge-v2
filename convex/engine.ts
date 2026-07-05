@@ -9,7 +9,7 @@
  */
 
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
@@ -54,7 +54,9 @@ export type ToolName =
   | "list_files"
   | "search_files"
   | "get_context"
+  | "web_search"
   | "spawn_agent"
+  | "spawn_epic"
   | "send_message"
   | "deploy_project"
   | "complete_task";
@@ -380,6 +382,17 @@ async function executeTool(
         break;
       }
 
+      case "web_search": {
+        const { query: searchQuery } = call.args as { query: string };
+        output = await ctx.runAction(internal.webSearch.searchForAgent, {
+          query: searchQuery,
+          agentRole: agentName.toLowerCase(),
+          maxResults: 4,
+        });
+        if (!output) output = "No web search results found.";
+        break;
+      }
+
       case "spawn_agent": {
         const maxDepth = planLimits?.maxSpawnDepth ?? 3;
         const maxSpawns = planLimits?.maxSpawnsPerMission ?? 25;
@@ -419,6 +432,18 @@ async function executeTool(
           planLimits,
         );
         output = `Agent ${role} completed: ${childResult.slice(0, 300)}`;
+        break;
+      }
+
+      case "spawn_epic": {
+        const { plan, goal } = call.args as { plan: string; goal: string };
+        const result = await ctx.runAction(internal.spawnEngine.executeSpawnPlan, {
+          projectId,
+          missionId,
+          plan: typeof plan === "string" ? plan : JSON.stringify(plan),
+          goal,
+        });
+        output = `Epic spawn completed. ${result.success ? "Success" : "Failed"}: ${result.shardsCompleted}/${result.totalShards} shards executed.`;
         break;
       }
 
@@ -544,7 +569,9 @@ Available tools:
 - list_files:  { "tool": "list_files",  "args": {} }
 - search_files:{ "tool": "search_files","args": { "query": "search term" } }
 - get_context: { "tool": "get_context", "args": { "query": "search term" } }
+- web_search:  { "tool": "web_search",  "args": { "query": "how to implement X in React 2026" } }
 - spawn_agent: { "tool": "spawn_agent", "args": { "role": "coder", "task": "implement X" } }
+- spawn_epic:  { "tool": "spawn_epic",  "args": { "goal": "epic goal", "plan": "{\"shards\": [...]}" } }
 - send_message:{ "tool": "send_message","args": { "to": "orchestrator", "message": "done with X" } }
 - deploy_project:{ "tool": "deploy_project", "args": {} }
 - complete_task:{"tool": "complete_task","args": { "summary": "What I accomplished" } }
@@ -806,6 +833,18 @@ export const runMission = action({
       planLimits,
       byok,
     );
+
+    // After mission completes, extract learnings asynchronously
+    // (We don't await this so it doesn't block returning the final result)
+    ctx.runAction(internal.autoLearn.extractLearnings, {
+      projectId: args.projectId,
+      missionId,
+      goal: args.prompt,
+      agentSequence: ["orchestrator"],
+      filesChanged: [], // We could collect this from toolCalls if needed
+      healCycles: 0,
+      success: !result.toLowerCase().includes("failed"),
+    }).catch(err => console.error("[engine] autoLearn failed:", err));
 
     return result;
   },
