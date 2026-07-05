@@ -8,37 +8,8 @@ import { TestCredentials } from "./testAuth";
 
 declare const process: { env: Record<string, string | undefined> };
 
-/**
- * Converts a space-separated PEM private key (as stored by Convex CLI)
- * into a properly newline-delimited PEM key that importPKCS8 can parse.
- */
-function decodePrivateKey(key: string | undefined): string | undefined {
-  if (!key) return undefined;
-  if (key.includes("\n")) return key;
-
-  if (!key.startsWith("-----BEGIN")) {
-    try {
-      return atob(key);
-    } catch {
-      return key;
-    }
-  }
-
-  const beginMarker = "-----BEGIN PRIVATE KEY-----";
-  const endMarker = "-----END PRIVATE KEY-----";
-  const content = key
-    .replace(/-----BEGIN PRIVATE KEY-----\s*/, "")
-    .replace(/\s*-----END PRIVATE KEY-----/, "")
-    .trim();
-  const base64 = content.replace(/\s+/g, "");
-  const lines = base64.match(/.{1,64}/g) ?? [];
-  return `${beginMarker}\n${lines.join("\n")}\n${endMarker}`;
-}
-
-const jwtPrivateKey = process.env.JWT_PRIVATE_KEY;
-if (jwtPrivateKey) {
-  process.env.JWT_PRIVATE_KEY = decodePrivateKey(jwtPrivateKey)!;
-}
+// No process.env mutations allowed in Convex Edge runtime.
+// If your JWT_PRIVATE_KEY fails to parse, ensure it's saved with correct newlines in the Convex Dashboard.
 
 const resendConfigured = Boolean(process.env.RESEND_API_KEY);
 
