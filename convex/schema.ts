@@ -355,6 +355,7 @@ const schema = defineSchema({
   agentThoughts: defineTable({
     projectId: v.optional(v.id("projects")),
     buildSessionId: v.optional(v.id("buildSessions")),
+    missionId: v.optional(v.string()),
     agentId: v.optional(v.string()),
     agentName: v.optional(v.string()),
     type: v.optional(

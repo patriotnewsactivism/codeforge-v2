@@ -30,6 +30,7 @@ export const emit = mutation({
   args: {
     projectId: v.id("projects"),
     buildSessionId: v.optional(v.id("buildSessions")),
+    missionId: v.optional(v.string()),
     agentId: v.string(),
     agentName: v.string(),
     type: v.union(
@@ -60,6 +61,7 @@ export const emit = mutation({
     return await ctx.db.insert("agentThoughts", {
       projectId: args.projectId,
       buildSessionId: args.buildSessionId,
+      missionId: args.missionId,
       agentId: args.agentId,
       agentName: args.agentName,
       type: args.type,

@@ -13,6 +13,7 @@ import type * as agents from "../agents.js";
 import type * as ai from "../ai.js";
 import type * as apiKeys from "../apiKeys.js";
 import type * as auth from "../auth.js";
+import type * as autoLearn from "../autoLearn.js";
 import type * as benchmark from "../benchmark.js";
 import type * as buildLoop from "../buildLoop.js";
 import type * as changeHistory from "../changeHistory.js";
@@ -49,6 +50,7 @@ import type * as repoImport from "../repoImport.js";
 import type * as seedTestUser from "../seedTestUser.js";
 import type * as sentry from "../sentry.js";
 import type * as sessions from "../sessions.js";
+import type * as spawnEngine from "../spawnEngine.js";
 import type * as stripe from "../stripe.js";
 import type * as suggestions from "../suggestions.js";
 import type * as swarm from "../swarm.js";
@@ -56,6 +58,7 @@ import type * as tasks from "../tasks.js";
 import type * as testAuth from "../testAuth.js";
 import type * as users from "../users.js";
 import type * as vision from "../vision.js";
+import type * as webSearch from "../webSearch.js";
 
 import type {
   ApiFromModules,
@@ -69,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   apiKeys: typeof apiKeys;
   auth: typeof auth;
+  autoLearn: typeof autoLearn;
   benchmark: typeof benchmark;
   buildLoop: typeof buildLoop;
   changeHistory: typeof changeHistory;
@@ -105,6 +109,7 @@ declare const fullApi: ApiFromModules<{
   seedTestUser: typeof seedTestUser;
   sentry: typeof sentry;
   sessions: typeof sessions;
+  spawnEngine: typeof spawnEngine;
   stripe: typeof stripe;
   suggestions: typeof suggestions;
   swarm: typeof swarm;
@@ -112,6 +117,7 @@ declare const fullApi: ApiFromModules<{
   testAuth: typeof testAuth;
   users: typeof users;
   vision: typeof vision;
+  webSearch: typeof webSearch;
 }>;
 
 /**

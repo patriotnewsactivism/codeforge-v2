@@ -98,10 +98,13 @@ FILES CHANGED: ${args.filesChanged.join(", ")}
 HEAL CYCLES: ${args.healCycles}
 SUCCESS: ${args.success}`;
 
-      const { content } = await callAIWithFallback({
-        systemPrompt: EXTRACT_LEARNINGS_PROMPT,
-        userMessage,
-        model,
+      const { text: content } = await callAIWithFallback(
+        [
+          { role: "system", content: EXTRACT_LEARNINGS_PROMPT },
+          { role: "user", content: userMessage },
+        ],
+        {
+          model,
         callerPlan,
         userKeys,
       });
@@ -142,7 +145,7 @@ SUCCESS: ${args.success}`;
 
       // Persist all learnings
       for (const entry of stores) {
-        await ctx.runMutation(api.memory.createMemory, {
+        await ctx.runMutation(api.memory.saveMemory, {
           projectId: args.projectId,
           category: entry.category as any,
           content: entry.content,

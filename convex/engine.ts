@@ -56,6 +56,7 @@ export type ToolName =
   | "get_context"
   | "web_search"
   | "spawn_agent"
+  | "spawn_epic"
   | "send_message"
   | "deploy_project"
   | "complete_task";
@@ -383,7 +384,7 @@ async function executeTool(
 
       case "web_search": {
         const { query: searchQuery } = call.args as { query: string };
-        output = await ctx.runAction(api.webSearch.searchForAgent, {
+        output = await ctx.runAction(internal.webSearch.searchForAgent, {
           query: searchQuery,
           agentRole: agentName.toLowerCase(),
           maxResults: 4,
@@ -431,6 +432,18 @@ async function executeTool(
           planLimits,
         );
         output = `Agent ${role} completed: ${childResult.slice(0, 300)}`;
+        break;
+      }
+
+      case "spawn_epic": {
+        const { plan, goal } = call.args as { plan: string; goal: string };
+        const result = await ctx.runAction(internal.spawnEngine.executeSpawnPlan, {
+          projectId,
+          missionId,
+          plan: typeof plan === "string" ? plan : JSON.stringify(plan),
+          goal,
+        });
+        output = `Epic spawn completed. ${result.success ? "Success" : "Failed"}: ${result.shardsCompleted}/${result.totalShards} shards executed.`;
         break;
       }
 
@@ -558,6 +571,7 @@ Available tools:
 - get_context: { "tool": "get_context", "args": { "query": "search term" } }
 - web_search:  { "tool": "web_search",  "args": { "query": "how to implement X in React 2026" } }
 - spawn_agent: { "tool": "spawn_agent", "args": { "role": "coder", "task": "implement X" } }
+- spawn_epic:  { "tool": "spawn_epic",  "args": { "goal": "epic goal", "plan": "{\"shards\": [...]}" } }
 - send_message:{ "tool": "send_message","args": { "to": "orchestrator", "message": "done with X" } }
 - deploy_project:{ "tool": "deploy_project", "args": {} }
 - complete_task:{"tool": "complete_task","args": { "summary": "What I accomplished" } }

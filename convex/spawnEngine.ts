@@ -138,15 +138,17 @@ export const planSpawn = internalAction({
       // Smart context is optional — proceed without it
     }
 
-    const userMessage = `GOAL: ${args.goal}\n${smartContext}`;
-
-    const { content } = await callAIWithFallback({
-      systemPrompt: SPAWN_PLANNER_PROMPT,
-      userMessage,
-      model,
-      callerPlan,
-      userKeys,
-    });
+    const { text: content } = await callAIWithFallback(
+      [
+        { role: "system", content: SPAWN_PLANNER_PROMPT },
+        { role: "user", content: `GOAL: ${args.goal}\n${smartContext}` },
+      ],
+      {
+        model,
+        callerPlan,
+        userKeys,
+      }
+    );
 
     // Parse the spawn plan
     try {
@@ -229,7 +231,7 @@ export const executeSpawnPlan = internalAction({
       // Emit thought: batch start
       await ctx.runMutation(api.agentThoughts.emit, {
         projectId: args.projectId,
-        buildSessionId: args.buildSessionId,
+        missionId: args.missionId,
         agentId: "spawn-engine",
         agentName: "Spawn Engine",
         type: "broadcast",
@@ -252,9 +254,7 @@ export const executeSpawnPlan = internalAction({
           try {
             await ctx.runAction(api.engine.runMission, {
               projectId: args.projectId,
-              buildSessionId: args.buildSessionId,
-              task,
-              agentRole,
+              prompt: task, // In V2 engine, this is 'prompt'
             });
           } catch (err) {
             console.error(
@@ -271,7 +271,7 @@ export const executeSpawnPlan = internalAction({
     // Emit thought: completion
     await ctx.runMutation(api.agentThoughts.emit, {
       projectId: args.projectId,
-      buildSessionId: args.buildSessionId,
+      missionId: args.missionId,
       agentId: "spawn-engine",
       agentName: "Spawn Engine",
       type: "complete",
