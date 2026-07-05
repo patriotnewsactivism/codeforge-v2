@@ -9,7 +9,7 @@
  */
 
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
@@ -819,6 +819,18 @@ export const runMission = action({
       planLimits,
       byok,
     );
+
+    // After mission completes, extract learnings asynchronously
+    // (We don't await this so it doesn't block returning the final result)
+    ctx.runAction(internal.autoLearn.extractLearnings, {
+      projectId: args.projectId,
+      missionId,
+      goal: args.prompt,
+      agentSequence: ["orchestrator"],
+      filesChanged: [], // We could collect this from toolCalls if needed
+      healCycles: 0,
+      success: !result.toLowerCase().includes("failed"),
+    }).catch(err => console.error("[engine] autoLearn failed:", err));
 
     return result;
   },
