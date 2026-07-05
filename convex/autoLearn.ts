@@ -78,7 +78,8 @@ OUTPUT JSON (no markdown, no extra text):
 export const extractLearnings = internalAction({
   args: {
     projectId: v.id("projects"),
-    buildSessionId: v.id("buildSessions"),
+    missionId: v.optional(v.string()),
+    buildSessionId: v.optional(v.id("buildSessions")),
     goal: v.string(),
     agentSequence: v.array(v.string()),
     filesChanged: v.array(v.string()),
