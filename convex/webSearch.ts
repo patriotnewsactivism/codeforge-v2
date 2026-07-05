@@ -102,17 +102,15 @@ async function ddgSearch(query: string): Promise<SearchResult[]> {
         content: data.AbstractText.slice(0, 500),
       });
     }
-    (data.RelatedTopics ?? [])
-      .slice(0, 4)
-      .forEach((t: any) => {
-        if (t.Text && t.FirstURL) {
-          results.push({
-            title: t.Text.slice(0, 80),
-            url: t.FirstURL,
-            content: t.Text.slice(0, 300),
-          });
-        }
-      });
+    (data.RelatedTopics ?? []).slice(0, 4).forEach((t: any) => {
+      if (t.Text && t.FirstURL) {
+        results.push({
+          title: t.Text.slice(0, 80),
+          url: t.FirstURL,
+          content: t.Text.slice(0, 300),
+        });
+      }
+    });
     return results;
   } catch {
     return [];
@@ -167,7 +165,12 @@ export const multiSearch = action({
         const start = Date.now();
         if (tavilyKey) {
           const results = await tavilySearch(query, maxPerQuery, tavilyKey);
-          return { query, results, source: "tavily", tookMs: Date.now() - start };
+          return {
+            query,
+            results,
+            source: "tavily",
+            tookMs: Date.now() - start,
+          };
         }
         const results = await ddgSearch(query);
         return {
@@ -189,7 +192,10 @@ export function buildResearchQueries(
   goal: string,
   agentRole: string,
 ): string[] {
-  const clean = goal.slice(0, 120).replace(/\[.*?\]/g, "").trim();
+  const clean = goal
+    .slice(0, 120)
+    .replace(/\[.*?\]/g, "")
+    .trim();
 
   const queryMap: Record<string, string[]> = {
     orchestrator: [
@@ -219,7 +225,7 @@ export function buildResearchQueries(
 // ─── Format search results for agent prompt injection ───────────────────────
 
 export function formatSearchResults(bundles: SearchBundle[]): string {
-  const allResults = bundles.flatMap((b) => b.results);
+  const allResults = bundles.flatMap(b => b.results);
   if (allResults.length === 0) return "";
 
   const lines = ["\n\n🌐 LIVE WEB RESEARCH:"];
@@ -255,7 +261,12 @@ export const searchForAgent = internalAction({
         const start = Date.now();
         if (tavilyKey) {
           const results = await tavilySearch(query, maxPerQuery, tavilyKey);
-          return { query, results, source: "tavily", tookMs: Date.now() - start };
+          return {
+            query,
+            results,
+            source: "tavily",
+            tookMs: Date.now() - start,
+          };
         }
         const results = await ddgSearch(query);
         return {
