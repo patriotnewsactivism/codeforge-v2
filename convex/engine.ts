@@ -54,6 +54,7 @@ export type ToolName =
   | "list_files"
   | "search_files"
   | "get_context"
+  | "web_search"
   | "spawn_agent"
   | "send_message"
   | "deploy_project"
@@ -380,6 +381,17 @@ async function executeTool(
         break;
       }
 
+      case "web_search": {
+        const { query: searchQuery } = call.args as { query: string };
+        output = await ctx.runAction(api.webSearch.searchForAgent, {
+          query: searchQuery,
+          agentRole: agentName.toLowerCase(),
+          maxResults: 4,
+        });
+        if (!output) output = "No web search results found.";
+        break;
+      }
+
       case "spawn_agent": {
         const maxDepth = planLimits?.maxSpawnDepth ?? 3;
         const maxSpawns = planLimits?.maxSpawnsPerMission ?? 25;
@@ -544,6 +556,7 @@ Available tools:
 - list_files:  { "tool": "list_files",  "args": {} }
 - search_files:{ "tool": "search_files","args": { "query": "search term" } }
 - get_context: { "tool": "get_context", "args": { "query": "search term" } }
+- web_search:  { "tool": "web_search",  "args": { "query": "how to implement X in React 2026" } }
 - spawn_agent: { "tool": "spawn_agent", "args": { "role": "coder", "task": "implement X" } }
 - send_message:{ "tool": "send_message","args": { "to": "orchestrator", "message": "done with X" } }
 - deploy_project:{ "tool": "deploy_project", "args": {} }
