@@ -194,7 +194,7 @@ export const planSpawn = internalAction({
 export const executeSpawnPlan = internalAction({
   args: {
     projectId: v.id("projects"),
-    buildSessionId: v.id("buildSessions"),
+    missionId: v.optional(v.string()),
     plan: v.string(), // JSON-serialized SpawnPlan
     goal: v.string(),
   },
@@ -206,7 +206,7 @@ export const executeSpawnPlan = internalAction({
     // Emit thought: plan overview
     await ctx.runMutation(api.agentThoughts.emit, {
       projectId: args.projectId,
-      buildSessionId: args.buildSessionId,
+      missionId: args.missionId,
       agentId: "spawn-engine",
       agentName: "Spawn Engine",
       type: "plan",
