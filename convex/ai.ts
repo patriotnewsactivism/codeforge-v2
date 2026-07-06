@@ -25,6 +25,8 @@ export interface ModelConfig {
     | "anthropic"
     | "deepseek"
     | "groq"
+    | "cerebras"
+    | "google"
     | "xai"
     | "moonshot"
     | "openai"
@@ -120,6 +122,88 @@ export const MODELS: Record<string, ModelConfig> = {
     apiModel: "meta-llama/llama-4-scout-17b-16e-instruct",
     inputCostPer1M: 0.11,
     outputCostPer1M: 0.34,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
+  // gpt-oss-120b — OpenAI's open-weight 120B on Groq. Very capable coder /
+  // diagnostician, near-instant, and cheap. Strong default for planning,
+  // debugging, and code generation.
+  "groq-gpt-oss-120b": {
+    id: "groq-gpt-oss-120b",
+    name: "GPT-OSS 120B (Groq)",
+    provider: "groq",
+    apiModel: "openai/gpt-oss-120b",
+    inputCostPer1M: 0.15,
+    outputCostPer1M: 0.75,
+    maxTokens: 16384,
+    tier: "strong",
+  },
+  // gpt-oss-20b — smaller sibling; fast + cheap for utility roles.
+  "groq-gpt-oss-20b": {
+    id: "groq-gpt-oss-20b",
+    name: "GPT-OSS 20B (Groq)",
+    provider: "groq",
+    apiModel: "openai/gpt-oss-20b",
+    inputCostPer1M: 0.1,
+    outputCostPer1M: 0.5,
+    maxTokens: 8192,
+    tier: "fast",
+  },
+  // Qwen3 32B — hybrid reasoning model, excellent for diagnostics / debugging
+  // (emits <think> reasoning). 131k context.
+  "groq-qwen3-32b": {
+    id: "groq-qwen3-32b",
+    name: "Qwen3 32B (Groq)",
+    provider: "groq",
+    apiModel: "qwen/qwen3-32b",
+    inputCostPer1M: 0.29,
+    outputCostPer1M: 0.59,
+    maxTokens: 16384,
+    tier: "balanced",
+  },
+  // ── Cerebras — free tier (~1M tokens/day), wafer-scale inference (fastest
+  //    available). Requires CEREBRAS_API_KEY (free at cloud.cerebras.ai).
+  //    GLM 4.7 is a strong open coding model — the standout free coding agent.
+  "cerebras-glm-4.7": {
+    id: "cerebras-glm-4.7",
+    name: "GLM 4.7 (Cerebras)",
+    provider: "cerebras",
+    apiModel: "zai-glm-4.7",
+    inputCostPer1M: 0.0,
+    outputCostPer1M: 0.0,
+    maxTokens: 16384,
+    tier: "strong",
+  },
+  "cerebras-gpt-oss-120b": {
+    id: "cerebras-gpt-oss-120b",
+    name: "GPT-OSS 120B (Cerebras)",
+    provider: "cerebras",
+    apiModel: "gpt-oss-120b",
+    inputCostPer1M: 0.0,
+    outputCostPer1M: 0.0,
+    maxTokens: 16384,
+    tier: "strong",
+  },
+  // ── Google Gemini — generous free tier via AI Studio. Capable coder /
+  //    diagnostician with very large context. Uses the existing GEMINI_API_KEY
+  //    through Google's OpenAI-compatible endpoint.
+  "gemini-2.5-flash": {
+    id: "gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    provider: "google",
+    apiModel: "gemini-2.5-flash",
+    inputCostPer1M: 0.3,
+    outputCostPer1M: 2.5,
+    maxTokens: 16384,
+    tier: "strong",
+  },
+  "gemini-2.0-flash": {
+    id: "gemini-2.0-flash",
+    name: "Gemini 2.0 Flash",
+    provider: "google",
+    apiModel: "gemini-2.0-flash",
+    inputCostPer1M: 0.1,
+    outputCostPer1M: 0.4,
     maxTokens: 8192,
     tier: "balanced",
   },
@@ -392,18 +476,22 @@ export const DEFAULT_MODEL = "groq-llama-3.3-70b";
 // Routed entirely through OpenRouter so the swarm needs only one key
 // (OPENROUTER_API_KEY) — no separate DeepSeek / Moonshot / xAI / Azure
 // accounts required.
+// Defaults route to models on the Groq key (which is always configured) so the
+// swarm never hard-depends on a provider that can run out of balance. GPT-OSS
+// 120B handles planning/diagnostics; Llama 3.3 70B handles execution; Qwen3 32B
+// handles deep debugging (reasoning). All are cheap ($0.10–0.75/M).
 export const AGENT_MODELS: Record<string, string> = {
-  orchestrator: "deepseek-v3",
-  architect: "deepseek-v3",
+  orchestrator: "groq-gpt-oss-120b",
+  architect: "groq-gpt-oss-120b",
   coder: "groq-llama-3.3-70b",
   reviewer: "groq-llama-3.3-70b",
-  debugger: "deepseek-v3",
+  debugger: "groq-qwen3-32b",
   tester: "groq-llama-3.3-70b",
   devops: "groq-llama-3.3-70b",
   sentry: "groq-llama-3.3-70b",
-  forensic: "deepseek-v3",
-  reflection: "deepseek-v3",
-  strategist: "deepseek-v3",
+  forensic: "groq-qwen3-32b",
+  reflection: "groq-gpt-oss-120b",
+  strategist: "groq-gpt-oss-120b",
   default: "groq-llama-3.3-70b",
 };
 
@@ -423,6 +511,10 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
       return "https://api.openai.com/v1";
     case "groq":
       return "https://api.groq.com/openai/v1";
+    case "cerebras":
+      return "https://api.cerebras.ai/v1";
+    case "google":
+      return "https://generativelanguage.googleapis.com/v1beta/openai";
     case "openrouter":
       return "https://openrouter.ai/api/v1";
     case "azure":
@@ -435,6 +527,8 @@ const PROVIDER_KEY_MAP: Record<ModelConfig["provider"], string> = {
   anthropic: "anthropic",
   deepseek: "deepseek",
   groq: "groq",
+  cerebras: "cerebras",
+  google: "google",
   xai: "xai",
   moonshot: "moonshot",
   openai: "openai",
@@ -479,6 +573,10 @@ function getApiKey(
       return process.env.OPENAI_API_KEY ?? "";
     case "groq":
       return process.env.GROQ_API_KEY ?? "";
+    case "cerebras":
+      return process.env.CEREBRAS_API_KEY ?? "";
+    case "google":
+      return process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? "";
     case "openrouter":
       return process.env.OPENROUTER_API_KEY ?? "";
     case "azure":
@@ -683,9 +781,13 @@ export async function callAIWithFallback(
 
   // Build fallback chain. Defaults stay on OpenRouter so a single
   // OPENROUTER_API_KEY can serve the whole chain.
-  const fullChain = [requested, "groq-llama-3.3-70b", "deepseek-v3"].filter(
-    (m, i, arr) => arr.indexOf(m) === i && MODELS[m],
-  );
+  // Fallback stays entirely on the Groq key so a dead/empty secondary provider
+  // (e.g. DeepSeek out of balance) can never break the chain.
+  const fullChain = [
+    requested,
+    "groq-gpt-oss-120b",
+    "groq-llama-3.3-70b",
+  ].filter((m, i, arr) => arr.indexOf(m) === i && MODELS[m]);
 
   // For lifetime users: filter chain to only models their keys can serve
   const chain =
@@ -733,20 +835,40 @@ export async function callAIWithFallback(
 }
 
 export const MODEL_PROFILES: Record<string, Record<string, string>> = {
-  // Default: DeepSeek V3 for planning/reasoning, Groq Llama for fast execution
+  // Default: GPT-OSS 120B for planning/diagnostics, Groq Llama for fast
+  // execution, Qwen3 for deep debugging — all on the Groq key, no external
+  // balance required.
   viktor: {
-    orchestrator: "deepseek-v3",
-    architect: "deepseek-v3",
+    orchestrator: "groq-gpt-oss-120b",
+    architect: "groq-gpt-oss-120b",
     coder: "groq-llama-3.3-70b",
     reviewer: "groq-llama-3.3-70b",
-    debugger: "deepseek-v3",
+    debugger: "groq-qwen3-32b",
     tester: "groq-llama-3.3-70b",
     devops: "groq-llama-3.3-70b",
     sentry: "groq-llama-3.3-70b",
-    forensic: "deepseek-v3",
-    reflection: "deepseek-v3",
-    strategist: "deepseek-v3",
+    forensic: "groq-qwen3-32b",
+    reflection: "groq-gpt-oss-120b",
+    strategist: "groq-gpt-oss-120b",
     default: "groq-llama-3.3-70b",
+  },
+  // Free: the strongest free/near-free coding + diagnostic roster. Coder roles
+  // use Cerebras Qwen3-Coder-480B (free tier); planning/diagnostics use Groq
+  // GPT-OSS 120B / Qwen3; Gemini Flash as a large-context option. Requires
+  // CEREBRAS_API_KEY (free) and GEMINI_API_KEY; falls back to Groq if unset.
+  free: {
+    orchestrator: "groq-gpt-oss-120b",
+    architect: "gemini-2.5-flash",
+    coder: "cerebras-glm-4.7",
+    reviewer: "groq-gpt-oss-120b",
+    debugger: "groq-qwen3-32b",
+    tester: "groq-gpt-oss-20b",
+    devops: "groq-gpt-oss-20b",
+    sentry: "groq-llama-3.1-8b",
+    forensic: "groq-qwen3-32b",
+    reflection: "gemini-2.5-flash",
+    strategist: "groq-gpt-oss-120b",
+    default: "groq-gpt-oss-120b",
   },
   // Budget: all Groq (~$0.06/M)
   budget: {
