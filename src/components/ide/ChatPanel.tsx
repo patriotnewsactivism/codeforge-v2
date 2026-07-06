@@ -16,34 +16,58 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { QuickActions } from "./QuickActions";
 import { UsageMeter } from "./UsageMeter";
 
+// These ids MUST match keys in the backend MODELS registry (convex/ai.ts) —
+// the selected id is sent to chat.sendMessage and looked up there. Anything not
+// in that registry silently falls back to the default model.
 const MODELS = [
   {
-    id: "deepseek-v4-flash",
-    name: "DeepSeek V4 Flash",
-    shortName: "DS V4",
+    id: "groq-gpt-oss-120b",
+    name: "GPT-OSS 120B",
+    shortName: "OSS 120B",
     icon: "⚡",
     color: "text-emerald-400",
   },
   {
-    id: "deepseek-v3.2",
-    name: "DeepSeek V3.2",
-    shortName: "DS V3",
-    icon: "🧠",
-    color: "text-green-400",
+    id: "groq-llama-3.3-70b",
+    name: "Llama 3.3 70B",
+    shortName: "Llama 70B",
+    icon: "🦙",
+    color: "text-orange-400",
   },
   {
-    id: "grok-4.1-fast",
-    name: "Grok 4.1 Fast",
-    shortName: "Grok",
-    icon: "⚡",
+    id: "groq-qwen3-32b",
+    name: "Qwen3 32B",
+    shortName: "Qwen3",
+    icon: "🧠",
+    color: "text-cyan-400",
+  },
+  {
+    id: "cerebras-glm-4.7",
+    name: "GLM 4.7 (Cerebras)",
+    shortName: "GLM 4.7",
+    icon: "🚀",
+    color: "text-pink-400",
+  },
+  {
+    id: "gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    shortName: "Gemini",
+    icon: "✨",
     color: "text-blue-400",
   },
   {
-    id: "gpt-5-mini",
-    name: "GPT-5 Mini",
-    shortName: "GPT-5",
-    icon: "🤖",
-    color: "text-purple-400",
+    id: "deepseek-v3",
+    name: "DeepSeek V3",
+    shortName: "DS V3",
+    icon: "🐋",
+    color: "text-indigo-400",
+  },
+  {
+    id: "deepseek-reasoner",
+    name: "DeepSeek R1 (reasoning)",
+    shortName: "DS R1",
+    icon: "🧩",
+    color: "text-violet-400",
   },
 ];
 
@@ -107,7 +131,7 @@ export function ChatPanel({
   const updateModel = useMutation(api.chat.updateModel);
   const userId = useAuthToken();
 
-  const currentModel = session?.model ?? "deepseek-v4-flash";
+  const currentModel = session?.model ?? "groq-gpt-oss-120b";
   const currentModelConfig =
     MODELS.find(m => m.id === currentModel) ?? MODELS[0]!;
 

@@ -163,13 +163,12 @@ export const MODELS: Record<string, ModelConfig> = {
   },
   // ── Cerebras — free tier (~1M tokens/day), wafer-scale inference (fastest
   //    available). Requires CEREBRAS_API_KEY (free at cloud.cerebras.ai).
-  //    Qwen3-Coder-480B is a near-frontier coding model — the standout free
-  //    coding agent.
-  "cerebras-qwen-3-coder": {
-    id: "cerebras-qwen-3-coder",
-    name: "Qwen3 Coder 480B (Cerebras)",
+  //    GLM 4.7 is a strong open coding model — the standout free coding agent.
+  "cerebras-glm-4.7": {
+    id: "cerebras-glm-4.7",
+    name: "GLM 4.7 (Cerebras)",
     provider: "cerebras",
-    apiModel: "qwen-3-coder-480b",
+    apiModel: "zai-glm-4.7",
     inputCostPer1M: 0.0,
     outputCostPer1M: 0.0,
     maxTokens: 16384,
@@ -860,7 +859,7 @@ export const MODEL_PROFILES: Record<string, Record<string, string>> = {
   free: {
     orchestrator: "groq-gpt-oss-120b",
     architect: "gemini-2.5-flash",
-    coder: "cerebras-qwen-3-coder",
+    coder: "cerebras-glm-4.7",
     reviewer: "groq-gpt-oss-120b",
     debugger: "groq-qwen3-32b",
     tester: "groq-gpt-oss-20b",
