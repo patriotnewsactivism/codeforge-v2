@@ -36,6 +36,9 @@ export interface ModelConfig {
   inputCostPer1M: number;
   outputCostPer1M: number;
   maxTokens: number;
+  /** Optional — for providers with a small combined TPM cap, the safe input
+   *  token budget to truncate prompts to before calling (see callAI()). */
+  maxSafeInputTokens?: number;
   tier: "strong" | "balanced" | "fast";
 }
 
@@ -112,7 +115,13 @@ export const MODELS: Record<string, ModelConfig> = {
     apiModel: "llama-3.1-8b-instant",
     inputCostPer1M: 0.05,
     outputCostPer1M: 0.08,
-    maxTokens: 8192,
+    // NOTE: Groq's free tier caps this specific model at 6000 tokens/minute
+    // TOTAL (input + output combined) — 8192 output alone used to blow past
+    // that on every call regardless of prompt size, guaranteeing a 413.
+    maxTokens: 1536,
+    // Leaves ~4000 tokens of headroom under the 6000 TPM cap for the
+    // 1536 reserved for output. See maxSafeInputTokens truncation in callAI().
+    maxSafeInputTokens: 4000,
     tier: "fast",
   },
   "groq-llama-4-scout": {
@@ -661,6 +670,54 @@ export interface AIResponse {
  * For lifetime users: inject their own API keys.
  * For others: use platform environment keys.
  */
+/** Rough token estimate — good enough for a safety-margin truncation check. */
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+/**
+ * truncateMessagesToFit — trims message content so the total estimated
+ * prompt stays under `maxTokens`. Keeps system prompt intact, and for the
+ * largest user/assistant message keeps the head + tail (where the actual
+ * question/instruction usually lives) and drops the noisy middle.
+ */
+function truncateMessagesToFit(
+  messages: Message[],
+  maxTokens: number,
+): Message[] {
+  const total = messages.reduce((n, m) => n + estimateTokens(m.content), 0);
+  if (total <= maxTokens) return messages;
+
+  const systemTokens = messages
+    .filter(m => m.role === "system")
+    .reduce((n, m) => n + estimateTokens(m.content), 0);
+  const budgetForRest = Math.max(500, maxTokens - systemTokens);
+
+  // Find the single largest non-system message — almost always the culprit
+  // (full file dumps / logs pasted into one user turn).
+  const nonSystem = messages.filter(m => m.role !== "system");
+  if (nonSystem.length === 0) return messages;
+  const largest = nonSystem.reduce((a, b) =>
+    estimateTokens(b.content) > estimateTokens(a.content) ? b : a,
+  );
+  const largestTokens = estimateTokens(largest.content);
+  if (largestTokens <= budgetForRest) return messages;
+
+  const keepChars = Math.max(200, budgetForRest * 4);
+  const headChars = Math.floor(keepChars * 0.6);
+  const tailChars = Math.floor(keepChars * 0.4);
+  const truncatedContent =
+    largest.content.length > headChars + tailChars
+      ? `${largest.content.slice(0, headChars)}\n\n[...truncated ${
+          largest.content.length - headChars - tailChars
+        } chars to fit rate limit...]\n\n${largest.content.slice(-tailChars)}`
+      : largest.content;
+
+  return messages.map(m =>
+    m === largest ? { ...m, content: truncatedContent } : m,
+  );
+}
+
 export async function callAI(
   promptOrMessages: string | Message[],
   options: AICallOptions = {},
@@ -677,7 +734,7 @@ export async function callAI(
     throw new Error(byokCheck.message!);
   }
 
-  const messages: Message[] =
+  let messages: Message[] =
     typeof promptOrMessages === "string"
       ? [
           ...(options.systemPrompt
@@ -686,6 +743,14 @@ export async function callAI(
           { role: "user" as const, content: promptOrMessages },
         ]
       : promptOrMessages;
+
+  // Small-TPM-cap models (e.g. Groq free tier) reject oversized requests
+  // outright (413) rather than truncating server-side. If this model has a
+  // safe input budget configured, trim the largest message(s) to fit before
+  // sending — better a shortened debug attempt than a guaranteed failure.
+  if (config.maxSafeInputTokens) {
+    messages = truncateMessagesToFit(messages, config.maxSafeInputTokens);
+  }
 
   const baseUrl = getBaseUrl(config.provider);
   const apiKey = getApiKey(
