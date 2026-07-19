@@ -826,8 +826,14 @@ Rules:
       planLimits,
     );
 
-    // Track progress
-    if (toolCall.tool === "create_file" || toolCall.tool === "edit_file") {
+    // Track progress — only count as a real write if the tool call actually
+    // succeeded. A Sentry-blocked or errored edit_file/create_file call must
+    // NOT count as progress, or the stall-detector (and callers checking
+    // fileWriteCount) will believe work happened when nothing was written.
+    if (
+      (toolCall.tool === "create_file" || toolCall.tool === "edit_file") &&
+      result.success
+    ) {
       fileWriteCount++;
       turnsWithoutWrite = 0;
     } else {
@@ -843,7 +849,11 @@ Rules:
       role: "user",
       content: result.success
         ? `Tool result: ${result.output.slice(0, 1200)}`
-        : `Tool error: ${result.error}. Try a different approach.`,
+        : result.error?.startsWith("Sentry blocked")
+          ? `${result.error}. Your role cannot edit files directly — use ` +
+            `the \`spawn_agent\` tool to delegate this file change to a ` +
+            `"coder" or "debugger" agent instead. Do not retry edit_file/create_file yourself.`
+          : `Tool error: ${result.error}. Try a different approach.`,
     });
 
     // Force progress if stalling — but only AFTER the agent has already written
@@ -1062,7 +1072,16 @@ export const executeWorkItem = action({
 
       const filesChanged = new Set<string>();
       for (const call of toolCalls) {
-        if (call.tool === "edit_file" || call.tool === "create_file") {
+        // Only count calls that actually completed — a Sentry-blocked or
+        // otherwise errored edit_file/create_file call never touched the
+        // file, so it must not be treated as a real change. Previously this
+        // counted the call just from its tool name regardless of status,
+        // which let blocked edits still trigger a code review and let a
+        // work item close as "done" on changes that never happened.
+        if (
+          (call.tool === "edit_file" || call.tool === "create_file") &&
+          call.status !== "error"
+        ) {
           try {
             const parsedArgs = JSON.parse(call.args);
             if (parsedArgs.path) filesChanged.add(parsedArgs.path);
