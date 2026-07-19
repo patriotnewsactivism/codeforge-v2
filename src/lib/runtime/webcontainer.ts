@@ -61,6 +61,18 @@ function toFileSystemTree(files: RuntimeFile[]): FileSystemTree {
   return root;
 }
 
+// Strips ANSI escape/control sequences (cursor moves, line clears, color
+// codes) from process output before it's shown in the plain-text build-log
+// panel. Without this, npm's interactive spinner (`\x1b[1G\x1b[0K\|/-`
+// repeated in place) renders as literal garbage text that never looks like
+// it's progressing, even when npm is working fine — the log view has no
+// terminal emulator to interpret those codes, so it must not print them raw.
+const ANSI_PATTERN = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
+
+function stripAnsi(text: string): string {
+  return text.replace(ANSI_PATTERN, "");
+}
+
 function pumpOutput(
   stream: ReadableStream<string>,
   onLog: (line: string) => void,
@@ -71,7 +83,10 @@ function pumpOutput(
       .read()
       .then(({ done, value }) => {
         if (done) return;
-        if (value) onLog(value);
+        if (value) {
+          const cleaned = stripAnsi(value);
+          if (cleaned) onLog(cleaned);
+        }
         read();
       })
       .catch(() => {
@@ -114,7 +129,16 @@ export class WebContainerRuntime implements RuntimeProvider {
       });
 
       onStatus({ phase: "installing", message: "Installing dependencies…" });
-      const install = await container.spawn("npm", ["install"]);
+      // --no-progress: stop npm's interactive redraw-in-place spinner, which
+      // otherwise emits raw ANSI cursor/clear codes that make the log look
+      // stuck in an infinite loop even when npm is working normally.
+      // --loglevel=notice: keep real per-package/error output visible so an
+      // actually-stalled install is distinguishable from a working one.
+      const install = await container.spawn("npm", [
+        "install",
+        "--no-progress",
+        "--loglevel=notice",
+      ]);
       pumpOutput(install.output, onLog);
       const installCode = await install.exit;
       if (installCode !== 0) {

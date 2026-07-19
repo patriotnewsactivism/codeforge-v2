@@ -18,6 +18,7 @@ import type * as benchmark from "../benchmark.js";
 import type * as buildLoop from "../buildLoop.js";
 import type * as changeHistory from "../changeHistory.js";
 import type * as chat from "../chat.js";
+import type * as ciGenerator from "../ciGenerator.js";
 import type * as cinema from "../cinema.js";
 import type * as codeReview from "../codeReview.js";
 import type * as collaboration from "../collaboration.js";
@@ -81,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   buildLoop: typeof buildLoop;
   changeHistory: typeof changeHistory;
   chat: typeof chat;
+  ciGenerator: typeof ciGenerator;
   cinema: typeof cinema;
   codeReview: typeof codeReview;
   collaboration: typeof collaboration;

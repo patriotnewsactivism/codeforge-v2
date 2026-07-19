@@ -394,19 +394,34 @@ Return ONLY a JSON array (no markdown, no code fences):
       const byok = await resolveByok(ctx);
       const aiResponse = await callAI(prompt, { maxTokens: 4000, ...byok });
       const text = aiResponse.text;
-      // Log cost entry if we got usage data
+      // Log cost entry if we got usage data. This is non-critical telemetry —
+      // generateSuggestions is invoked both by real (authenticated) users and
+      // by the unauthenticated autonomous cron cycle (tickAutonomousCycles ->
+      // runAutonomousCycleInternal). costEntries.log requires an authenticated
+      // user and throws otherwise, which — before this fix — aborted the
+      // ENTIRE function before it ever reached suggestion creation below,
+      // silently killing autonomous suggestions on every single cron tick.
+      // Isolate that failure so cost tracking is best-effort, not load-bearing.
       if (aiResponse.usage) {
         // DeepSeek V3 via OpenRouter pricing: $0.28/M input, $1.14/M output
         const inputCost = (aiResponse.usage.promptTokens / 1_000_000) * 0.28;
         const outputCost =
           (aiResponse.usage.completionTokens / 1_000_000) * 1.14;
-        await ctx.runMutation(api.costEntries.log, {
-          model: "deepseek/deepseek-chat",
-          inputTokens: aiResponse.usage.promptTokens,
-          outputTokens: aiResponse.usage.completionTokens,
-          cost: inputCost + outputCost,
-          operation: "generate_suggestions",
-        });
+        try {
+          await ctx.runMutation(api.costEntries.log, {
+            model: "deepseek/deepseek-chat",
+            inputTokens: aiResponse.usage.promptTokens,
+            outputTokens: aiResponse.usage.completionTokens,
+            cost: inputCost + outputCost,
+            operation: "generate_suggestions",
+          });
+        } catch (costErr) {
+          console.error(
+            "generateSuggestions: cost logging failed (non-fatal, likely " +
+              "unauthenticated cron context) —",
+            costErr instanceof Error ? costErr.message : String(costErr),
+          );
+        }
       }
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (!jsonMatch) return 0;
