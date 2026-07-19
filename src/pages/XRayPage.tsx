@@ -5,7 +5,6 @@ import {
   BarChart3,
   Box,
   Code2,
-  Database,
   FileCode2,
   Flame,
   FolderTree,
@@ -72,10 +71,8 @@ export function XRayPage() {
     ? JSON.parse(xray.dependencies)
     : null;
   const apis = xray?.apis ? JSON.parse(xray.apis) : null;
-  const database = xray?.database ? JSON.parse(xray.database) : null;
   const tests = xray?.tests ? JSON.parse(xray.tests) : null;
   const security = xray?.security ? JSON.parse(xray.security) : null;
-  const techDebt = xray?.techDebt ? JSON.parse(xray.techDebt) : null;
   const infrastructure = xray?.infrastructure
     ? JSON.parse(xray.infrastructure)
     : null;

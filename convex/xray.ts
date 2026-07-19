@@ -628,7 +628,7 @@ const SECURITY_CHECKS: {
       "Sanitize HTML content with DOMPurify or use React's built-in escaping.",
   },
   {
-    test: (c, p) => p.endsWith(".env") && !p.includes(".example"),
+    test: (_c, p) => p.endsWith(".env") && !p.includes(".example"),
     title: ".env file committed",
     severity: "high",
     category: "secrets",
@@ -1158,7 +1158,7 @@ export const runXRay = action({
           { model },
         );
         summary = text;
-      } catch (err) {
+      } catch (_err) {
         summary = `Repository contains ${fileStats.totalFiles} files across ${languages.all.length} languages (primary: ${languages.primary}). ${apis.totalEndpoints} API endpoints detected. ${security.findings.length} security findings. ${tests.testFiles.length} test files found.`;
       }
 

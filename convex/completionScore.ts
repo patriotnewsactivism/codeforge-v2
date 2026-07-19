@@ -23,7 +23,7 @@ import { v } from "convex/values";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
-import { callAIWithFallback, getModelForRole } from "./ai";
+
 import type {
   ApiReport,
   DatabaseReport,
@@ -85,7 +85,7 @@ export function scoreToGrade(score: number): string {
 
 function scoreCompletion(
   fileStats: FileStats,
-  languages: LanguageReport,
+  _languages: LanguageReport,
   deps: DependencyReport,
   apis: ApiReport,
   db: DatabaseReport,
@@ -345,7 +345,7 @@ function scoreMaintainability(
 }
 
 function scorePerformance(
-  fileStats: FileStats,
+  _fileStats: FileStats,
   deps: DependencyReport,
   apis: ApiReport,
   _db: DatabaseReport,
@@ -673,7 +673,7 @@ export const computeScores = action({
       projectId: args.projectId,
     });
 
-    if (!report || report.status !== "done") {
+    if (report?.status !== "done") {
       return "X-Ray report not available. Run X-Ray first.";
     }
 
