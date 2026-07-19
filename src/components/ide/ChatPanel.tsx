@@ -21,15 +21,15 @@ import { UsageMeter } from "./UsageMeter";
 // in that registry silently falls back to the default model.
 const MODELS = [
   {
-    id: "groq-llama-3.3-70b",
-    name: "Llama 3.3 70B (Groq)",
+    id: "or-llama-3.3-70b",
+    name: "Llama 3.3 70B",
     shortName: "Llama 70B",
     icon: "🦙",
     color: "text-orange-400",
   },
   {
-    id: "groq-qwen3-32b",
-    name: "Qwen3 32B (Groq)",
+    id: "or-qwen-coder",
+    name: "Qwen 2.5 Coder 32B",
     shortName: "Qwen3",
     icon: "🧠",
     color: "text-cyan-400",
@@ -319,12 +319,26 @@ export function ChatPanel({
               )}
             </div>
             {msg.role === "user" && (
-              <div className="w-6 h-6 rounded-full bg-[oklch(0.25_0.02_260)] flex items-center justify-center shrink-0 mt-0.5">
-                <User className="h-3.5 w-3.5 text-muted-foreground" />
+              <div className="w-8 h-8 rounded-full bg-[oklch(0.25_0.02_260)] flex items-center justify-center shrink-0 mt-0.5">
+                <User className="h-4 w-4 text-muted-foreground" />
               </div>
             )}
           </div>
         ))}
+        
+        {!messages?.length && !isLoading && (
+          <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-4">
+            <div className="w-16 h-16 bg-[oklch(0.18_0.02_260)] rounded-full flex items-center justify-center">
+              <Bot className="w-8 h-8 text-primary" />
+            </div>
+            <div className="space-y-2 max-w-[280px]">
+              <h3 className="text-sm font-semibold text-foreground">Welcome to CodeForge AI</h3>
+              <p className="text-xs text-muted-foreground">
+                I can help you build features, write tests, or debug issues. Select a model from the top dropdown, open a file to give me context, and start chatting!
+              </p>
+            </div>
+          </div>
+        )}
 
         {isLoading && (
           <div className="flex gap-2">
@@ -373,9 +387,9 @@ export function ChatPanel({
         <div className="flex gap-2 items-end">
           <textarea
             ref={inputRef}
-            className="flex-1 min-w-0 bg-[oklch(0.18_0.02_260)] border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none overflow-hidden"
+            className="flex-1 min-w-0 bg-[oklch(0.18_0.02_260)] border border-border rounded-lg px-4 py-3 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none overflow-hidden"
             aria-label="Type a message"
-            style={{ minHeight: "38px" }}
+            style={{ minHeight: "48px" }}
             placeholder="Ask anything... (Enter to send)"
             value={input}
             onChange={handleInputChange}
@@ -385,12 +399,12 @@ export function ChatPanel({
           />
           <button
             type="button"
-            className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-primary hover:bg-primary/80 disabled:opacity-40 transition-colors"
+            className="shrink-0 w-12 h-12 flex items-center justify-center rounded-lg bg-primary hover:bg-primary/80 disabled:opacity-40 transition-colors"
             disabled={!input.trim() || isLoading}
             onClick={handleSend}
             aria-label="Send"
           >
-            <Send className="h-4 w-4 text-primary-foreground" />
+            <Send className="h-5 w-5 text-primary-foreground" />
           </button>
         </div>
       </div>

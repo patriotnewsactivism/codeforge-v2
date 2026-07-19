@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { Check, ChevronLeft, Copy, Link2, Users } from "lucide-react";
+import { Check, ChevronLeft, Copy, Link2, Users, Settings } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
@@ -100,6 +100,15 @@ export function CollaborationBar({
             </span>
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => navigate("/settings")}
+          className="p-1.5 ml-1 rounded text-muted-foreground hover:text-foreground hidden sm:flex shrink-0 transition-colors"
+          aria-label="Settings"
+          title="Settings"
+        >
+          <Settings className="h-4 w-4" />
+        </button>
       </div>
     </div>
   );
