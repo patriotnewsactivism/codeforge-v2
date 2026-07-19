@@ -31,7 +31,8 @@ export interface ModelConfig {
     | "moonshot"
     | "openai"
     | "openrouter"
-    | "azure";
+    | "azure"
+    | "kilocode";
   apiModel: string;
   inputCostPer1M: number;
   outputCostPer1M: number;
@@ -543,6 +544,32 @@ export const MODELS: Record<string, ModelConfig> = {
     maxTokens: 8192,
     tier: "strong",
   },
+  // ── Kilo Code Gateway — separate free-tier account/quota, proxies the same
+  //    OpenRouter model catalog through its own rate limits (kilocode.ai).
+  //    Requires KILOCODE_API_KEY. Adding this as its own provider gives the
+  //    fallback chain an entirely separate quota bucket from OpenRouter
+  //    itself, so if OpenRouter's free tier is rate-limited, Kilo Code's
+  //    free tier is very likely still fresh.
+  "kilocode-qwen3-coder": {
+    id: "kilocode-qwen3-coder",
+    name: "Qwen3 Coder (Kilo Code Free)",
+    provider: "kilocode",
+    apiModel: "qwen/qwen3-coder:free",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
+  "kilocode-llama-3.3-70b": {
+    id: "kilocode-llama-3.3-70b",
+    name: "Llama 3.3 70B (Kilo Code Free)",
+    provider: "kilocode",
+    apiModel: "meta-llama/llama-3.3-70b-instruct:free",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
   "or-gemini-pro": {
     id: "or-gemini-pro",
     name: "Gemini 2.5 Pro (OpenRouter)",
@@ -612,6 +639,8 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
       return "https://openrouter.ai/api/v1";
     case "azure":
       return process.env.AZURE_OPENAI_ENDPOINT ?? "";
+    case "kilocode":
+      return "https://kilocode.ai/api/openrouter/v1";
   }
 }
 
@@ -627,6 +656,7 @@ const PROVIDER_KEY_MAP: Record<ModelConfig["provider"], string> = {
   openai: "openai",
   openrouter: "openrouter",
   azure: "openai",
+  kilocode: "kilocode",
 };
 
 /**
@@ -674,6 +704,8 @@ function getApiKey(
       return process.env.OPENROUTER_API_KEY ?? "";
     case "azure":
       return process.env.AZURE_OPENAI_API_KEY ?? "";
+    case "kilocode":
+      return process.env.KILOCODE_API_KEY ?? "";
   }
 }
 
@@ -942,6 +974,8 @@ export async function callAIWithFallback(
   // own quota) -> Cerebras free tier -> paid OpenRouter as last resort.
   const fullChain = [
     requested,
+    "kilocode-qwen3-coder",
+    "kilocode-llama-3.3-70b",
     "or-devstral-free",
     "or-qwen3-coder-free",
     "or-llama-3.3-70b-free",
