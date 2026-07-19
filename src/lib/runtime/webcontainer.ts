@@ -129,16 +129,13 @@ export class WebContainerRuntime implements RuntimeProvider {
       });
 
       onStatus({ phase: "installing", message: "Installing dependencies…" });
-      // --no-progress: stop npm's interactive redraw-in-place spinner, which
-      // otherwise emits raw ANSI cursor/clear codes that make the log look
-      // stuck in an infinite loop even when npm is working normally.
-      // --loglevel=notice: keep real per-package/error output visible so an
-      // actually-stalled install is distinguishable from a working one.
-      const install = await container.spawn("npm", [
-        "install",
-        "--no-progress",
-        "--loglevel=notice",
-      ]);
+      // Reverted --no-progress/--loglevel flags added 2026-07-19 (5b36058) —
+      // suspected of causing npm to hang/error in the WebContainer runtime
+      // (reported: install got stuck with zero log output at all, worse than
+      // the pre-fix ANSI-garbage state). Back to plain `npm install`; the
+      // ANSI-stripping in pumpOutput() below is the safe, tested part of
+      // that fix and stays.
+      const install = await container.spawn("npm", ["install"]);
       pumpOutput(install.output, onLog);
       const installCode = await install.exit;
       if (installCode !== 0) {
