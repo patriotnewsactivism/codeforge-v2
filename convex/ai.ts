@@ -315,9 +315,9 @@ export const MODELS: Record<string, ModelConfig> = {
   //    with $0 OpenRouter/Cerebras/DeepSeek balance.
   "or-deepseek-v3-free": {
     id: "or-deepseek-v3-free",
-    name: "DeepSeek V3.1 (OpenRouter Free)",
+    name: "Nemotron 3 Super 120B (OpenRouter Free)",
     provider: "openrouter",
-    apiModel: "deepseek/deepseek-chat-v3.1:free",
+    apiModel: "nvidia/nemotron-3-super-120b-a12b:free",
     inputCostPer1M: 0,
     outputCostPer1M: 0,
     maxTokens: 8192,
@@ -343,12 +343,17 @@ export const MODELS: Record<string, ModelConfig> = {
     maxTokens: 8192,
     tier: "balanced",
   },
-  // Devstral — Mistral's dedicated coding-agent model, free tier via OpenRouter.
+  // NOTE: kept id "or-devstral-free" for wiring simplicity, but OpenRouter
+  // has no free Devstral/Mistral coding-agent tier right now (checked live
+  // 2026-07-19) -- substituted Cohere's free code-focused model instead.
+  // For a TRUE Mistral coding agent (Codestral), Don needs to add a native
+  // "mistral" provider + MISTRAL_API_KEY (La Plateforme has a free tier) --
+  // not yet wired here, flagging as a follow-up.
   "or-devstral-free": {
     id: "or-devstral-free",
-    name: "Devstral Small (Mistral, OpenRouter Free)",
+    name: "North Mini Code (Cohere, OpenRouter Free)",
     provider: "openrouter",
-    apiModel: "mistralai/devstral-small-2505:free",
+    apiModel: "cohere/north-mini-code:free",
     inputCostPer1M: 0,
     outputCostPer1M: 0,
     maxTokens: 8192,
@@ -359,7 +364,7 @@ export const MODELS: Record<string, ModelConfig> = {
     id: "or-poolside-free",
     name: "Poolside Laguna (OpenRouter Free)",
     provider: "openrouter",
-    apiModel: "poolside/laguna:free",
+    apiModel: "poolside/laguna-m.1:free",
     inputCostPer1M: 0,
     outputCostPer1M: 0,
     maxTokens: 8192,
