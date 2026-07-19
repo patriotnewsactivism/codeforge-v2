@@ -13,6 +13,7 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
+import { MCP_MANIFEST, type AgentRole } from "./sentry";
 
 // ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
 // Lifetime users get their stored keys injected into AI calls.
