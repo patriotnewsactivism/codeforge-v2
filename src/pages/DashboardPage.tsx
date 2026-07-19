@@ -326,7 +326,9 @@ export function DashboardPage() {
                       <button
                         type="button"
                         className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-all"
-                        onClick={e => handleDelete(project._id, project.name, e)}
+                        onClick={e =>
+                          handleDelete(project._id, project.name, e)
+                        }
                         aria-label="Delete project"
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />

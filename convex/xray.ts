@@ -184,7 +184,7 @@ function detectLanguage(path: string): string {
   if (basename === ".gitignore") return "Git Config";
   if (basename === ".env" || basename.startsWith(".env.")) return "Environment";
 
-  const ext = basename.includes(".") ? basename.split(".").pop() ?? "" : "";
+  const ext = basename.includes(".") ? (basename.split(".").pop() ?? "") : "";
   return LANG_EXTENSIONS[ext] ?? "Other";
 }
 
@@ -192,7 +192,7 @@ function analyzeLanguages(
   files: { path: string; content: string; isDirectory: boolean }[],
 ): LanguageReport {
   const langMap: Record<string, { files: number; lines: number }> = {};
-  const codeFiles = files.filter((f) => !f.isDirectory);
+  const codeFiles = files.filter(f => !f.isDirectory);
 
   for (const file of codeFiles) {
     const lang = detectLanguage(file.path);
@@ -210,7 +210,8 @@ function analyzeLanguages(
       lang,
       fileCount: stats.files,
       lineCount: stats.lines,
-      percentage: totalLines > 0 ? Math.round((stats.lines / totalLines) * 100) : 0,
+      percentage:
+        totalLines > 0 ? Math.round((stats.lines / totalLines) * 100) : 0,
     }))
     .sort((a, b) => b.lineCount - a.lineCount);
 
@@ -234,31 +235,37 @@ function analyzeDependencies(
   };
 
   // Check for lock files
-  const paths = files.map((f) => f.path);
-  if (paths.some((p) => p.endsWith("package-lock.json"))) {
+  const paths = files.map(f => f.path);
+  if (paths.some(p => p.endsWith("package-lock.json"))) {
     report.packageManager = "npm";
     report.lockFilePresent = true;
-  } else if (paths.some((p) => p.endsWith("yarn.lock"))) {
+  } else if (paths.some(p => p.endsWith("yarn.lock"))) {
     report.packageManager = "yarn";
     report.lockFilePresent = true;
-  } else if (paths.some((p) => p.endsWith("pnpm-lock.yaml"))) {
+  } else if (paths.some(p => p.endsWith("pnpm-lock.yaml"))) {
     report.packageManager = "pnpm";
     report.lockFilePresent = true;
-  } else if (paths.some((p) => p.endsWith("bun.lock") || p.endsWith("bun.lockb"))) {
+  } else if (
+    paths.some(p => p.endsWith("bun.lock") || p.endsWith("bun.lockb"))
+  ) {
     report.packageManager = "bun";
     report.lockFilePresent = true;
   }
 
   // Parse package.json
   const pkgFile = files.find(
-    (f) => f.path === "package.json" || f.path.endsWith("/package.json"),
+    f => f.path === "package.json" || f.path.endsWith("/package.json"),
   );
   if (pkgFile) {
     try {
       const pkg = JSON.parse(pkgFile.content);
       if (pkg.dependencies) {
         for (const [name, version] of Object.entries(pkg.dependencies)) {
-          report.runtime.push({ name, version: String(version), type: "runtime" });
+          report.runtime.push({
+            name,
+            version: String(version),
+            type: "runtime",
+          });
         }
       }
       if (pkg.devDependencies) {
@@ -281,13 +288,13 @@ function analyzeDependencies(
 
   // Parse requirements.txt (Python)
   const reqFile = files.find(
-    (f) =>
-      f.path === "requirements.txt" ||
-      f.path.endsWith("/requirements.txt"),
+    f => f.path === "requirements.txt" || f.path.endsWith("/requirements.txt"),
   );
   if (reqFile) {
     report.packageManager = "pip";
-    const lines = reqFile.content.split("\n").filter((l) => l.trim() && !l.startsWith("#"));
+    const lines = reqFile.content
+      .split("\n")
+      .filter(l => l.trim() && !l.startsWith("#"));
     for (const line of lines) {
       const match = line.match(/^([a-zA-Z0-9_-]+)([><=!~].+)?/);
       if (match) {
@@ -302,13 +309,13 @@ function analyzeDependencies(
 
   // Parse go.mod
   const goMod = files.find(
-    (f) => f.path === "go.mod" || f.path.endsWith("/go.mod"),
+    f => f.path === "go.mod" || f.path.endsWith("/go.mod"),
   );
   if (goMod) {
     report.packageManager = "go modules";
     const requireBlock = goMod.content.match(/require\s*\(([\s\S]*?)\)/);
     if (requireBlock) {
-      const lines = requireBlock[1].split("\n").filter((l) => l.trim());
+      const lines = requireBlock[1].split("\n").filter(l => l.trim());
       for (const line of lines) {
         const parts = line.trim().split(/\s+/);
         if (parts.length >= 2) {
@@ -329,30 +336,67 @@ function analyzeDependencies(
 
 const API_PATTERNS: { regex: RegExp; method: string; framework: string }[] = [
   // Express / Koa / Fastify
-  { regex: /\.(get|post|put|patch|delete|options|head)\s*\(\s*['"](\/[^'"]*)['"]/gi, method: "GET", framework: "Express" },
+  {
+    regex:
+      /\.(get|post|put|patch|delete|options|head)\s*\(\s*['"](\/[^'"]*)['"]/gi,
+    method: "GET",
+    framework: "Express",
+  },
   // Next.js App Router
-  { regex: /export\s+(async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)\s*\(/gi, method: "GET", framework: "Next.js" },
+  {
+    regex: /export\s+(async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)\s*\(/gi,
+    method: "GET",
+    framework: "Next.js",
+  },
   // FastAPI (Python)
-  { regex: /@app\.(get|post|put|patch|delete)\s*\(\s*['"](\/[^'"]*)['"]/gi, method: "GET", framework: "FastAPI" },
+  {
+    regex: /@app\.(get|post|put|patch|delete)\s*\(\s*['"](\/[^'"]*)['"]/gi,
+    method: "GET",
+    framework: "FastAPI",
+  },
   // Flask (Python)
-  { regex: /@app\.route\s*\(\s*['"](\/[^'"]*)['"]/gi, method: "GET", framework: "Flask" },
+  {
+    regex: /@app\.route\s*\(\s*['"](\/[^'"]*)['"]/gi,
+    method: "GET",
+    framework: "Flask",
+  },
   // Django
-  { regex: /path\s*\(\s*['"]([\w/]*)['"]/gi, method: "GET", framework: "Django" },
+  {
+    regex: /path\s*\(\s*['"]([\w/]*)['"]/gi,
+    method: "GET",
+    framework: "Django",
+  },
   // Convex HTTP routes
-  { regex: /http\.route\s*\(\s*\{[\s\S]*?path:\s*['"](\/[^'"]*)['"]/gi, method: "GET", framework: "Convex" },
+  {
+    regex: /http\.route\s*\(\s*\{[\s\S]*?path:\s*['"](\/[^'"]*)['"]/gi,
+    method: "GET",
+    framework: "Convex",
+  },
   // Gin (Go)
-  { regex: /\.(GET|POST|PUT|PATCH|DELETE)\s*\(\s*['"](\/[^'"]*)['"]/gi, method: "GET", framework: "Gin" },
+  {
+    regex: /\.(GET|POST|PUT|PATCH|DELETE)\s*\(\s*['"](\/[^'"]*)['"]/gi,
+    method: "GET",
+    framework: "Gin",
+  },
 ];
 
 const AUTH_INDICATORS = [
-  "auth", "authenticate", "authorize", "jwt", "token",
-  "middleware", "guard", "protected", "bearer", "session",
-  "getUserIdentity", "getAuthUserId", "requireAuth",
+  "auth",
+  "authenticate",
+  "authorize",
+  "jwt",
+  "token",
+  "middleware",
+  "guard",
+  "protected",
+  "bearer",
+  "session",
+  "getUserIdentity",
+  "getAuthUserId",
+  "requireAuth",
 ];
 
-function analyzeApis(
-  files: { path: string; content: string }[],
-): ApiReport {
+function analyzeApis(files: { path: string; content: string }[]): ApiReport {
   const routes: ApiRoute[] = [];
   const frameworks = new Set<string>();
 
@@ -366,7 +410,7 @@ function analyzeApis(
           Math.max(0, (match.index ?? 0) - 200),
           Math.min(file.content.length, (match.index ?? 0) + 500),
         );
-        const hasAuth = AUTH_INDICATORS.some((indicator) =>
+        const hasAuth = AUTH_INDICATORS.some(indicator =>
           surroundingCode.toLowerCase().includes(indicator),
         );
 
@@ -416,15 +460,24 @@ function analyzeDatabase(
       report.orm = "Drizzle";
       report.schemas.push(file.path);
     }
-    if (file.content.includes("mongoose.Schema") || file.content.includes("mongoose.model")) {
+    if (
+      file.content.includes("mongoose.Schema") ||
+      file.content.includes("mongoose.model")
+    ) {
       report.orm = "Mongoose";
       report.schemas.push(file.path);
     }
-    if (file.content.includes("Sequelize") || file.content.includes("sequelize")) {
+    if (
+      file.content.includes("Sequelize") ||
+      file.content.includes("sequelize")
+    ) {
       report.orm = "Sequelize";
       report.schemas.push(file.path);
     }
-    if (file.content.includes("SQLAlchemy") || file.content.includes("declarative_base")) {
+    if (
+      file.content.includes("SQLAlchemy") ||
+      file.content.includes("declarative_base")
+    ) {
       report.orm = "SQLAlchemy";
       report.schemas.push(file.path);
     }
@@ -453,9 +506,7 @@ function analyzeDatabase(
 
 // ─── TEST COVERAGE ──────────────────────────────────────────────────────────
 
-function analyzeTests(
-  files: { path: string; content: string }[],
-): TestReport {
+function analyzeTests(files: { path: string; content: string }[]): TestReport {
   const report: TestReport = {
     framework: null,
     testFiles: [],
@@ -504,51 +555,98 @@ function analyzeTests(
 
 // ─── SECURITY ANALYSIS ──────────────────────────────────────────────────────
 
-const SECRET_PATTERNS: { regex: RegExp; title: string; severity: SecurityFinding["severity"] }[] = [
-  { regex: /(?:api[_-]?key|apikey)\s*[:=]\s*['"][a-zA-Z0-9_\-]{20,}['"]/gi, title: "Hardcoded API key", severity: "critical" },
-  { regex: /(?:password|passwd|pwd)\s*[:=]\s*['"][^'"]{4,}['"]/gi, title: "Hardcoded password", severity: "critical" },
-  { regex: /(?:secret|private[_-]?key)\s*[:=]\s*['"][a-zA-Z0-9_\-/+=]{16,}['"]/gi, title: "Hardcoded secret", severity: "critical" },
-  { regex: /(?:aws_access_key_id|aws_secret_access_key)\s*[:=]\s*['"][A-Za-z0-9/+=]{16,}['"]/gi, title: "AWS credentials in code", severity: "critical" },
-  { regex: /ghp_[a-zA-Z0-9]{36,}/g, title: "GitHub Personal Access Token", severity: "critical" },
-  { regex: /sk-[a-zA-Z0-9]{32,}/g, title: "OpenAI API key", severity: "critical" },
-  { regex: /-----BEGIN (RSA |EC )?PRIVATE KEY-----/g, title: "Private key in code", severity: "critical" },
+const SECRET_PATTERNS: {
+  regex: RegExp;
+  title: string;
+  severity: SecurityFinding["severity"];
+}[] = [
+  {
+    regex: /(?:api[_-]?key|apikey)\s*[:=]\s*['"][a-zA-Z0-9_-]{20,}['"]/gi,
+    title: "Hardcoded API key",
+    severity: "critical",
+  },
+  {
+    regex: /(?:password|passwd|pwd)\s*[:=]\s*['"][^'"]{4,}['"]/gi,
+    title: "Hardcoded password",
+    severity: "critical",
+  },
+  {
+    regex:
+      /(?:secret|private[_-]?key)\s*[:=]\s*['"][a-zA-Z0-9_\-/+=]{16,}['"]/gi,
+    title: "Hardcoded secret",
+    severity: "critical",
+  },
+  {
+    regex:
+      /(?:aws_access_key_id|aws_secret_access_key)\s*[:=]\s*['"][A-Za-z0-9/+=]{16,}['"]/gi,
+    title: "AWS credentials in code",
+    severity: "critical",
+  },
+  {
+    regex: /ghp_[a-zA-Z0-9]{36,}/g,
+    title: "GitHub Personal Access Token",
+    severity: "critical",
+  },
+  {
+    regex: /sk-[a-zA-Z0-9]{32,}/g,
+    title: "OpenAI API key",
+    severity: "critical",
+  },
+  {
+    regex: /-----BEGIN (RSA |EC )?PRIVATE KEY-----/g,
+    title: "Private key in code",
+    severity: "critical",
+  },
 ];
 
-const SECURITY_CHECKS: { test: (content: string, path: string) => boolean; title: string; severity: SecurityFinding["severity"]; category: string; description: string; remediation: string }[] = [
+const SECURITY_CHECKS: {
+  test: (content: string, path: string) => boolean;
+  title: string;
+  severity: SecurityFinding["severity"];
+  category: string;
+  description: string;
+  remediation: string;
+}[] = [
   {
-    test: (c) => /eval\s*\(/.test(c),
+    test: c => /eval\s*\(/.test(c),
     title: "Use of eval()",
     severity: "high",
     category: "injection",
-    description: "eval() can execute arbitrary code and is a common injection vector.",
-    remediation: "Replace eval() with safer alternatives like JSON.parse() or Function constructors with validated input.",
+    description:
+      "eval() can execute arbitrary code and is a common injection vector.",
+    remediation:
+      "Replace eval() with safer alternatives like JSON.parse() or Function constructors with validated input.",
   },
   {
-    test: (c) => /dangerouslySetInnerHTML/.test(c),
+    test: c => /dangerouslySetInnerHTML/.test(c),
     title: "dangerouslySetInnerHTML usage",
     severity: "medium",
     category: "xss",
-    description: "dangerouslySetInnerHTML can lead to XSS if the content is not sanitized.",
-    remediation: "Sanitize HTML content with DOMPurify or use React's built-in escaping.",
+    description:
+      "dangerouslySetInnerHTML can lead to XSS if the content is not sanitized.",
+    remediation:
+      "Sanitize HTML content with DOMPurify or use React's built-in escaping.",
   },
   {
     test: (c, p) => p.endsWith(".env") && !p.includes(".example"),
     title: ".env file committed",
     severity: "high",
     category: "secrets",
-    description: "Environment files with real secrets should not be in the repository.",
+    description:
+      "Environment files with real secrets should not be in the repository.",
     remediation: "Add .env to .gitignore and use .env.example for templates.",
   },
   {
-    test: (c) => /cors\s*\(\s*\{?\s*origin\s*:\s*['"]\*['"]/i.test(c),
+    test: c => /cors\s*\(\s*\{?\s*origin\s*:\s*['"]\*['"]/i.test(c),
     title: "CORS allows all origins",
     severity: "medium",
     category: "cors",
-    description: "Wildcard CORS origin allows any website to make requests to your API.",
+    description:
+      "Wildcard CORS origin allows any website to make requests to your API.",
     remediation: "Restrict CORS to specific trusted domains.",
   },
   {
-    test: (c) => /http:\/\/(?!localhost|127\.0\.0\.1)/.test(c),
+    test: c => /http:\/\/(?!localhost|127\.0\.0\.1)/.test(c),
     title: "Non-HTTPS URL in code",
     severity: "low",
     category: "transport",
@@ -604,16 +702,20 @@ function analyzeSecurity(
   }
 
   // Check for missing security features
-  const allContent = files.map((f) => f.content).join("\n");
-  const allPaths = files.map((f) => f.path);
+  const allContent = files.map(f => f.content).join("\n");
+  const allPaths = files.map(f => f.path);
 
-  if (!allContent.includes("helmet") && allPaths.some((p) => p.includes("server") || p.includes("express"))) {
+  if (
+    !allContent.includes("helmet") &&
+    allPaths.some(p => p.includes("server") || p.includes("express"))
+  ) {
     findings.push({
       severity: "medium",
       category: "headers",
       title: "No security headers middleware (helmet)",
       description: "Server-side application missing security headers.",
-      remediation: "Add helmet middleware for Express or equivalent security headers.",
+      remediation:
+        "Add helmet middleware for Express or equivalent security headers.",
     });
   }
 
@@ -622,7 +724,8 @@ function analyzeSecurity(
       severity: "low",
       category: "rate_limiting",
       title: "No rate limiting detected",
-      description: "API endpoints may be vulnerable to abuse without rate limiting.",
+      description:
+        "API endpoints may be vulnerable to abuse without rate limiting.",
       remediation: "Add rate limiting middleware (e.g., express-rate-limit).",
     });
   }
@@ -659,14 +762,21 @@ function analyzeTechDebt(
   const complexities: number[] = [];
 
   for (const file of files) {
-    if (file.path.includes("node_modules") || file.path.includes(".lock")) continue;
+    if (file.path.includes("node_modules") || file.path.includes(".lock"))
+      continue;
 
     const lines = file.content.split("\n");
 
     // Count annotations
-    const todos = (file.content.match(/\/\/\s*TODO|#\s*TODO|\/\*\s*TODO/gi) ?? []).length;
-    const fixmes = (file.content.match(/\/\/\s*FIXME|#\s*FIXME|\/\*\s*FIXME/gi) ?? []).length;
-    const hacks = (file.content.match(/\/\/\s*HACK|#\s*HACK|\/\*\s*HACK/gi) ?? []).length;
+    const todos = (
+      file.content.match(/\/\/\s*TODO|#\s*TODO|\/\*\s*TODO/gi) ?? []
+    ).length;
+    const fixmes = (
+      file.content.match(/\/\/\s*FIXME|#\s*FIXME|\/\*\s*FIXME/gi) ?? []
+    ).length;
+    const hacks = (
+      file.content.match(/\/\/\s*HACK|#\s*HACK|\/\*\s*HACK/gi) ?? []
+    ).length;
     todoCount += todos;
     fixmeCount += fixmes;
     hackCount += hacks;
@@ -756,7 +866,11 @@ function analyzeInfrastructure(
     const lower = file.path.toLowerCase();
 
     // Docker
-    if (lower.includes("dockerfile") || lower === "docker-compose.yml" || lower === "docker-compose.yaml") {
+    if (
+      lower.includes("dockerfile") ||
+      lower === "docker-compose.yml" ||
+      lower === "docker-compose.yaml"
+    ) {
       report.hasDocker = true;
       report.dockerFiles.push(file.path);
     }
@@ -800,18 +914,30 @@ function analyzeInfrastructure(
       report.deployTarget = "Terraform";
       report.deployConfigs.push(file.path);
     }
-    if (lower.includes("k8s") || lower.includes("kubernetes") || lower.endsWith(".yaml") && file.content.includes("apiVersion:")) {
+    if (
+      lower.includes("k8s") ||
+      lower.includes("kubernetes") ||
+      (lower.endsWith(".yaml") && file.content.includes("apiVersion:"))
+    ) {
       report.deployTarget = "Kubernetes";
       report.deployConfigs.push(file.path);
     }
 
     // Env templates
-    if (lower.endsWith(".env.example") || lower.endsWith(".env.template") || lower.endsWith(".env.sample")) {
+    if (
+      lower.endsWith(".env.example") ||
+      lower.endsWith(".env.template") ||
+      lower.endsWith(".env.sample")
+    ) {
       report.envTemplates.push(file.path);
     }
 
     // Health check
-    if (file.content.includes("/health") || file.content.includes("/healthz") || file.content.includes("healthCheck")) {
+    if (
+      file.content.includes("/health") ||
+      file.content.includes("/healthz") ||
+      file.content.includes("healthCheck")
+    ) {
       report.hasHealthCheck = true;
     }
   }
@@ -824,7 +950,7 @@ function analyzeInfrastructure(
 function computeFileStats(
   files: { path: string; content: string; isDirectory: boolean }[],
 ): FileStats {
-  const codeFiles = files.filter((f) => !f.isDirectory);
+  const codeFiles = files.filter(f => !f.isDirectory);
   const byLanguage: Record<string, { files: number; lines: number }> = {};
 
   let totalLines = 0;
@@ -869,11 +995,7 @@ export const updateXRayReport = mutation({
   args: {
     reportId: v.id("xrayReports"),
     status: v.optional(
-      v.union(
-        v.literal("running"),
-        v.literal("done"),
-        v.literal("error"),
-      ),
+      v.union(v.literal("running"), v.literal("done"), v.literal("error")),
     ),
     languages: v.optional(v.string()),
     dependencies: v.optional(v.string()),
@@ -904,7 +1026,7 @@ export const getLatestXRay = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("xrayReports")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .first();
   },
@@ -915,7 +1037,7 @@ export const listXRayReports = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("xrayReports")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .withIndex("by_project", q => q.eq("projectId", args.projectId))
       .order("desc")
       .take(10);
   },
@@ -976,15 +1098,46 @@ export const runXRay = action({
 
       // 5. Generate AI summary
       const analysisContext = JSON.stringify({
-        languages: { primary: languages.primary, totalLanguages: languages.all.length },
-        dependencies: { runtime: dependencies.runtime.length, dev: dependencies.dev.length, manager: dependencies.packageManager },
-        apis: { totalEndpoints: apis.totalEndpoints, frameworks: apis.frameworks },
+        languages: {
+          primary: languages.primary,
+          totalLanguages: languages.all.length,
+        },
+        dependencies: {
+          runtime: dependencies.runtime.length,
+          dev: dependencies.dev.length,
+          manager: dependencies.packageManager,
+        },
+        apis: {
+          totalEndpoints: apis.totalEndpoints,
+          frameworks: apis.frameworks,
+        },
         database: { orm: database.orm, schemaCount: database.schemas.length },
-        tests: { framework: tests.framework, testFiles: tests.testFiles.length, testCount: tests.testCount },
-        security: { findingCount: security.findings.length, score: security.score, criticalCount: security.findings.filter((f) => f.severity === "critical").length },
-        techDebt: { todoCount: techDebt.todoCount, largeFiles: techDebt.largeFileCount, avgComplexity: techDebt.avgComplexity },
-        infrastructure: { hasDocker: infrastructure.hasDocker, ci: infrastructure.ciProvider, deploy: infrastructure.deployTarget },
-        fileStats: { totalFiles: fileStats.totalFiles, totalLines: fileStats.totalLines },
+        tests: {
+          framework: tests.framework,
+          testFiles: tests.testFiles.length,
+          testCount: tests.testCount,
+        },
+        security: {
+          findingCount: security.findings.length,
+          score: security.score,
+          criticalCount: security.findings.filter(
+            f => f.severity === "critical",
+          ).length,
+        },
+        techDebt: {
+          todoCount: techDebt.todoCount,
+          largeFiles: techDebt.largeFileCount,
+          avgComplexity: techDebt.avgComplexity,
+        },
+        infrastructure: {
+          hasDocker: infrastructure.hasDocker,
+          ci: infrastructure.ciProvider,
+          deploy: infrastructure.deployTarget,
+        },
+        fileStats: {
+          totalFiles: fileStats.totalFiles,
+          totalLines: fileStats.totalLines,
+        },
       });
 
       let summary = "";

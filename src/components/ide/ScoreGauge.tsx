@@ -32,9 +32,27 @@ function scoreToTrailColor(score: number): string {
 }
 
 const SIZES = {
-  sm: { r: 36, stroke: 5, textSize: "text-lg", labelSize: "text-[10px]", gradeSize: "text-[9px]" },
-  md: { r: 50, stroke: 6, textSize: "text-2xl", labelSize: "text-xs", gradeSize: "text-[10px]" },
-  lg: { r: 64, stroke: 8, textSize: "text-3xl", labelSize: "text-sm", gradeSize: "text-xs" },
+  sm: {
+    r: 36,
+    stroke: 5,
+    textSize: "text-lg",
+    labelSize: "text-[10px]",
+    gradeSize: "text-[9px]",
+  },
+  md: {
+    r: 50,
+    stroke: 6,
+    textSize: "text-2xl",
+    labelSize: "text-xs",
+    gradeSize: "text-[10px]",
+  },
+  lg: {
+    r: 64,
+    stroke: 8,
+    textSize: "text-3xl",
+    labelSize: "text-sm",
+    gradeSize: "text-xs",
+  },
 };
 
 export function ScoreGauge({
@@ -115,7 +133,10 @@ export function ScoreGauge({
         {/* Center content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span
-            className={cn("font-bold tabular-nums tracking-tight", cfg.textSize)}
+            className={cn(
+              "font-bold tabular-nums tracking-tight",
+              cfg.textSize,
+            )}
             style={{ color }}
           >
             {displayScore}
@@ -134,7 +155,12 @@ export function ScoreGauge({
           </span>
         </div>
       </div>
-      <span className={cn("text-center font-medium text-muted-foreground", cfg.labelSize)}>
+      <span
+        className={cn(
+          "text-center font-medium text-muted-foreground",
+          cfg.labelSize,
+        )}
+      >
         {label}
       </span>
     </div>

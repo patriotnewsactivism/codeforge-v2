@@ -24,7 +24,10 @@ interface GapCardProps {
   fixing?: boolean;
 }
 
-const PRIORITY_STYLES: Record<string, { bg: string; text: string; border: string; icon: React.ReactNode }> = {
+const PRIORITY_STYLES: Record<
+  string,
+  { bg: string; text: string; border: string; icon: React.ReactNode }
+> = {
   critical: {
     bg: "bg-red-500/10",
     text: "text-red-400",
@@ -83,7 +86,9 @@ export function GapCard({
   const [isHovered, setIsHovered] = useState(false);
   const style = PRIORITY_STYLES[priority] ?? PRIORITY_STYLES.medium;
   const effortInfo = EFFORT_LABELS[effort] ?? EFFORT_LABELS.medium;
-  const categoryIcon = CATEGORY_ICONS[category] ?? <Sparkles className="h-4 w-4" />;
+  const categoryIcon = CATEGORY_ICONS[category] ?? (
+    <Sparkles className="h-4 w-4" />
+  );
 
   return (
     <div
@@ -97,7 +102,10 @@ export function GapCard({
     >
       {/* Priority indicator bar */}
       <div
-        className={cn("absolute left-0 top-0 h-full w-1 rounded-l-lg", style.bg)}
+        className={cn(
+          "absolute left-0 top-0 h-full w-1 rounded-l-lg",
+          style.bg,
+        )}
         style={{
           background: `linear-gradient(to bottom, ${style.text.replace("text-", "").replace("-400", "")}80, transparent)`,
         }}
