@@ -232,6 +232,42 @@ export const addMessage = mutation({
 
 // ─── AI Chat Action ───────────────────────────────────────────────────────────
 
+/**
+ * Determines if a user message is an imperative code-action request (should
+ * trigger an agent mission) vs. a question/explanation (direct AI response).
+ *
+ * Rules:
+ * 1. Explicit `@build` or `/build` prefix always triggers a mission.
+ * 2. Messages starting with question words (how, what, why, explain, etc.)
+ *    are always direct AI — even if they contain action verbs like "build".
+ * 3. Short messages (<6 words) with action verbs are missions.
+ * 4. Longer messages need both an action verb AND lack question patterns.
+ */
+function shouldTriggerMission(content: string): boolean {
+  const trimmed = content.trim();
+
+  // Explicit triggers
+  if (/^[@/]build\b/i.test(trimmed)) return true;
+  if (/^[@/]agent\b/i.test(trimmed)) return true;
+
+  // Question patterns — always direct AI
+  const questionPatterns =
+    /^(how|what|why|where|when|which|who|can you|could you|would you|should i|is it|is there|are there|does|do|explain|tell me|describe|show me|help me understand|i('m| am) (confused|wondering|curious|unsure|not sure))/i;
+  if (questionPatterns.test(trimmed)) return false;
+
+  // Action verb detection
+  const actionVerbs =
+    /\b(build|create|add|make|implement|fix|refactor|update|write|generate|change|edit|delete|remove|style|design|migrate|rename|move|replace|convert|upgrade|optimize|improve|debug|deploy|set up|setup|install|configure|scaffold|wire up|connect|integrate)\b/i;
+  const hasActionVerb = actionVerbs.test(trimmed);
+
+  if (!hasActionVerb) return false;
+
+  // If it ends with a question mark, it's a question
+  if (trimmed.endsWith("?")) return false;
+
+  return true;
+}
+
 export const sendMessage = action({
   args: {
     sessionId: v.id("chatSessions"),
@@ -246,7 +282,7 @@ export const sendMessage = action({
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
-    // Build file context string
+    // Build file context string from open files
     let combinedContext = "";
     if (args.fileContexts?.length) {
       combinedContext = args.fileContexts
@@ -282,38 +318,78 @@ export const sendMessage = action({
     // ── BYOK: resolve caller plan + user keys ─────────────────────────────
     const byok = await resolveByok(ctx, String(args.userId));
 
+    // ── Fetch conversation history ────────────────────────────────────────
+    const allMessages = await ctx.runQuery(api.chat.listMessages, {
+      sessionId: args.sessionId,
+    });
+    // Keep last 20 messages for context (10 exchanges)
+    const recentMessages = (allMessages ?? []).slice(-20);
+
+    // ── Fetch ALL project files for context (truncated) ───────────────────
+    const projectFiles = await ctx.runQuery(api.files.listByProject, {
+      projectId: args.projectId,
+    });
+    const codeFiles = projectFiles.filter((f: any) => !f.isDirectory);
+    // Build truncated project overview: full content for small files, first
+    // 300 chars for larger ones. Cap total at ~8000 chars.
+    let projectContext = "";
+    let charBudget = 8000;
+    for (const f of codeFiles) {
+      if (charBudget <= 0) break;
+      const content = f.content ?? "";
+      const truncated =
+        content.length <= 500 ? content : content.slice(0, 300) + "\n// ...";
+      const entry = `--- ${f.path} ---\n${truncated}\n\n`;
+      projectContext += entry;
+      charBudget -= entry.length;
+    }
+
     // ── SMART ROUTING ──────────────────────────────────────────────────────
-    // Code-action keywords → dispatch to engine.runMission (full agent loop)
-    // Questions/explanations → direct AI response (fast, cheap)
-    const isCodeRequest =
-      /\b(build|create|add|make|implement|fix|refactor|update|write|generate|change|edit|delete|remove|style|design|migrate|rename|move|replace|convert|upgrade|optimize|improve|debug|deploy)\b/i.test(
-        args.content,
-      );
+    const isCodeRequest = shouldTriggerMission(args.content);
 
     // ── PATH A: Direct AI (questions, explanations, reviews) ───────────────
     if (!isCodeRequest) {
       const systemPrompt =
-        "You are CodeForge, an expert software engineer assistant. " +
-        "Answer questions clearly and concisely. When reviewing code, be specific and actionable. " +
-        "Format code blocks with proper syntax highlighting markers.";
+        `You are CodeForge AI, an expert software engineer assistant embedded in a web-based IDE. ` +
+        `You help developers understand, debug, and improve their code. ` +
+        `Answer questions clearly and concisely. Use markdown formatting with proper syntax-highlighted code blocks. ` +
+        `When reviewing code, be specific and actionable — suggest exact code changes. ` +
+        `You have full access to the user's project files listed below.\n\n` +
+        `PROJECT FILES:\n${projectContext}`;
 
+      // Build a proper messages array with conversation history
+      const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
+        { role: "system", content: systemPrompt },
+      ];
+
+      // Add conversation history (excluding the current message which we just added)
+      for (const msg of recentMessages.slice(0, -1)) {
+        if (msg.role === "user" || msg.role === "assistant") {
+          messages.push({
+            role: msg.role,
+            content: msg.content.slice(0, 2000), // Truncate long messages
+          });
+        }
+      }
+
+      // Add the current user message with any open-file context
       const userMessage = combinedContext
-        ? `CONTEXT:\n${combinedContext.slice(0, 6000)}\n\nQUESTION: ${args.content}`
+        ? `CURRENTLY OPEN FILES:\n${combinedContext.slice(0, 6000)}\n\nUSER MESSAGE: ${args.content}`
         : args.content;
+      messages.push({ role: "user", content: userMessage });
 
       try {
         const { text: result, modelUsed } = await callAIWithFallback(
-          userMessage,
+          messages,
           {
             model: args.model,
-            systemPrompt,
             callerPlan: byok.callerPlan,
             userKeys: byok.userKeys,
           },
         );
 
         const inputEst = estimateCost(
-          args.content + combinedContext,
+          args.content + combinedContext + projectContext,
           modelUsed,
           false,
         );
@@ -372,14 +448,52 @@ export const sendMessage = action({
         action: "start_mission",
       });
 
+      // Notify the user that a mission is starting
+      await ctx.runMutation(api.chat.addMessage, {
+        sessionId: args.sessionId,
+        projectId: args.projectId,
+        role: "assistant",
+        content: `🚀 **Starting agent mission...**\n\nI'm launching an AI agent to work on: *${args.content.slice(0, 100)}*\n\nYou can watch progress in the **Activity** panel. I'll post a summary here when it's done.`,
+      });
+
+      // Strip @build / /build prefix before sending to engine
+      const cleanPrompt = args.content.replace(/^[@/](build|agent)\s*/i, "").trim();
+
       // Fire off the agent engine
       const result: string = await ctx.runAction(api.engine.runMission, {
         projectId: args.projectId,
-        prompt: args.content,
+        prompt: cleanPrompt,
         model: args.model,
       });
 
-      const summary = `✅ Mission complete.\n\n${result}`;
+      // Build a structured summary
+      const toolCalls = await ctx.runQuery(api.engine.listToolCalls, {
+        projectId: args.projectId,
+        limit: 50,
+      });
+      const recentCalls = (toolCalls ?? []).slice(-30);
+      const filesCreated = new Set<string>();
+      const filesEdited = new Set<string>();
+      const filesDeleted = new Set<string>();
+      for (const tc of recentCalls) {
+        try {
+          const parsedArgs = JSON.parse(tc.args);
+          if (tc.tool === "create_file" && parsedArgs.path) filesCreated.add(parsedArgs.path);
+          if (tc.tool === "edit_file" && parsedArgs.path) filesEdited.add(parsedArgs.path);
+          if (tc.tool === "delete_file" && parsedArgs.path) filesDeleted.add(parsedArgs.path);
+        } catch { /* ignore parse errors */ }
+      }
+
+      let summary = `✅ **Mission complete!**\n\n${result}`;
+      if (filesCreated.size > 0) {
+        summary += `\n\n**Files created:** ${[...filesCreated].map(f => `\`${f}\``).join(", ")}`;
+      }
+      if (filesEdited.size > 0) {
+        summary += `\n\n**Files modified:** ${[...filesEdited].map(f => `\`${f}\``).join(", ")}`;
+      }
+      if (filesDeleted.size > 0) {
+        summary += `\n\n**Files deleted:** ${[...filesDeleted].map(f => `\`${f}\``).join(", ")}`;
+      }
 
       await ctx.runMutation(api.chat.addMessage, {
         sessionId: args.sessionId,
@@ -396,7 +510,7 @@ export const sendMessage = action({
         sessionId: args.sessionId,
         projectId: args.projectId,
         role: "assistant",
-        content: `❌ Mission failed: ${errMsg}`,
+        content: `❌ **Mission failed:** ${errMsg}`,
         isError: true,
       });
       throw err;
