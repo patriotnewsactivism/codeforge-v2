@@ -125,6 +125,7 @@ export function IDEPage() {
   const updateFileContent = useMutation(api.files.updateContent);
   const createFile = useMutation(api.files.create);
   const deleteFile = useMutation(api.files.remove);
+  const renameFile = useMutation(api.files.rename);
   const getOrCreateSession = useMutation(api.chat.getOrCreateSession);
   const heartbeat = useMutation(api.collaboration.heartbeat);
   const generateSuggestions = useAction(api.suggestions.generateSuggestions);
@@ -387,6 +388,37 @@ export function IDEPage() {
       }
     },
     [deleteFile, handleTabClose],
+  );
+
+  const handleRenameFile = useCallback(
+    async (fileId: Id<"files">, newName: string) => {
+      if (!files) return;
+      const file = files.find((f: NonNullable<typeof files>[number]) => f._id === fileId);
+      if (!file) return;
+      const parts = file.path.split("/");
+      parts[parts.length - 1] = newName;
+      const newPath = parts.join("/");
+      
+      try {
+        await renameFile({ fileId, newName, newPath });
+        if (activeFilePath === file.path) {
+          setActiveFilePath(newPath);
+        }
+        setOpenFilePaths(prev => prev.map(p => p === file.path ? newPath : p));
+        if (fileBuffers.has(file.path)) {
+          const content = fileBuffers.get(file.path)!;
+          setFileBuffers(prev => {
+            const next = new Map(prev);
+            next.delete(file.path);
+            next.set(newPath, content);
+            return next;
+          });
+        }
+      } catch {
+        toast.error("Failed to rename file");
+      }
+    },
+    [files, activeFilePath, renameFile, fileBuffers],
   );
 
   const handleImplementSuggestion = useCallback(
@@ -822,10 +854,11 @@ export function IDEPage() {
                       files={files}
                       activeFilePath={activeFilePath}
                       onFileSelect={handleFileSelect}
-                      onCreateFile={(name: string) =>
-                        void handleCreateFile(name, false)
+                      onCreateFile={(name: string, isDir: boolean) =>
+                        void handleCreateFile(name, isDir)
                       }
                       onDeleteFile={fileId => void handleDeleteFile(fileId, "")}
+                      onRenameFile={handleRenameFile}
                       collaborators={collaborators}
                     />
                   )}
@@ -872,10 +905,11 @@ export function IDEPage() {
                     files={files}
                     activeFilePath={activeFilePath}
                     onFileSelect={handleFileSelect}
-                    onCreateFile={(name: string) =>
-                      void handleCreateFile(name, false)
+                    onCreateFile={(name: string, isDir: boolean) =>
+                      void handleCreateFile(name, isDir)
                     }
                     onDeleteFile={fileId => void handleDeleteFile(fileId, "")}
+                    onRenameFile={handleRenameFile}
                     collaborators={collaborators}
                   />
                 )}

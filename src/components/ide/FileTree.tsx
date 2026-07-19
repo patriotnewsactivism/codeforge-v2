@@ -1,12 +1,14 @@
 import {
   ChevronDown,
   ChevronRight,
+  Edit2,
   File,
   FileCode,
   FileJson,
   FileText,
   Folder,
   FolderOpen,
+  FolderPlus,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -18,8 +20,9 @@ interface FileTreeProps {
   files: Doc<"files">[];
   activeFilePath: string | null;
   onFileSelect: (file: Doc<"files">) => void;
-  onCreateFile?: (name: string) => void;
+  onCreateFile?: (name: string, isDirectory: boolean) => void;
   onDeleteFile?: (fileId: Id<"files">) => void;
+  onRenameFile?: (fileId: Id<"files">, newName: string) => void;
   collaborators?: Doc<"collaborators">[];
 }
 
@@ -33,6 +36,7 @@ interface TreeNode {
 
 function buildTree(files: Doc<"files">[]): TreeNode[] {
   const root: TreeNode[] = [];
+  const map = new Map<string, TreeNode>();
 
   // Sort: directories first, then by name
   const sorted = [...files].sort((a, b) => {
@@ -42,16 +46,30 @@ function buildTree(files: Doc<"files">[]): TreeNode[] {
 
   for (const file of sorted) {
     const parts = file.path.split("/");
-    if (parts.length === 1) {
-      root.push({
-        name: file.name,
-        path: file.path,
-        isDirectory: file.isDirectory,
-        file: file.isDirectory ? undefined : file,
-        children: [],
-      });
+    const name = parts[parts.length - 1];
+    const parentPath = parts.slice(0, -1).join("/");
+
+    const node: TreeNode = {
+      name,
+      path: file.path,
+      isDirectory: file.isDirectory,
+      file: file.isDirectory ? undefined : file,
+      children: [],
+    };
+
+    map.set(file.path, node);
+
+    if (parentPath === "") {
+      root.push(node);
+    } else {
+      const parent = map.get(parentPath);
+      if (parent) {
+        parent.children.push(node);
+      } else {
+        // Fallback if parent directory object doesn't exist
+        root.push(node);
+      }
     }
-    // For simplicity, flat file structure for now
   }
 
   return root;
@@ -88,6 +106,7 @@ function TreeItem({
   activeFilePath,
   onFileSelect,
   onDeleteFile,
+  onRenameFile,
   collaborators,
 }: {
   node: TreeNode;
@@ -95,15 +114,19 @@ function TreeItem({
   activeFilePath: string | null;
   onFileSelect: (file: Doc<"files">) => void;
   onDeleteFile?: (fileId: Id<"files">) => void;
+  onRenameFile?: (fileId: Id<"files">, newName: string) => void;
   collaborators?: Doc<"collaborators">[];
 }) {
   const [expanded, setExpanded] = useState(true);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(node.name);
   const isActive = activeFilePath === node.path;
 
   // Find collaborators viewing this file
   const viewingCollabs = collaborators?.filter(c => c.activeFile === node.path);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isRenaming) return; // let input handle its own keys
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       if (node.isDirectory) {
@@ -112,6 +135,13 @@ function TreeItem({
         onFileSelect(node.file);
       }
     }
+  };
+
+  const handleRenameSubmit = () => {
+    if (renameValue.trim() && renameValue !== node.name && node.file && onRenameFile) {
+      onRenameFile(node.file._id, renameValue.trim());
+    }
+    setIsRenaming(false);
   };
 
   return (
@@ -126,6 +156,7 @@ function TreeItem({
         )}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
         onClick={() => {
+          if (isRenaming) return;
           if (node.isDirectory) {
             setExpanded(!expanded);
           } else if (node.file) {
@@ -148,15 +179,36 @@ function TreeItem({
           )
         ) : (
           <>
-            <span className="w-3" />
+            <span className="w-3 shrink-0" />
             {getFileIcon(node.name)}
           </>
         )}
-        <span className="truncate flex-1">{node.name}</span>
+
+        {isRenaming ? (
+          <input
+            type="text"
+            className="flex-1 min-w-0 bg-[oklch(0.18_0.02_260)] border border-primary/50 rounded px-1 text-sm text-foreground focus:outline-none"
+            value={renameValue}
+            onChange={e => setRenameValue(e.target.value)}
+            onBlur={handleRenameSubmit}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
+            onKeyDown={e => {
+              if (e.key === "Enter") handleRenameSubmit();
+              if (e.key === "Escape") {
+                setIsRenaming(false);
+                setRenameValue(node.name);
+              }
+            }}
+            onClick={e => e.stopPropagation()}
+          />
+        ) : (
+          <span className="truncate flex-1">{node.name}</span>
+        )}
 
         {/* Collaborator dots */}
-        {viewingCollabs && viewingCollabs.length > 0 && (
-          <div className="flex gap-0.5 mr-1">
+        {!isRenaming && viewingCollabs && viewingCollabs.length > 0 && (
+          <div className="flex gap-0.5 mr-1 shrink-0">
             {viewingCollabs.map(c => (
               <div
                 key={c._id}
@@ -168,19 +220,37 @@ function TreeItem({
           </div>
         )}
 
-        {/* Delete button */}
-        {onDeleteFile && node.file && (
-          <button
-            type="button"
-            className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-destructive transition-opacity"
-            aria-label={`Delete ${node.name}`}
-            onClick={e => {
-              e.stopPropagation();
-              onDeleteFile(node.file!._id);
-            }}
-          >
-            <Trash2 className="h-3 w-3" />
-          </button>
+        {/* Actions */}
+        {!isRenaming && node.file && (
+          <div className="opacity-0 group-hover:opacity-100 flex items-center shrink-0 transition-opacity gap-1">
+            {onRenameFile && (
+              <button
+                type="button"
+                className="p-0.5 hover:text-primary"
+                aria-label={`Rename ${node.name}`}
+                onClick={e => {
+                  e.stopPropagation();
+                  setRenameValue(node.name);
+                  setIsRenaming(true);
+                }}
+              >
+                <Edit2 className="h-3 w-3" />
+              </button>
+            )}
+            {onDeleteFile && (
+              <button
+                type="button"
+                className="p-0.5 hover:text-destructive"
+                aria-label={`Delete ${node.name}`}
+                onClick={e => {
+                  e.stopPropagation();
+                  onDeleteFile(node.file!._id);
+                }}
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -194,6 +264,7 @@ function TreeItem({
               activeFilePath={activeFilePath}
               onFileSelect={onFileSelect}
               onDeleteFile={onDeleteFile}
+              onRenameFile={onRenameFile}
               collaborators={collaborators}
             />
           ))}
@@ -209,50 +280,63 @@ export function FileTree({
   onFileSelect,
   onCreateFile,
   onDeleteFile,
+  onRenameFile,
   collaborators,
 }: FileTreeProps) {
-  const [isCreating, setIsCreating] = useState(false);
+  const [isCreating, setIsCreating] = useState<{ active: boolean; isDir: boolean }>({ active: false, isDir: false });
   const [newFileName, setNewFileName] = useState("");
 
   const tree = buildTree(files);
 
   const handleCreate = () => {
     if (newFileName.trim() && onCreateFile) {
-      onCreateFile(newFileName.trim());
+      onCreateFile(newFileName.trim(), isCreating.isDir);
       setNewFileName("");
-      setIsCreating(false);
+      setIsCreating({ active: false, isDir: false });
     }
   };
 
   return (
     <div className="h-full flex flex-col bg-[oklch(0.11_0.02_260)]">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Files
         </span>
-        <button
-          type="button"
-          className="p-1 hover:bg-[oklch(0.20_0.02_260)] rounded"
-          onClick={() => setIsCreating(!isCreating)}
-          aria-label="New file"
-        >
-          <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            className="p-1 hover:bg-[oklch(0.20_0.02_260)] rounded"
+            onClick={() => setIsCreating({ active: true, isDir: false })}
+            title="New File"
+          >
+            <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+          <button
+            type="button"
+            className="p-1 hover:bg-[oklch(0.20_0.02_260)] rounded"
+            onClick={() => setIsCreating({ active: true, isDir: true })}
+            title="New Folder"
+          >
+            <FolderPlus className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        </div>
       </div>
 
-      {isCreating && (
-        <div className="px-2 py-1.5 border-b border-border">
+      {isCreating.active && (
+        <div className="px-2 py-1.5 border-b border-border shrink-0">
           <input
             type="text"
             className="w-full bg-[oklch(0.18_0.02_260)] border border-border rounded px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder="filename.ext"
-            aria-label="New file name"
+            placeholder={isCreating.isDir ? "folder/name" : "filename.ext"}
+            aria-label="New item name"
             value={newFileName}
             onChange={e => setNewFileName(e.target.value)}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
+            autoFocus
             onKeyDown={e => {
               if (e.key === "Enter") handleCreate();
               if (e.key === "Escape") {
-                setIsCreating(false);
+                setIsCreating({ active: false, isDir: false });
                 setNewFileName("");
               }
             }}
@@ -269,6 +353,7 @@ export function FileTree({
             activeFilePath={activeFilePath}
             onFileSelect={onFileSelect}
             onDeleteFile={onDeleteFile}
+            onRenameFile={onRenameFile}
             collaborators={collaborators}
           />
         ))}
