@@ -280,11 +280,11 @@ export function AgentActivityPanel({ projectId }: Props) {
           }}
           className="bg-white/5 border border-border text-[9px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground rounded px-1.5 py-0.5 outline-none focus:border-primary shrink-0 transition-colors"
         >
-          <option value="manual">Manual</option>
-          <option value="suggest">Suggest</option>
-          <option value="apply">Apply w/ Approval</option>
-          <option value="autonomous">Autonomous</option>
-          <option value="autopilot">Full Autopilot</option>
+          <option value="manual" className="bg-background text-foreground">Manual</option>
+          <option value="suggest" className="bg-background text-foreground">Suggest</option>
+          <option value="apply" className="bg-background text-foreground">Apply w/ Approval</option>
+          <option value="autonomous" className="bg-background text-foreground">Autonomous</option>
+          <option value="autopilot" className="bg-background text-foreground">Full Autopilot</option>
         </select>
 
         {/* View toggle */}
