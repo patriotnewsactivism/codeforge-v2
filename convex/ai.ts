@@ -656,7 +656,10 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
     case "azure":
       return process.env.AZURE_OPENAI_ENDPOINT ?? "";
     case "kilocode":
-      return "https://kilocode.ai/api/openrouter/v1";
+      // kilocode.ai migrated to kilo.ai (confirmed 2026-07-19: old host now
+      // 308-redirects here). Old host was silently eating every KiloCode
+      // call via a redirect most HTTP clients don't replay POST bodies on.
+      return "https://kilo.ai/api/openrouter/v1";
     case "mistral":
       return "https://api.mistral.ai/v1";
   }
