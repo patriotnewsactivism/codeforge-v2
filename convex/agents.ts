@@ -368,7 +368,7 @@ Return ONLY valid JSON (no markdown fences):
     {
       "agentId": "ui-agent",
       "task": "Very specific task with exact file paths to read and edit",
-      "files": ["src/index.html", "src/style.css"]
+      "files": ["index.html", "style.css"]
     }
   ]
 }`;
@@ -382,11 +382,30 @@ Return ONLY valid JSON (no markdown fences):
     const planMatch = planResult.match(/\{[\s\S]*\}/);
     if (!planMatch) throw new Error("Planner failed to produce a valid plan");
 
-    const plan = JSON.parse(planMatch[0]) as {
+    let plan: {
       complexity: string;
       reasoning: string;
-      agents: Array<{ agentId: string; task: string; files?: string[] }>;
+      agents?: Array<{ agentId: string; task: string; files?: string[] }>;
     };
+    try {
+      plan = JSON.parse(planMatch[0]);
+    } catch {
+      throw new Error("Failed to parse planner JSON");
+    }
+
+    if (
+      !plan.agents ||
+      !Array.isArray(plan.agents) ||
+      plan.agents.length === 0
+    ) {
+      plan.agents = [
+        {
+          agentId: "ui-agent",
+          task: args.prompt,
+          files: [],
+        },
+      ];
+    }
 
     await think(
       ctx,
@@ -416,14 +435,14 @@ Return ONLY valid JSON (no markdown fences):
         agentId: agentDef.id,
         agentName: agentDef.name,
         agentIcon: agentDef.icon,
-        task: planned.task,
+        task: planned.task || "Implement requested changes",
       });
       taskRecords.push({
         taskId,
         agentId: agentDef.id,
         agentName: agentDef.name,
         agentIcon: agentDef.icon,
-        task: planned.task,
+        task: planned.task || "Implement requested changes",
         files: planned.files ?? [],
       });
     }
@@ -526,7 +545,7 @@ INSTRUCTIONS:
 Return ONLY valid JSON (no markdown fences, no code blocks):
 {
   "changes": [
-    { "path": "src/path/file.tsx", "action": "edit", "content": "COMPLETE file content here" }
+    { "path": "path/file.tsx", "action": "edit", "content": "COMPLETE file content here" }
   ],
   "summary": "Detailed description of what you did and why",
   "broadcast": {
@@ -536,7 +555,7 @@ Return ONLY valid JSON (no markdown fences, no code blocks):
   "learnings": [
     "Key pattern or insight worth remembering for future tasks"
   ],
-  "filesChanged": ["src/path/file.tsx"]
+  "filesChanged": ["path/file.tsx"]
 }`;
 
       try {
@@ -574,7 +593,14 @@ Return ONLY valid JSON (no markdown fences, no code blocks):
         for (const change of parsed.changes ?? []) {
           if (!change.path || !change.content) continue;
           // Normalize path: strip leading ./ or / so it matches DB storage.
-          const normalizedPath = change.path.replace(/^\.?\//, "");
+          let normalizedPath = change.path.replace(/^\.?\//, "");
+          if (
+            normalizedPath.startsWith("src/") &&
+            !codeFiles.some((f: any) => f.path === normalizedPath) &&
+            codeFiles.some((f: any) => f.path === normalizedPath.substring(4))
+          ) {
+            normalizedPath = normalizedPath.substring(4);
+          }
           try {
             // Use internal mutations — they bypass auth checks that would
             // fail when called from scheduled actions (autonomous mode).

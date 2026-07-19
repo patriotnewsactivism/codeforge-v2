@@ -358,9 +358,10 @@ export const sendMessage = action({
         `PROJECT FILES:\n${projectContext}`;
 
       // Build a proper messages array with conversation history
-      const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
-        { role: "system", content: systemPrompt },
-      ];
+      const messages: {
+        role: "system" | "user" | "assistant";
+        content: string;
+      }[] = [{ role: "system", content: systemPrompt }];
 
       // Add conversation history (excluding the current message which we just added)
       for (const msg of recentMessages.slice(0, -1)) {
@@ -379,14 +380,11 @@ export const sendMessage = action({
       messages.push({ role: "user", content: userMessage });
 
       try {
-        const { text: result, modelUsed } = await callAIWithFallback(
-          messages,
-          {
-            model: args.model,
-            callerPlan: byok.callerPlan,
-            userKeys: byok.userKeys,
-          },
-        );
+        const { text: result, modelUsed } = await callAIWithFallback(messages, {
+          model: args.model,
+          callerPlan: byok.callerPlan,
+          userKeys: byok.userKeys,
+        });
 
         const inputEst = estimateCost(
           args.content + combinedContext + projectContext,
@@ -457,7 +455,9 @@ export const sendMessage = action({
       });
 
       // Strip @build / /build prefix before sending to engine
-      const cleanPrompt = args.content.replace(/^[@/](build|agent)\s*/i, "").trim();
+      const cleanPrompt = args.content
+        .replace(/^[@/](build|agent)\s*/i, "")
+        .trim();
 
       // Fire off the agent engine
       const result: string = await ctx.runAction(api.engine.runMission, {
@@ -478,10 +478,15 @@ export const sendMessage = action({
       for (const tc of recentCalls) {
         try {
           const parsedArgs = JSON.parse(tc.args);
-          if (tc.tool === "create_file" && parsedArgs.path) filesCreated.add(parsedArgs.path);
-          if (tc.tool === "edit_file" && parsedArgs.path) filesEdited.add(parsedArgs.path);
-          if (tc.tool === "delete_file" && parsedArgs.path) filesDeleted.add(parsedArgs.path);
-        } catch { /* ignore parse errors */ }
+          if (tc.tool === "create_file" && parsedArgs.path)
+            filesCreated.add(parsedArgs.path);
+          if (tc.tool === "edit_file" && parsedArgs.path)
+            filesEdited.add(parsedArgs.path);
+          if (tc.tool === "delete_file" && parsedArgs.path)
+            filesDeleted.add(parsedArgs.path);
+        } catch {
+          /* ignore parse errors */
+        }
       }
 
       let summary = `✅ **Mission complete!**\n\n${result}`;

@@ -11,7 +11,10 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { openInteractiveShell, type InteractiveShell } from "@/lib/runtime/webcontainer";
+import {
+  type InteractiveShell,
+  openInteractiveShell,
+} from "@/lib/runtime/webcontainer";
 
 export function InteractiveTerminal({ active }: { active: boolean }) {
   const containerRef = useRef<HTMLDivElement | null>(null);

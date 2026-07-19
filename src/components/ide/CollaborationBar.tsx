@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "convex/react";
-import { Check, ChevronLeft, Copy, Link2, Users, Settings } from "lucide-react";
+import { Check, ChevronLeft, Copy, Link2, Settings, Users } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";

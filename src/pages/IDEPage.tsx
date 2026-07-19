@@ -395,18 +395,22 @@ export function IDEPage() {
   const handleRenameFile = useCallback(
     async (fileId: Id<"files">, newName: string) => {
       if (!files) return;
-      const file = files.find((f: NonNullable<typeof files>[number]) => f._id === fileId);
+      const file = files.find(
+        (f: NonNullable<typeof files>[number]) => f._id === fileId,
+      );
       if (!file) return;
       const parts = file.path.split("/");
       parts[parts.length - 1] = newName;
       const newPath = parts.join("/");
-      
+
       try {
         await renameFile({ fileId, newName, newPath });
         if (activeFilePath === file.path) {
           setActiveFilePath(newPath);
         }
-        setOpenFilePaths(prev => prev.map(p => p === file.path ? newPath : p));
+        setOpenFilePaths(prev =>
+          prev.map(p => (p === file.path ? newPath : p)),
+        );
         if (fileBuffers.has(file.path)) {
           const content = fileBuffers.get(file.path)!;
           setFileBuffers(prev => {
@@ -571,7 +575,9 @@ export function IDEPage() {
             }`}
           >
             {tab.icon}
-            <span className="md:hidden text-xs font-bold uppercase tracking-wider">{tab.label}</span>
+            <span className="md:hidden text-xs font-bold uppercase tracking-wider">
+              {tab.label}
+            </span>
           </button>
         ))}
 
@@ -588,13 +594,15 @@ export function IDEPage() {
             }`}
           >
             <MoreHorizontal className="h-4 w-4 md:h-5 md:w-5" />
-            <span className="md:hidden text-xs font-bold uppercase tracking-wider">More</span>
+            <span className="md:hidden text-xs font-bold uppercase tracking-wider">
+              More
+            </span>
           </button>
 
           {/* More Menu Dropdown */}
           {showMoreMenu && (
             <>
-              <div 
+              <div
                 className="fixed inset-0 z-40"
                 onClick={() => setShowMoreMenu(false)}
               />
@@ -608,7 +616,9 @@ export function IDEPage() {
                       setShowMoreMenu(false);
                     }}
                     className={`flex items-center gap-3 px-3 py-2 text-sm hover:bg-[oklch(0.20_0.02_260)] transition-colors ${
-                      rightPanel === tab.id ? "bg-[oklch(0.18_0.02_260)] text-foreground" : "text-muted-foreground"
+                      rightPanel === tab.id
+                        ? "bg-[oklch(0.18_0.02_260)] text-foreground"
+                        : "text-muted-foreground"
                     }`}
                   >
                     <span className={tab.color}>{tab.icon}</span>

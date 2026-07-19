@@ -138,7 +138,12 @@ function TreeItem({
   };
 
   const handleRenameSubmit = () => {
-    if (renameValue.trim() && renameValue !== node.name && node.file && onRenameFile) {
+    if (
+      renameValue.trim() &&
+      renameValue !== node.name &&
+      node.file &&
+      onRenameFile
+    ) {
       onRenameFile(node.file._id, renameValue.trim());
     }
     setIsRenaming(false);
@@ -283,7 +288,10 @@ export function FileTree({
   onRenameFile,
   collaborators,
 }: FileTreeProps) {
-  const [isCreating, setIsCreating] = useState<{ active: boolean; isDir: boolean }>({ active: false, isDir: false });
+  const [isCreating, setIsCreating] = useState<{
+    active: boolean;
+    isDir: boolean;
+  }>({ active: false, isDir: false });
   const [newFileName, setNewFileName] = useState("");
 
   const tree = buildTree(files);

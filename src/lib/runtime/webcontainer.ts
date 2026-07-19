@@ -67,7 +67,8 @@ function toFileSystemTree(files: RuntimeFile[]): FileSystemTree {
 // repeated in place) renders as literal garbage text that never looks like
 // it's progressing, even when npm is working fine — the log view has no
 // terminal emulator to interpret those codes, so it must not print them raw.
-const ANSI_PATTERN = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
+const ANSI_PATTERN =
+  /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
 
 function stripAnsi(text: string): string {
   return text.replace(ANSI_PATTERN, "");

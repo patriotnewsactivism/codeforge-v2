@@ -653,7 +653,7 @@ Available tools:
 - get_context: { "tool": "get_context", "args": { "query": "search term" } }
 - web_search:  { "tool": "web_search",  "args": { "query": "how to implement X in React 2026" } }
 - spawn_agent: { "tool": "spawn_agent", "args": { "role": "coder", "task": "implement X" } }
-- spawn_epic:  { "tool": "spawn_epic",  "args": { "goal": "epic goal", "plan": "{\"shards\": [...]}" } }
+- spawn_epic:  { "tool": "spawn_epic",  "args": { "goal": "epic goal", "plan": "{"shards": [...]}" } }
 - send_message:{ "tool": "send_message","args": { "to": "orchestrator", "message": "done with X" } }
 - deploy_project:{ "tool": "deploy_project", "args": {} }
 - complete_task:{"tool": "complete_task","args": { "summary": "What I accomplished" } }

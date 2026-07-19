@@ -68,9 +68,7 @@ export function LivePreview({
     const cssFiles = files.filter(
       f => f.name.endsWith(".css") && !f.isDirectory,
     );
-    const jsFiles = files.filter(
-      f => f.name.endsWith(".js") && !f.isDirectory,
-    );
+    const jsFiles = files.filter(f => f.name.endsWith(".js") && !f.isDirectory);
 
     // ─── Resolve <link> stylesheet references ──────────────────────────
     // Replace any <link rel="stylesheet" href="..."> with inline <style> blocks
@@ -78,7 +76,8 @@ export function LivePreview({
       /<link[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>/gi,
       (_match: string, href: string) => {
         const resolved = resolveFile(files, href);
-        if (resolved) return `<style>/* ${href} */\n${resolved.content}</style>`;
+        if (resolved)
+          return `<style>/* ${href} */\n${resolved.content}</style>`;
         return `<!-- unresolved: ${href} -->`;
       },
     );
@@ -87,7 +86,8 @@ export function LivePreview({
       /<link[^>]*href=["']([^"']+\.css)["'][^>]*>/gi,
       (_match: string, href: string) => {
         const resolved = resolveFile(files, href);
-        if (resolved) return `<style>/* ${href} */\n${resolved.content}</style>`;
+        if (resolved)
+          return `<style>/* ${href} */\n${resolved.content}</style>`;
         return `<!-- unresolved: ${href} -->`;
       },
     );
@@ -97,7 +97,8 @@ export function LivePreview({
       /<script[^>]*src=["']([^"']+)["'][^>]*><\/script>/gi,
       (_match: string, src: string) => {
         const resolved = resolveFile(files, src);
-        if (resolved) return `<script>/* ${src} */\n${resolved.content}</script>`;
+        if (resolved)
+          return `<script>/* ${src} */\n${resolved.content}</script>`;
         return `<!-- unresolved: ${src} -->`;
       },
     );
@@ -118,10 +119,7 @@ export function LivePreview({
     // ─── Inject any JS files not referenced in HTML ─────────────────────
     const injectedJs = jsFiles
       .filter(f => !html.includes(f.content.slice(0, 50)))
-      .map(
-        f =>
-          `<script>/* auto-injected: ${f.path} */\n${f.content}</script>`,
-      )
+      .map(f => `<script>/* auto-injected: ${f.path} */\n${f.content}</script>`)
       .join("\n");
     if (injectedJs) {
       if (html.includes("</body>")) {

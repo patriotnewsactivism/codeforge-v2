@@ -19,8 +19,8 @@ import {
 import { WebContainerRuntime } from "@/lib/runtime/webcontainer";
 import { cn } from "@/lib/utils";
 import type { Doc } from "../../../convex/_generated/dataModel";
-import { LivePreview } from "./LivePreview";
 import { InteractiveTerminal } from "./InteractiveTerminal";
+import { LivePreview } from "./LivePreview";
 
 interface SmartPreviewProps {
   files: Doc<"files">[];
@@ -37,10 +37,10 @@ export function SmartPreview({
 
   if (kind === "node") {
     return (
-      <WebContainerPreview 
-        files={files} 
-        autoRefresh={autoRefresh} 
-        onToggleAutoRefresh={onToggleAutoRefresh} 
+      <WebContainerPreview
+        files={files}
+        autoRefresh={autoRefresh}
+        onToggleAutoRefresh={onToggleAutoRefresh}
       />
     );
   }
@@ -65,26 +65,26 @@ const PHASE_LABEL: Record<RuntimeStatus["phase"], string> = {
   error: "Error",
 };
 
-function WebContainerPreview({ 
-  files, 
-  autoRefresh, 
-  onToggleAutoRefresh 
-}: { 
+function WebContainerPreview({
+  files,
+  autoRefresh,
+  onToggleAutoRefresh,
+}: {
   files: Doc<"files">[];
   autoRefresh: boolean;
   onToggleAutoRefresh: () => void;
 }) {
   // WebContainers needs a cross-origin-isolated document.
   // If headers are missing, gracefully degrade to static preview.
-  const isolated =
-    typeof window !== "undefined" && window.crossOriginIsolated;
-    
+  const isolated = typeof window !== "undefined" && window.crossOriginIsolated;
+
   if (!isolated) {
     return (
       <div className="flex flex-col h-full relative">
         <div className="absolute top-10 left-0 right-0 z-10 flex justify-center pointer-events-none">
           <div className="bg-yellow-500/20 text-yellow-500/80 border border-yellow-500/30 text-[10px] px-2 py-1 rounded-full backdrop-blur-md">
-            Node sandbox disabled (missing COOP/COEP headers). Running in static mode.
+            Node sandbox disabled (missing COOP/COEP headers). Running in static
+            mode.
           </div>
         </div>
         <LivePreview

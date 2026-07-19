@@ -113,7 +113,7 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
       a.href = url;
       a.download = `${project?.name ?? "codeforge-project"}.zip`;
       a.click();
-      
+
       // Cleanup
       URL.revokeObjectURL(url);
       toast.success("Project downloaded as ZIP");
