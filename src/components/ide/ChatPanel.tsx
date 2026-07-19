@@ -9,60 +9,16 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useAuthToken } from "@/hooks/useAuthToken";
 import { cn } from "@/lib/utils";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { QuickActions } from "./QuickActions";
 import { UsageMeter } from "./UsageMeter";
-
-// These ids MUST match keys in the backend MODELS registry (convex/ai.ts) —
-// the selected id is sent to chat.sendMessage and looked up there. Anything not
-// in that registry silently falls back to the default model.
-const MODELS = [
-  {
-    id: "or-llama-3.3-70b",
-    name: "Llama 3.3 70B",
-    shortName: "Llama 70B",
-    icon: "🦙",
-    color: "text-orange-400",
-  },
-  {
-    id: "or-qwen-coder",
-    name: "Qwen 2.5 Coder 32B",
-    shortName: "Qwen3",
-    icon: "🧠",
-    color: "text-cyan-400",
-  },
-  {
-    id: "cerebras-glm-4.7",
-    name: "GLM 4.7 (Cerebras)",
-    shortName: "GLM 4.7",
-    icon: "🚀",
-    color: "text-pink-400",
-  },
-  {
-    id: "deepseek-v3",
-    name: "DeepSeek V3",
-    shortName: "DS V3",
-    icon: "🐋",
-    color: "text-indigo-400",
-  },
-  {
-    id: "or-codestral",
-    name: "Mistral Codestral",
-    shortName: "Codestral",
-    icon: "🌪️",
-    color: "text-teal-400",
-  },
-  {
-    id: "or-poolside",
-    name: "Poolside",
-    shortName: "Poolside",
-    icon: "🏊",
-    color: "text-blue-500",
-  },
-];
 
 interface FileContext {
   path: string;
@@ -77,27 +33,12 @@ interface ChatPanelProps {
   openFiles?: FileContext[];
 }
 
-function FileCodeIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M10 12.5 8 15l2 2.5" />
-      <path d="m14 12.5 2 2.5-2 2.5" />
-      <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" />
-    </svg>
-  );
-}
+// Tier badges for the model picker
+const TIER_LABELS: Record<string, { label: string; color: string }> = {
+  strong: { label: "Strong", color: "text-amber-400" },
+  balanced: { label: "Balanced", color: "text-blue-400" },
+  fast: { label: "Fast", color: "text-green-400" },
+};
 
 export function ChatPanel({
   projectId,
@@ -108,6 +49,8 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -120,17 +63,29 @@ export function ChatPanel({
     api.chat.getSession,
     sessionId ? { sessionId } : "skip",
   );
+  const backendModels = useQuery(api.chat.listModels, {});
   const sendMessage = useAction(api.chat.sendMessage);
   const updateModel = useMutation(api.chat.updateModel);
   const userId = useAuthToken();
 
-  const currentModel = session?.model ?? "groq-gpt-oss-120b";
-  const currentModelConfig =
-    MODELS.find(m => m.id === currentModel) ?? MODELS[0]!;
+  const currentModel = session?.model ?? "deepseek-v3";
+  const currentModelConfig = backendModels?.find(
+    (m: any) => m.id === currentModel,
+  );
 
+  // Elapsed time counter during loading
+  useEffect(() => {
+    if (!isLoading || !loadingStartTime) return;
+    const interval = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - loadingStartTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isLoading, loadingStartTime]);
+
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
+  }, [messages?.length]);
 
   // Auto-grow textarea, max 120px
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -147,6 +102,8 @@ export function ChatPanel({
       inputRef.current.style.height = "auto";
     }
     setIsLoading(true);
+    setLoadingStartTime(Date.now());
+    setElapsedSeconds(0);
     try {
       const cleanMsg = msg.replace(/@codeforge\s*/gi, "").trim();
       const fileContexts =
@@ -168,6 +125,7 @@ export function ChatPanel({
       console.error("Failed to send:", error);
     } finally {
       setIsLoading(false);
+      setLoadingStartTime(null);
     }
   };
 
@@ -177,6 +135,17 @@ export function ChatPanel({
       handleSend();
     }
   };
+
+  // Group models by tier for the dropdown
+  const modelsByTier = (backendModels ?? []).reduce(
+    (acc: Record<string, any[]>, m: any) => {
+      const tier = m.tier ?? "balanced";
+      if (!acc[tier]) acc[tier] = [];
+      acc[tier].push(m);
+      return acc;
+    },
+    {} as Record<string, any[]>,
+  );
 
   return (
     <div className="h-full flex flex-col bg-[oklch(0.11_0.02_260)] min-w-0 overflow-hidden">
@@ -189,49 +158,76 @@ export function ChatPanel({
           </span>
         </div>
 
-        {/* Model selector — shows short name on small screens */}
+        {/* Model selector */}
         <div className="relative shrink-0">
           <button
             type="button"
-            className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-[oklch(0.18_0.02_260)] hover:bg-[oklch(0.22_0.02_260)] transition-colors"
+            className="flex items-center gap-1.5 px-2 py-1 text-xs rounded bg-[oklch(0.18_0.02_260)] hover:bg-[oklch(0.22_0.02_260)] transition-colors max-w-[200px]"
             aria-label="Select AI model"
             aria-expanded={modelDropdownOpen}
             onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
           >
-            <span>{currentModelConfig!.icon}</span>
-            <span className={cn(currentModelConfig!.color, "hidden sm:inline")}>
-              {currentModelConfig!.name}
+            <span className="text-primary truncate">
+              {currentModelConfig?.name ?? currentModel}
             </span>
-            <span
-              className={cn(currentModelConfig!.color, "sm:hidden text-[10px]")}
-            >
-              {currentModelConfig!.shortName}
-            </span>
-            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
           </button>
           {modelDropdownOpen && (
-            <div className="absolute right-0 top-full mt-1 z-50 bg-[oklch(0.16_0.02_260)] border border-border rounded-md shadow-xl py-1 min-w-[160px]">
-              {MODELS.map(model => (
-                <button
-                  key={model.id}
-                  type="button"
-                  className={cn(
-                    "flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-[oklch(0.22_0.02_260)] transition-colors",
-                    currentModel === model.id && "bg-[oklch(0.20_0.02_260)]",
-                  )}
-                  onClick={() => {
-                    if (sessionId) updateModel({ sessionId, model: model.id });
-                    setModelDropdownOpen(false);
-                  }}
-                >
-                  <span>{model.icon}</span>
-                  <span className={model.color}>{model.name}</span>
-                  {currentModel === model.id && (
-                    <Zap className="h-3 w-3 text-primary ml-auto" />
-                  )}
-                </button>
-              ))}
-            </div>
+            <>
+              {/* Backdrop to close dropdown */}
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setModelDropdownOpen(false)}
+              />
+              <div className="absolute right-0 top-full mt-1 z-50 bg-[oklch(0.14_0.02_260)] border border-border rounded-lg shadow-2xl py-1 min-w-[260px] max-h-[400px] overflow-y-auto">
+                {(["strong", "balanced", "fast"] as const).map(tier => {
+                  const models = modelsByTier[tier];
+                  if (!models?.length) return null;
+                  const tierMeta = TIER_LABELS[tier];
+                  return (
+                    <div key={tier}>
+                      <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 border-b border-border/30">
+                        {tierMeta.label}
+                      </div>
+                      {models.map((model: any) => (
+                        <button
+                          key={model.id}
+                          type="button"
+                          className={cn(
+                            "flex items-center justify-between w-full px-3 py-2 text-xs hover:bg-[oklch(0.20_0.02_260)] transition-colors",
+                            currentModel === model.id &&
+                              "bg-[oklch(0.18_0.02_260)]",
+                          )}
+                          onClick={() => {
+                            if (sessionId)
+                              updateModel({ sessionId, model: model.id });
+                            setModelDropdownOpen(false);
+                          }}
+                        >
+                          <span className="text-foreground truncate">
+                            {model.name}
+                          </span>
+                          <span className="flex items-center gap-1.5 shrink-0 ml-2">
+                            {model.inputCostPer1M === 0 ? (
+                              <span className="text-[9px] bg-green-500/15 text-green-400 px-1 rounded">
+                                FREE
+                              </span>
+                            ) : (
+                              <span className="text-[9px] text-muted-foreground/50">
+                                ${model.inputCostPer1M.toFixed(2)}/M
+                              </span>
+                            )}
+                            {currentModel === model.id && (
+                              <Zap className="h-3 w-3 text-primary" />
+                            )}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -247,23 +243,48 @@ export function ChatPanel({
         </div>
       )}
 
-      {/* Usage meter — shows remaining requests/missions with upgrade CTA */}
+      {/* Usage meter */}
       <div className="relative flex items-center justify-end px-3 py-1.5 border-b border-border/40 shrink-0 bg-[oklch(0.095_0.02_260)]">
         <UsageMeter />
       </div>
 
-      {/* Messages — scrollable, no overflow-x */}
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 space-y-3 min-w-0">
-        {(!messages || messages.length === 0) && (
-          <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <Bot className="h-10 w-10 text-primary/30 mb-3" />
-            <p className="text-sm text-muted-foreground">
-              Ask me anything about your code
-            </p>
-            <p className="text-xs text-muted-foreground/60 mt-1">
-              Type <span className="text-primary">@codeforge</span> to include
-              file context
-            </p>
+        {(!messages || messages.length === 0) && !isLoading && (
+          <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-4">
+            <div className="w-16 h-16 bg-[oklch(0.18_0.02_260)] rounded-full flex items-center justify-center">
+              <Bot className="w-8 h-8 text-primary" />
+            </div>
+            <div className="space-y-2 max-w-[280px]">
+              <h3 className="text-sm font-semibold text-foreground">
+                Welcome to CodeForge AI
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Ask questions about your code, or use{" "}
+                <span className="text-primary font-medium">@build</span> to
+                launch an AI agent that writes code for you.
+              </p>
+              <div className="flex flex-wrap gap-1.5 justify-center mt-3">
+                {[
+                  "Explain this code",
+                  "@build a todo app",
+                  "Find bugs",
+                  "How do I...",
+                ].map(suggestion => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    className="text-[10px] px-2 py-1 rounded-full bg-[oklch(0.16_0.02_260)] text-muted-foreground hover:text-foreground hover:bg-[oklch(0.20_0.02_260)] transition-colors"
+                    onClick={() => {
+                      setInput(suggestion);
+                      inputRef.current?.focus();
+                    }}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -287,7 +308,6 @@ export function ChatPanel({
             <div
               className={cn(
                 "rounded-lg px-3 py-2 text-sm min-w-0",
-                // CRITICAL: max-w-[85%] + overflow-wrap prevents messages blowing out mobile width
                 "max-w-[85%] overflow-hidden",
                 msg.role === "user"
                   ? "bg-primary/20 text-foreground"
@@ -296,10 +316,52 @@ export function ChatPanel({
                     : "bg-[oklch(0.16_0.02_260)] text-foreground",
               )}
             >
-              {/* CRITICAL: break-words + overflow-wrap break long code/URLs */}
-              <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere text-[13px] leading-relaxed">
-                {msg.content}
-              </div>
+              {msg.role === "assistant" && !msg.isError ? (
+                <div className="prose prose-invert prose-sm max-w-none break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      code({ className, children, ...props }) {
+                        const match = /language-(\w+)/.exec(className || "");
+                        const codeString = String(children).replace(/\n$/, "");
+                        if (match) {
+                          return (
+                            <SyntaxHighlighter
+                              style={oneDark}
+                              language={match[1]}
+                              PreTag="div"
+                              customStyle={{
+                                margin: "0.5rem 0",
+                                borderRadius: "0.5rem",
+                                fontSize: "0.75rem",
+                              }}
+                            >
+                              {codeString}
+                            </SyntaxHighlighter>
+                          );
+                        }
+                        return (
+                          <code
+                            className="bg-[oklch(0.12_0.02_260)] px-1 py-0.5 rounded text-[0.8em] text-primary"
+                            {...props}
+                          >
+                            {children}
+                          </code>
+                        );
+                      },
+                      pre({ children }) {
+                        return <>{children}</>;
+                      },
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere text-[13px] leading-relaxed">
+                  {msg.content}
+                </div>
+              )}
               {msg.model && (
                 <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground flex-wrap">
                   <span>{msg.model}</span>
@@ -325,20 +387,6 @@ export function ChatPanel({
             )}
           </div>
         ))}
-        
-        {!messages?.length && !isLoading && (
-          <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-4">
-            <div className="w-16 h-16 bg-[oklch(0.18_0.02_260)] rounded-full flex items-center justify-center">
-              <Bot className="w-8 h-8 text-primary" />
-            </div>
-            <div className="space-y-2 max-w-[280px]">
-              <h3 className="text-sm font-semibold text-foreground">Welcome to CodeForge AI</h3>
-              <p className="text-xs text-muted-foreground">
-                I can help you build features, write tests, or debug issues. Select a model from the top dropdown, open a file to give me context, and start chatting!
-              </p>
-            </div>
-          </div>
-        )}
 
         {isLoading && (
           <div className="flex gap-2">
@@ -346,14 +394,24 @@ export function ChatPanel({
               <Bot className="h-3.5 w-3.5 text-primary animate-pulse" />
             </div>
             <div className="bg-[oklch(0.16_0.02_260)] rounded-lg px-3 py-2">
-              <div className="flex gap-1">
-                {[0, 0.15, 0.3].map((delay, i) => (
-                  <div
-                    key={i}
-                    className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce"
-                    style={{ animationDelay: `${delay}s` }}
-                  />
-                ))}
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1">
+                  {[0, 0.15, 0.3].map((delay, i) => (
+                    <div
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce"
+                      style={{ animationDelay: `${delay}s` }}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Thinking...{" "}
+                  {elapsedSeconds > 0 && (
+                    <span className="text-muted-foreground/50">
+                      {elapsedSeconds}s
+                    </span>
+                  )}
+                </span>
               </div>
             </div>
           </div>
@@ -364,12 +422,11 @@ export function ChatPanel({
       {/* File context indicator */}
       {currentFileName && (
         <div className="px-3 py-1 text-[10px] text-muted-foreground border-t border-border flex items-center gap-1 shrink-0 min-w-0">
-          <FileCodeIcon className="h-3 w-3 shrink-0" />
-          <span className="truncate">Context: {currentFileName}</span>
+          <span className="truncate">📄 Context: {currentFileName}</span>
         </div>
       )}
 
-      {/* Quick Actions (only show when there's context and no input) */}
+      {/* Quick Actions */}
       {currentFileName && !input && (
         <QuickActions
           disabled={isLoading}
@@ -390,7 +447,7 @@ export function ChatPanel({
             className="flex-1 min-w-0 bg-[oklch(0.18_0.02_260)] border border-border rounded-lg px-4 py-3 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none overflow-hidden"
             aria-label="Type a message"
             style={{ minHeight: "48px" }}
-            placeholder="Ask anything... (Enter to send)"
+            placeholder="Ask anything... (@build to run agent)"
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}

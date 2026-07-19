@@ -15,6 +15,24 @@ interface ConsoleMessage {
   timestamp: number;
 }
 
+/**
+ * Resolve file references in HTML by finding matching files in the project.
+ * Supports both flat and nested paths (e.g., "src/app.js", "style.css").
+ */
+function resolveFile(
+  files: Doc<"files">[],
+  reference: string,
+): Doc<"files"> | undefined {
+  // Exact path match
+  const exact = files.find(f => f.path === reference);
+  if (exact) return exact;
+  // Match by filename only
+  const byName = files.find(f => f.name === reference);
+  if (byName) return byName;
+  // Match by path ending (e.g., "src/app.js" matches a file at "src/app.js")
+  return files.find(f => f.path.endsWith(`/${reference}`));
+}
+
 export function LivePreview({
   files,
   autoRefresh,
@@ -26,15 +44,10 @@ export function LivePreview({
   const [refreshKey, setRefreshKey] = useState(0);
 
   const buildPreviewContent = useCallback(() => {
-    const htmlFile = files.find(
-      f => f.name === "index.html" || f.path.endsWith(".html"),
-    );
-    const cssFile = files.find(
-      f => f.name === "style.css" || f.path.endsWith(".css"),
-    );
-    const jsFile = files.find(
-      f => f.name === "script.js" || f.path.endsWith(".js"),
-    );
+    // Find all HTML files — prefer index.html
+    const htmlFile =
+      files.find(f => f.name === "index.html") ??
+      files.find(f => f.path.endsWith(".html"));
 
     if (!htmlFile) {
       return `
@@ -51,38 +64,78 @@ export function LivePreview({
 
     let html = htmlFile.content;
 
-    // Inject CSS if it exists and is referenced
-    if (cssFile) {
-      const linkTag = `<link rel="stylesheet" href="${cssFile.name}">`;
-      const styleTag = `<style>${cssFile.content}</style>`;
-      if (html.includes(linkTag) || html.includes(`href="${cssFile.name}"`)) {
-        html = html.replace(
-          /<link[^>]*href=["'][^"']*\.css["'][^>]*>/gi,
-          styleTag,
-        );
+    // Collect ALL CSS and JS files in the project
+    const cssFiles = files.filter(
+      f => f.name.endsWith(".css") && !f.isDirectory,
+    );
+    const jsFiles = files.filter(
+      f => f.name.endsWith(".js") && !f.isDirectory,
+    );
+
+    // ─── Resolve <link> stylesheet references ──────────────────────────
+    // Replace any <link rel="stylesheet" href="..."> with inline <style> blocks
+    html = html.replace(
+      /<link[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>/gi,
+      (_match: string, href: string) => {
+        const resolved = resolveFile(files, href);
+        if (resolved) return `<style>/* ${href} */\n${resolved.content}</style>`;
+        return `<!-- unresolved: ${href} -->`;
+      },
+    );
+    // Also catch <link href="..." rel="stylesheet">
+    html = html.replace(
+      /<link[^>]*href=["']([^"']+\.css)["'][^>]*>/gi,
+      (_match: string, href: string) => {
+        const resolved = resolveFile(files, href);
+        if (resolved) return `<style>/* ${href} */\n${resolved.content}</style>`;
+        return `<!-- unresolved: ${href} -->`;
+      },
+    );
+
+    // ─── Resolve <script src="..."> references ──────────────────────────
+    html = html.replace(
+      /<script[^>]*src=["']([^"']+)["'][^>]*><\/script>/gi,
+      (_match: string, src: string) => {
+        const resolved = resolveFile(files, src);
+        if (resolved) return `<script>/* ${src} */\n${resolved.content}</script>`;
+        return `<!-- unresolved: ${src} -->`;
+      },
+    );
+
+    // ─── Inject any remaining CSS files not referenced in HTML ──────────
+    const injectedCss = cssFiles
+      .filter(f => !html.includes(f.content.slice(0, 50)))
+      .map(f => `<style>/* auto-injected: ${f.path} */\n${f.content}</style>`)
+      .join("\n");
+    if (injectedCss) {
+      if (html.includes("</head>")) {
+        html = html.replace("</head>", `${injectedCss}\n</head>`);
       } else {
-        html = html.replace("</head>", `${styleTag}\n</head>`);
+        html = `${injectedCss}\n${html}`;
       }
     }
 
-    // Inject JS if it exists
-    if (jsFile) {
-      const scriptSrc = `<script src="${jsFile.name}"></script>`;
-      const scriptInline = `<script>${jsFile.content}</script>`;
-      if (html.includes(scriptSrc) || html.includes(`src="${jsFile.name}"`)) {
-        html = html.replace(
-          /<script[^>]*src=["'][^"']*\.js["'][^>]*><\/script>/gi,
-          scriptInline,
-        );
+    // ─── Inject any JS files not referenced in HTML ─────────────────────
+    const injectedJs = jsFiles
+      .filter(f => !html.includes(f.content.slice(0, 50)))
+      .map(
+        f =>
+          `<script>/* auto-injected: ${f.path} */\n${f.content}</script>`,
+      )
+      .join("\n");
+    if (injectedJs) {
+      if (html.includes("</body>")) {
+        html = html.replace("</body>", `${injectedJs}\n</body>`);
       } else {
-        html = html.replace("</body>", `${scriptInline}\n</body>`);
+        html = `${html}\n${injectedJs}`;
       }
     }
 
-    // Inject console interceptor
+    // ─── Inject console interceptor + error overlay ─────────────────────
     const consoleInterceptor = `
       <script>
         (function() {
+          // ── Console interceptor ──
           const originalConsole = {};
           ['log', 'error', 'warn', 'info'].forEach(method => {
             originalConsole[method] = console[method];
@@ -98,17 +151,54 @@ export function LivePreview({
               }, '*');
             };
           });
+
+          // ── Error overlay ──
+          function showErrorOverlay(msg, source, line) {
+            let overlay = document.getElementById('__codeforge_error_overlay');
+            if (!overlay) {
+              overlay = document.createElement('div');
+              overlay.id = '__codeforge_error_overlay';
+              overlay.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:rgba(220,38,38,0.95);color:#fff;font-family:monospace;font-size:12px;padding:12px 16px;z-index:99999;max-height:40%;overflow-y:auto;backdrop-filter:blur(4px);border-top:2px solid #ef4444;';
+              const closeBtn = document.createElement('button');
+              closeBtn.textContent = '✕';
+              closeBtn.style.cssText = 'position:absolute;top:8px;right:12px;background:none;border:none;color:#fff;font-size:16px;cursor:pointer;';
+              closeBtn.onclick = () => overlay.remove();
+              overlay.appendChild(closeBtn);
+              document.body.appendChild(overlay);
+            }
+            const entry = document.createElement('div');
+            entry.style.cssText = 'margin-top:4px;padding:4px 0;border-top:1px solid rgba(255,255,255,0.2);';
+            entry.innerHTML = '<strong>Error:</strong> ' + msg + (source ? '<br><span style="opacity:0.7">' + source + (line ? ':' + line : '') + '</span>' : '');
+            overlay.appendChild(entry);
+          }
+
           window.onerror = function(msg, url, line, col, error) {
+            showErrorOverlay(msg, url, line);
             window.parent.postMessage({
               type: 'console',
               method: 'error',
               content: msg + ' (line ' + line + ')'
             }, '*');
           };
+
+          window.addEventListener('unhandledrejection', function(event) {
+            const msg = event.reason ? (event.reason.message || String(event.reason)) : 'Unhandled promise rejection';
+            showErrorOverlay(msg, '', '');
+            window.parent.postMessage({
+              type: 'console',
+              method: 'error',
+              content: 'Unhandled rejection: ' + msg
+            }, '*');
+          });
         })();
       </script>
     `;
-    html = html.replace("<head>", `<head>${consoleInterceptor}`);
+
+    if (html.includes("<head>")) {
+      html = html.replace("<head>", `<head>${consoleInterceptor}`);
+    } else {
+      html = `${consoleInterceptor}\n${html}`;
+    }
 
     return html;
   }, [files]);
