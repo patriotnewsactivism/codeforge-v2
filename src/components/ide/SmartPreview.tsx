@@ -20,6 +20,7 @@ import { WebContainerRuntime } from "@/lib/runtime/webcontainer";
 import { cn } from "@/lib/utils";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { LivePreview } from "./LivePreview";
+import { InteractiveTerminal } from "./InteractiveTerminal";
 
 interface SmartPreviewProps {
   files: Doc<"files">[];
@@ -97,6 +98,7 @@ function WebContainerPreviewInner({ files }: { files: Doc<"files">[] }) {
   const [status, setStatus] = useState<RuntimeStatus>({ phase: "idle" });
   const [logs, setLogs] = useState<string[]>([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [panelTab, setPanelTab] = useState<"logs" | "terminal">("logs");
   const [reloadKey, setReloadKey] = useState(0);
   const runtimeRef = useRef<WebContainerRuntime | null>(null);
 
@@ -231,15 +233,37 @@ function WebContainerPreviewInner({ files }: { files: Doc<"files">[] }) {
         )}
       </div>
 
-      {/* Build logs / terminal */}
+      {/* Build logs / interactive terminal */}
       {showLogs && (
         <div className="border-t border-border bg-[oklch(0.09_0.02_260)]">
           <div className="flex items-center justify-between px-3 py-1 border-b border-border">
-            <div className="flex items-center gap-2">
-              <Terminal className="h-3 w-3 text-muted-foreground" />
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setPanelTab("logs")}
+                className={cn(
+                  "flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider",
+                  panelTab === "logs"
+                    ? "text-foreground"
+                    : "text-muted-foreground/60 hover:text-muted-foreground",
+                )}
+              >
+                <Terminal className="h-3 w-3" />
                 Build Logs
-              </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPanelTab("terminal")}
+                className={cn(
+                  "flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider",
+                  panelTab === "terminal"
+                    ? "text-foreground"
+                    : "text-muted-foreground/60 hover:text-muted-foreground",
+                )}
+              >
+                <Terminal className="h-3 w-3" />
+                Terminal
+              </button>
             </div>
             <button
               type="button"
@@ -249,15 +273,21 @@ function WebContainerPreviewInner({ files }: { files: Doc<"files">[] }) {
               <X className="h-3 w-3 text-muted-foreground" />
             </button>
           </div>
-          <div className="max-h-40 overflow-y-auto font-mono text-[11px] p-2 whitespace-pre-wrap text-foreground/70 leading-relaxed">
-            {logs.length === 0 ? (
-              <div className="text-muted-foreground/40 text-center py-2">
-                Waiting for output…
-              </div>
-            ) : (
-              logs.join("")
-            )}
-          </div>
+          {panelTab === "logs" ? (
+            <div className="max-h-40 overflow-y-auto font-mono text-[11px] p-2 whitespace-pre-wrap text-foreground/70 leading-relaxed">
+              {logs.length === 0 ? (
+                <div className="text-muted-foreground/40 text-center py-2">
+                  Waiting for output…
+                </div>
+              ) : (
+                logs.join("")
+              )}
+            </div>
+          ) : (
+            <div className="h-40">
+              <InteractiveTerminal active={panelTab === "terminal"} />
+            </div>
+          )}
         </div>
       )}
     </div>

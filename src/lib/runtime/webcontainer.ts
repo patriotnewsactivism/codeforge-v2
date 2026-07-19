@@ -158,3 +158,47 @@ export class WebContainerRuntime implements RuntimeProvider {
     // (boot can only happen once per page).
   }
 }
+
+/**
+ * A live, bidirectional shell session — the terminal-tab counterpart to the
+ * read-only build-log stream above. Backed by the WebContainer's `jsh`
+ * (a small POSIX-ish shell bundled with the container image).
+ */
+export interface InteractiveShell {
+  /** Stream of raw terminal output (already ANSI-escaped by jsh). */
+  output: ReadableStream<string>;
+  /** Send raw keystrokes/input to the shell. */
+  write(data: string): void;
+  /** Notify the shell of a terminal resize (keeps line-wrapping correct). */
+  resize(cols: number, rows: number): void;
+  /** Terminate the shell process. */
+  kill(): void;
+}
+
+/**
+ * Open an interactive shell in the (singleton) booted WebContainer. Safe to
+ * call independently of `WebContainerRuntime.start` — boots the container on
+ * first use if nothing has booted it yet, so the terminal works even before
+ * a project's dev server has been started.
+ */
+export async function openInteractiveShell(
+  cols: number,
+  rows: number,
+): Promise<InteractiveShell> {
+  const container = await getContainer();
+  const proc = await container.spawn("jsh", {
+    terminal: { cols, rows },
+  });
+  const writer = proc.input.getWriter();
+  return {
+    output: proc.output,
+    write: data => {
+      void writer.write(data);
+    },
+    resize: (c, r) => proc.resize({ cols: c, rows: r }),
+    kill: () => {
+      proc.kill();
+      writer.releaseLock();
+    },
+  };
+}
