@@ -461,6 +461,16 @@ export const MODELS: Record<string, ModelConfig> = {
     maxTokens: 8192,
     tier: "strong",
   },
+  "or-poolside": {
+    id: "or-poolside",
+    name: "Poolside (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "poolside/poolside-ai",
+    inputCostPer1M: 0.0,
+    outputCostPer1M: 0.0,
+    maxTokens: 8192,
+    tier: "strong",
+  },
   "or-gemini-pro": {
     id: "or-gemini-pro",
     name: "Gemini 2.5 Pro (OpenRouter)",

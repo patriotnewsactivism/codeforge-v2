@@ -21,22 +21,15 @@ import { UsageMeter } from "./UsageMeter";
 // in that registry silently falls back to the default model.
 const MODELS = [
   {
-    id: "groq-gpt-oss-120b",
-    name: "GPT-OSS 120B",
-    shortName: "OSS 120B",
-    icon: "⚡",
-    color: "text-emerald-400",
-  },
-  {
     id: "groq-llama-3.3-70b",
-    name: "Llama 3.3 70B",
+    name: "Llama 3.3 70B (Groq)",
     shortName: "Llama 70B",
     icon: "🦙",
     color: "text-orange-400",
   },
   {
     id: "groq-qwen3-32b",
-    name: "Qwen3 32B",
+    name: "Qwen3 32B (Groq)",
     shortName: "Qwen3",
     icon: "🧠",
     color: "text-cyan-400",
@@ -49,13 +42,6 @@ const MODELS = [
     color: "text-pink-400",
   },
   {
-    id: "gemini-2.5-flash",
-    name: "Gemini 2.5 Flash",
-    shortName: "Gemini",
-    icon: "✨",
-    color: "text-blue-400",
-  },
-  {
     id: "deepseek-v3",
     name: "DeepSeek V3",
     shortName: "DS V3",
@@ -63,11 +49,18 @@ const MODELS = [
     color: "text-indigo-400",
   },
   {
-    id: "deepseek-reasoner",
-    name: "DeepSeek R1 (reasoning)",
-    shortName: "DS R1",
-    icon: "🧩",
-    color: "text-violet-400",
+    id: "or-codestral",
+    name: "Mistral Codestral",
+    shortName: "Codestral",
+    icon: "🌪️",
+    color: "text-teal-400",
+  },
+  {
+    id: "or-poolside",
+    name: "Poolside",
+    shortName: "Poolside",
+    icon: "🏊",
+    color: "text-blue-500",
   },
 ];
 
