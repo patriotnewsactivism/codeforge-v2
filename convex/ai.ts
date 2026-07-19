@@ -32,7 +32,8 @@ export interface ModelConfig {
     | "openai"
     | "openrouter"
     | "azure"
-    | "kilocode";
+    | "kilocode"
+    | "mistral";
   apiModel: string;
   inputCostPer1M: number;
   outputCostPer1M: number;
@@ -550,6 +551,21 @@ export const MODELS: Record<string, ModelConfig> = {
   //    fallback chain an entirely separate quota bucket from OpenRouter
   //    itself, so if OpenRouter's free tier is rate-limited, Kilo Code's
   //    free tier is very likely still fresh.
+  // Real Mistral La Plateforme -- Codestral is Mistral's dedicated coding
+  // agent model. La Plateforme has a free tier (~1B tokens/month). Requires
+  // MISTRAL_API_KEY. This is the genuine "mistral coding agent model" --
+  // "or-devstral-free" elsewhere is a substitute (Cohere) since OpenRouter
+  // has no free Devstral/Mistral tier.
+  "mistral-codestral": {
+    id: "mistral-codestral",
+    name: "Codestral (Mistral)",
+    provider: "mistral",
+    apiModel: "codestral-latest",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
   "kilocode-qwen3-coder": {
     id: "kilocode-qwen3-coder",
     name: "Qwen3 Coder (Kilo Code Free)",
@@ -641,6 +657,8 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
       return process.env.AZURE_OPENAI_ENDPOINT ?? "";
     case "kilocode":
       return "https://kilocode.ai/api/openrouter/v1";
+    case "mistral":
+      return "https://api.mistral.ai/v1";
   }
 }
 
@@ -657,6 +675,7 @@ const PROVIDER_KEY_MAP: Record<ModelConfig["provider"], string> = {
   openrouter: "openrouter",
   azure: "openai",
   kilocode: "kilocode",
+  mistral: "mistral",
 };
 
 /**
@@ -706,6 +725,8 @@ function getApiKey(
       return process.env.AZURE_OPENAI_API_KEY ?? "";
     case "kilocode":
       return process.env.KILOCODE_API_KEY ?? "";
+    case "mistral":
+      return process.env.MISTRAL_API_KEY ?? "";
   }
 }
 
@@ -974,6 +995,7 @@ export async function callAIWithFallback(
   // own quota) -> Cerebras free tier -> paid OpenRouter as last resort.
   const fullChain = [
     requested,
+    "mistral-codestral",
     "kilocode-qwen3-coder",
     "kilocode-llama-3.3-70b",
     "or-devstral-free",
