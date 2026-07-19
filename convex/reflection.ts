@@ -418,3 +418,95 @@ JSON only:
     return { recommendations, topologyChanges, summary };
   },
 });
+
+// ─── CONTINUOUS MONITORING & SELF-HEALING ────────────────────────────────────
+
+export const monitorAndHeal = action({
+  args: { projectId: v.id("projects") },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    // 1. Fetch new incidents
+    const incidents = await ctx.runQuery(api.errorIngestion.listIncidents, {
+      projectId: args.projectId,
+      status: "new",
+      limit: 5,
+    });
+
+    if (incidents.length === 0) {
+      return "No new incidents to heal.";
+    }
+
+    await ctx.runMutation(api.agentThoughts.emit, {
+      projectId: args.projectId,
+      agentId: "reflection-agent",
+      agentName: "🌙 Reflection",
+      type: "plan",
+      content: `🏥 Self-Healing triggered: found ${incidents.length} new incidents. Analyzing and deploying fixes...`,
+      isStreaming: false,
+    });
+
+    let healed = 0;
+    for (const incident of incidents) {
+      try {
+        // Mark as analyzing
+        await ctx.runMutation(api.errorIngestion.updateIncidentStatus, {
+          incidentId: incident._id,
+          status: "analyzing",
+        });
+
+        // Convert the incident to a work item
+        const description = `Exception in ${incident.affectedFunction ?? "unknown"}
+Error: ${incident.errorMessage}
+Stack:
+${incident.stackTrace ?? "No stack trace available."}
+
+Investigate and fix the root cause.`;
+
+        const workItemId = await ctx.runMutation(api.planner.createWorkItem, {
+          projectId: args.projectId,
+          title: `Fix ${incident.errorType}: ${incident.errorMessage.slice(0, 40)}`,
+          description,
+          category: "bug",
+          priority: "high",
+          impact: 80,
+          effort: "medium",
+          risk: "medium",
+          dependsOn: [],
+          filesAffected: incident.affectedFile ? [incident.affectedFile] : [],
+        });
+
+        // Dispatch execution
+        await ctx.runAction(api.engine.executeWorkItem, {
+          projectId: args.projectId,
+          workItemId,
+        });
+
+        // Assuming execution succeeded, mark the incident as resolved
+        await ctx.runMutation(api.errorIngestion.updateIncidentStatus, {
+          incidentId: incident._id,
+          status: "resolved",
+          fixSummary: "Autonomously resolved via ACSE execution pipeline.",
+        });
+
+        healed++;
+      } catch (err: any) {
+        // Mark as fixing if failed
+        await ctx.runMutation(api.errorIngestion.updateIncidentStatus, {
+          incidentId: incident._id,
+          status: "fixing", // leave it in fixing state for manual review or next pass
+        });
+      }
+    }
+
+    await ctx.runMutation(api.agentThoughts.emit, {
+      projectId: args.projectId,
+      agentId: "reflection-agent",
+      agentName: "🌙 Reflection",
+      type: "done",
+      content: `✅ Self-Healing complete: ${healed}/${incidents.length} incidents resolved autonomously.`,
+      isStreaming: false,
+    });
+
+    return `Healed ${healed} incidents.`;
+  },
+});

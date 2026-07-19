@@ -922,7 +922,17 @@ export const executeWorkItem = action({
     for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
       const missionId = `mission_${args.workItemId}_iter_${iteration}`;
       const spawnCount = { value: 0 };
-      const model = await getModelForRole(ctx, agentRole as any);
+      
+      // Adaptive Scaling: On retry, escalate to "architect" tier to solve harder problems
+      // and bump the spawn limits.
+      const isRetry = iteration > 1;
+      const effectiveRole = isRetry ? "architect" : agentRole;
+      const model = await getModelForRole(ctx, effectiveRole as any);
+
+      if (isRetry && planLimits) {
+        planLimits.maxSpawnsPerMission = Math.min(50, planLimits.maxSpawnsPerMission + 10);
+        planLimits.maxSpawnDepth = Math.min(5, planLimits.maxSpawnDepth + 1);
+      }
 
       await ctx.runMutation(api.agentThoughts.emit, {
         projectId: args.projectId,
