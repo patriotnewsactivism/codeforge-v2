@@ -30,7 +30,11 @@ export type AgentRole =
   | "sentry"
   | "forensic"
   | "reflection"
-  | "strategist";
+  | "strategist"
+  | "xray_analyst"
+  | "code_reviewer"
+  | "planner"
+  | "quality_gate";
 
 export type ToolName =
   | "create_file"
@@ -195,6 +199,48 @@ export const MCP_MANIFEST: Record<AgentRole, RolePolicy> = {
     maxSpawnDepth: 2,
     canSpawnRoles: ["architect", "forensic"],
     maxCallsPerMinute: 10,
+    requiresDebateFor: [],
+  },
+  // ─── ACSE ROLES ───────────────────────────────────────────────────────────
+  xray_analyst: {
+    allowedTools: ["read_file", "list_files", "search_files", "complete_task"],
+    maxSpawnDepth: 0,
+    canSpawnRoles: [],
+    maxCallsPerMinute: 200,
+    requiresDebateFor: [],
+  },
+  code_reviewer: {
+    allowedTools: [
+      "read_file",
+      "list_files",
+      "search_files",
+      "send_message",
+      "complete_task",
+    ],
+    maxSpawnDepth: 0,
+    canSpawnRoles: [],
+    maxCallsPerMinute: 30,
+    requiresDebateFor: [],
+  },
+  planner: {
+    allowedTools: [
+      "read_file",
+      "list_files",
+      "search_files",
+      "spawn_agent",
+      "send_message",
+      "complete_task",
+    ],
+    maxSpawnDepth: 3,
+    canSpawnRoles: ["coder", "tester", "reviewer", "debugger"],
+    maxCallsPerMinute: 30,
+    requiresDebateFor: [],
+  },
+  quality_gate: {
+    allowedTools: ["read_file", "list_files", "search_files", "complete_task"],
+    maxSpawnDepth: 0,
+    canSpawnRoles: [],
+    maxCallsPerMinute: 20,
     requiresDebateFor: [],
   },
 };

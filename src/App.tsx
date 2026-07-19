@@ -31,6 +31,9 @@ const CheckoutSuccess = lazy(() =>
     default: m.CheckoutSuccess,
   })),
 );
+const XRayPage = lazy(() =>
+  import("./pages/XRayPage").then(m => ({ default: m.XRayPage })),
+);
 
 // Simple full-screen loading spinner for lazy pages
 function PageLoader() {
@@ -67,6 +70,8 @@ function App() {
               </Route>
               {/* IDE page - full screen, no sidebar */}
               <Route path="/project/:projectId" element={<IDEPage />} />
+              {/* X-Ray dashboard - full screen, no sidebar */}
+              <Route path="/project/:projectId/xray" element={<XRayPage />} />
               {/* Onboarding - full screen, no sidebar */}
               <Route path="/onboarding" element={<OnboardingPage />} />
             </Route>

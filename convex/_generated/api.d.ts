@@ -19,7 +19,9 @@ import type * as buildLoop from "../buildLoop.js";
 import type * as changeHistory from "../changeHistory.js";
 import type * as chat from "../chat.js";
 import type * as cinema from "../cinema.js";
+import type * as codeReview from "../codeReview.js";
 import type * as collaboration from "../collaboration.js";
+import type * as completionScore from "../completionScore.js";
 import type * as constants from "../constants.js";
 import type * as costEntries from "../costEntries.js";
 import type * as crons from "../crons.js";
@@ -42,6 +44,7 @@ import type * as limits from "../limits.js";
 import type * as memory from "../memory.js";
 import type * as missions from "../missions.js";
 import type * as mutation from "../mutation.js";
+import type * as planner from "../planner.js";
 import type * as previews from "../previews.js";
 import type * as projects from "../projects.js";
 import type * as rag from "../rag.js";
@@ -59,6 +62,7 @@ import type * as testAuth from "../testAuth.js";
 import type * as users from "../users.js";
 import type * as vision from "../vision.js";
 import type * as webSearch from "../webSearch.js";
+import type * as xray from "../xray.js";
 
 import type {
   ApiFromModules,
@@ -78,7 +82,9 @@ declare const fullApi: ApiFromModules<{
   changeHistory: typeof changeHistory;
   chat: typeof chat;
   cinema: typeof cinema;
+  codeReview: typeof codeReview;
   collaboration: typeof collaboration;
+  completionScore: typeof completionScore;
   constants: typeof constants;
   costEntries: typeof costEntries;
   crons: typeof crons;
@@ -101,6 +107,7 @@ declare const fullApi: ApiFromModules<{
   memory: typeof memory;
   missions: typeof missions;
   mutation: typeof mutation;
+  planner: typeof planner;
   previews: typeof previews;
   projects: typeof projects;
   rag: typeof rag;
@@ -118,6 +125,7 @@ declare const fullApi: ApiFromModules<{
   users: typeof users;
   vision: typeof vision;
   webSearch: typeof webSearch;
+  xray: typeof xray;
 }>;
 
 /**

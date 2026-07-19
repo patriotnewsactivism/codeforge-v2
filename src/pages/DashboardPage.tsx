@@ -11,6 +11,7 @@ import {
   Plus,
   Sparkles,
   Trash2,
+  Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -309,14 +310,28 @@ export function DashboardPage() {
                         {project.name}
                       </CardTitle>
                     </div>
-                    <button
-                      type="button"
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-all shrink-0"
-                      onClick={e => handleDelete(project._id, project.name, e)}
-                      aria-label="Delete project"
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-primary/10 rounded transition-all"
+                        onClick={e => {
+                          e.stopPropagation();
+                          navigate(`/project/${project._id}/xray`);
+                        }}
+                        aria-label="X-Ray analysis"
+                        title="Repository X-Ray"
+                      >
+                        <Zap className="h-4 w-4 text-primary" />
+                      </button>
+                      <button
+                        type="button"
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-all"
+                        onClick={e => handleDelete(project._id, project.name, e)}
+                        aria-label="Delete project"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </button>
+                    </div>
                   </div>
                   {project.description && (
                     <CardDescription className="text-xs line-clamp-2">

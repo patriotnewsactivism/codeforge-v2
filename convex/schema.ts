@@ -859,6 +859,118 @@ const schema = defineSchema({
     startedAt: v.number(),
     completedAt: v.optional(v.number()),
   }).index("by_project", ["projectId"]),
+
+  // ─── ACSE: REPOSITORY X-RAY REPORTS ────────────────────────────────────────
+  // Digital twin of the repository — comprehensive analysis of structure,
+  // dependencies, APIs, security, and technical debt.
+  xrayReports: defineTable({
+    projectId: v.id("projects"),
+    status: v.union(
+      v.literal("running"),
+      v.literal("done"),
+      v.literal("error"),
+    ),
+    // Each field is JSON-serialized for flexibility
+    languages: v.optional(v.string()), // { primary, all: {lang, fileCount, lineCount}[] }
+    dependencies: v.optional(v.string()), // { runtime: Dep[], dev: Dep[], missing: string[] }
+    apis: v.optional(v.string()), // { routes: Route[], totalEndpoints: number }
+    database: v.optional(v.string()), // { orm, schemas, migrations }
+    tests: v.optional(v.string()), // { framework, testFiles, coverage }
+    security: v.optional(v.string()), // { findings: Finding[] }
+    techDebt: v.optional(v.string()), // { findings: Finding[], score }
+    infrastructure: v.optional(v.string()), // { docker, ci, deploy }
+    fileStats: v.optional(v.string()), // { totalFiles, totalLines, byLanguage }
+    summary: v.optional(v.string()), // AI-generated natural language summary
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+  }).index("by_project", ["projectId"]),
+
+  // ─── ACSE: COMPLETION & READINESS SCORES ───────────────────────────────────
+  // Production readiness scoring across 6 dimensions, computed from X-Ray data.
+  completionScores: defineTable({
+    projectId: v.id("projects"),
+    xrayReportId: v.id("xrayReports"),
+    overall: v.number(), // 0-100 weighted average
+    completion: v.number(), // 0-100 — how complete is the app?
+    productionReadiness: v.number(), // 0-100 — can this ship today?
+    security: v.number(), // 0-100 — auth, secrets, CORS, CSP
+    maintainability: v.number(), // 0-100 — test coverage, docs, code quality
+    performance: v.number(), // 0-100 — bundle size, queries, caching
+    deployment: v.number(), // 0-100 — CI/CD, Docker, env config
+    findings: v.string(), // JSON: prioritized findings with remediation
+    gapAnalysis: v.string(), // JSON: what's missing, ordered by impact
+    createdAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_xray_report", ["xrayReportId"]),
+
+  // ─── ACSE: ENGINEERING WORK ITEMS (DAG NODES) ─────────────────────────────
+  // Dependency-aware engineering tasks generated from gap analysis.
+  // Forms a DAG: each item lists which other items it depends on.
+  workItems: defineTable({
+    projectId: v.id("projects"),
+    scoreId: v.optional(v.id("completionScores")),
+    title: v.string(),
+    description: v.string(),
+    category: v.string(), // "security" | "feature" | "test" | "docs" | "infra" | "performance"
+    priority: v.union(
+      v.literal("critical"),
+      v.literal("high"),
+      v.literal("medium"),
+      v.literal("low"),
+    ),
+    impact: v.number(), // 0-100 estimated impact on completion score
+    effort: v.union(
+      v.literal("trivial"),
+      v.literal("small"),
+      v.literal("medium"),
+      v.literal("large"),
+      v.literal("epic"),
+    ),
+    risk: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    dependsOn: v.array(v.string()), // work item IDs this depends on
+    status: v.union(
+      v.literal("planned"),
+      v.literal("queued"),
+      v.literal("in_progress"),
+      v.literal("review"),
+      v.literal("done"),
+      v.literal("skipped"),
+    ),
+    assignedAgentId: v.optional(v.string()),
+    buildSessionId: v.optional(v.id("buildSessions")),
+    filesAffected: v.array(v.string()),
+    estimatedTokens: v.optional(v.number()),
+    result: v.optional(v.string()),
+    createdAt: v.number(),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_status", ["projectId", "status"])
+    .index("by_project_and_priority", ["projectId", "priority"]),
+
+  // ─── ACSE: MULTI-AGENT CODE REVIEWS ────────────────────────────────────────
+  // Independent reviewer agents evaluate changes for correctness, security,
+  // performance, and style. Consensus determines merge readiness.
+  codeReviews: defineTable({
+    projectId: v.id("projects"),
+    workItemId: v.optional(v.id("workItems")),
+    buildSessionId: v.optional(v.id("buildSessions")),
+    filesReviewed: v.array(v.string()),
+    reviewers: v.string(), // JSON: array of { agentId, role, verdict, findings[], reasoning }
+    consensus: v.union(
+      v.literal("approved"),
+      v.literal("needs_changes"),
+      v.literal("rejected"),
+      v.literal("pending"),
+    ),
+    iterations: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_work_item", ["workItemId"]),
 });
 
 export default schema;
