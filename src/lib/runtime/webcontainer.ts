@@ -78,12 +78,33 @@ function pumpOutput(
   onLog: (line: string) => void,
 ): void {
   const reader = stream.getReader();
+  // Stall watchdog: if a spawned process produces genuinely zero output for
+  // an extended period, that's indistinguishable in the UI from "frozen" vs
+  // "just slow/quiet" (e.g. npm resolving a bad host). Surface a diagnostic
+  // line once so a real hang is visible instead of a silent blank panel.
+  // Added 2026-07-19 after reports that install got stuck with zero log
+  // output even on a plain, unmodified `npm install` — this makes the next
+  // occurrence self-diagnosing instead of a dead end.
+  let sawOutput = false;
+  const stallTimer = setTimeout(() => {
+    if (!sawOutput) {
+      onLog(
+        "[diagnostic] No process output after 20s — this may indicate a " +
+          "network/registry issue inside the sandbox rather than a frozen " +
+          "install. Still waiting…",
+      );
+    }
+  }, 20_000);
   const read = (): void => {
     reader
       .read()
       .then(({ done, value }) => {
-        if (done) return;
+        if (done) {
+          clearTimeout(stallTimer);
+          return;
+        }
         if (value) {
+          sawOutput = true;
           const cleaned = stripAnsi(value);
           if (cleaned) onLog(cleaned);
         }
@@ -91,6 +112,7 @@ function pumpOutput(
       })
       .catch(() => {
         // Stream closed — process exited; nothing more to pump.
+        clearTimeout(stallTimer);
       });
   };
   read();
@@ -130,12 +152,16 @@ export class WebContainerRuntime implements RuntimeProvider {
 
       onStatus({ phase: "installing", message: "Installing dependencies…" });
       // Reverted --no-progress/--loglevel flags added 2026-07-19 (5b36058) —
-      // suspected of causing npm to hang/error in the WebContainer runtime
-      // (reported: install got stuck with zero log output at all, worse than
-      // the pre-fix ANSI-garbage state). Back to plain `npm install`; the
-      // ANSI-stripping in pumpOutput() below is the safe, tested part of
-      // that fix and stays.
+      // suspected of causing npm to hang/error in the WebContainer runtime,
+      // but the plain unmodified `npm install` below reportedly ALSO got
+      // stuck with zero log output afterward — so the flags were likely
+      // never the real cause. Left as plain `npm install`; added a
+      // checkpoint log + pumpOutput's stall watchdog (above) so the next
+      // occurrence identifies whether it's stuck before spawn resolves,
+      // after spawn but before first output, or genuinely mid-install.
+      onLog("[diagnostic] Spawning npm install…");
       const install = await container.spawn("npm", ["install"]);
+      onLog("[diagnostic] npm install process spawned, streaming output…");
       pumpOutput(install.output, onLog);
       const installCode = await install.exit;
       if (installCode !== 0) {
