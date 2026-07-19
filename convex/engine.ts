@@ -868,36 +868,6 @@ Rules:
   }
 
   return finalSummary;
-}rite = 0;
-    } else {
-      turnsWithoutWrite++;
-    }
-
-    // Add to conversation history
-    conversationHistory.push({
-      role: "assistant",
-      content: JSON.stringify(toolCall),
-    });
-    conversationHistory.push({
-      role: "user",
-      content: result.success
-        ? `Tool result: ${result.output.slice(0, 800)}`
-        : `Tool error: ${result.error}. Try a different approach.`,
-    });
-
-    // Force progress if stalling (2 turns of reads/searches with no writes)
-    if (turnsWithoutWrite >= 2 && fileWriteCount === 0) {
-      conversationHistory.push({
-        role: "user",
-        content:
-          "You've been reading/searching without writing any files. " +
-          "Make a concrete file change now, or call complete_task if nothing is needed.",
-      });
-      turnsWithoutWrite = 0;
-    }
-  }
-
-  return finalSummary;
 }
 
 // ─── PUBLIC ACTION: runMission ──────────────────────────────────────────────
