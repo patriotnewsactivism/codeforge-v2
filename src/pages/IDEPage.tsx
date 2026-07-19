@@ -60,6 +60,7 @@ import {
   Github,
   Lightbulb,
   MessageSquare,
+  MoreHorizontal,
   Rocket,
   Save,
   Settings,
@@ -150,6 +151,7 @@ export function IDEPage() {
   // Mobile-specific state
   const [mobileView, setMobileView] = useState<MobileView>("editor");
   const [mobileFileDrawer, setMobileFileDrawer] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   // Initialize chat session
   useEffect(() => {
@@ -545,15 +547,22 @@ export function IDEPage() {
     },
   ];
 
+  const primaryTabIds = ["chat", "agents", "thoughts", "git", "deploy"];
+  const primaryTabs = panelTabs.filter(t => primaryTabIds.includes(t.id));
+  const moreTabs = panelTabs.filter(t => !primaryTabIds.includes(t.id));
+
   const rightPanelContent = (
     <div className="h-full flex flex-col md:flex-row">
       {/* Tab bar — horizontally scrollable on mobile, vertical activity bar on desktop */}
-      <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto scrollbar-none border-b md:border-b-0 md:border-r border-border bg-[oklch(0.10_0.02_260)] shrink-0 md:w-14 md:py-3 md:items-center md:gap-3">
-        {panelTabs.map(tab => (
+      <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto scrollbar-none border-b md:border-b-0 md:border-r border-border bg-[oklch(0.10_0.02_260)] shrink-0 md:w-14 md:py-3 md:items-center md:gap-3 relative">
+        {primaryTabs.map(tab => (
           <button
             key={tab.id}
             type="button"
-            onClick={() => setRightPanel(tab.id)}
+            onClick={() => {
+              setRightPanel(tab.id);
+              setShowMoreMenu(false);
+            }}
             title={tab.label}
             className={`flex items-center justify-center gap-1 px-4 py-3 md:p-0 md:w-10 md:h-10 md:rounded-xl transition-all shrink-0 ${
               rightPanel === tab.id
@@ -565,6 +574,51 @@ export function IDEPage() {
             <span className="md:hidden text-xs font-bold uppercase tracking-wider">{tab.label}</span>
           </button>
         ))}
+
+        {/* More Menu Toggle */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowMoreMenu(!showMoreMenu)}
+            title="More panels"
+            className={`flex items-center justify-center gap-1 px-4 py-3 md:p-0 md:w-10 md:h-10 md:rounded-xl transition-all shrink-0 ${
+              !primaryTabIds.includes(rightPanel)
+                ? "md:bg-white/10 md:shadow-inner text-foreground border-b-2 md:border-b-0"
+                : "text-muted-foreground hover:text-foreground hover:bg-white/5 border-b-2 md:border-b-0 border-transparent"
+            }`}
+          >
+            <MoreHorizontal className="h-4 w-4 md:h-5 md:w-5" />
+            <span className="md:hidden text-xs font-bold uppercase tracking-wider">More</span>
+          </button>
+
+          {/* More Menu Dropdown */}
+          {showMoreMenu && (
+            <>
+              <div 
+                className="fixed inset-0 z-40"
+                onClick={() => setShowMoreMenu(false)}
+              />
+              <div className="absolute top-full left-0 md:top-auto md:left-full md:-mt-10 md:ml-2 z-50 bg-[oklch(0.14_0.02_260)] border border-border rounded-lg shadow-2xl py-1 min-w-[160px] flex flex-col">
+                {moreTabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => {
+                      setRightPanel(tab.id);
+                      setShowMoreMenu(false);
+                    }}
+                    className={`flex items-center gap-3 px-3 py-2 text-sm hover:bg-[oklch(0.20_0.02_260)] transition-colors ${
+                      rightPanel === tab.id ? "bg-[oklch(0.18_0.02_260)] text-foreground" : "text-muted-foreground"
+                    }`}
+                  >
+                    <span className={tab.color}>{tab.icon}</span>
+                    <span className="font-medium">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Panel content */}

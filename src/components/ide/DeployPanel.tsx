@@ -94,17 +94,29 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
     if (!files) return;
     setDeployingTo("zip");
     try {
-      // Build a simple downloadable HTML string with all files inlined
-      const htmlFile = files.find(
-        (f: NonNullable<typeof files>[number]) => f.path === "index.html",
-      );
-      const content = htmlFile?.content || "<!-- No index.html found -->";
-      const blob = new Blob([content], { type: "text/html" });
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+
+      // Add all non-directory files to the zip archive, preserving paths
+      for (const f of files) {
+        if (!f.isDirectory && f.content) {
+          zip.file(f.path, f.content);
+        }
+      }
+
+      // Generate the ZIP file as a blob
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(content);
+
+      // Trigger download
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${project?.name ?? "codeforge-project"}.html`;
+      a.href = url;
+      a.download = `${project?.name ?? "codeforge-project"}.zip`;
       a.click();
-      toast.success("Project downloaded");
+      
+      // Cleanup
+      URL.revokeObjectURL(url);
+      toast.success("Project downloaded as ZIP");
     } catch {
       toast.error("Export failed");
     } finally {

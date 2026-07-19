@@ -9,7 +9,7 @@ import {
   RotateCcw,
   ShieldAlert,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,17 @@ export function MissionControlBar({ projectId }: MissionControlBarProps) {
     totalFinished > 0
       ? Math.round((doneTasks.length / totalFinished) * 100)
       : null;
+
+  // Agent mission toasts
+  const prevIsRunning = useRef(isRunning);
+  useEffect(() => {
+    if (isRunning && !prevIsRunning.current) {
+      toast.success("Agents deployed on mission");
+    } else if (!isRunning && prevIsRunning.current) {
+      toast.info("Agent mission completed");
+    }
+    prevIsRunning.current = isRunning;
+  }, [isRunning]);
 
   return (
     <div className="flex items-center gap-4 px-4 py-2 border-t border-border bg-[oklch(0.12_0.02_260)] shrink-0 min-h-[48px]">
