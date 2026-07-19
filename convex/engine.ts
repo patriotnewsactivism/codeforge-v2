@@ -482,7 +482,6 @@ async function executeTool(
           output = `Deployment failed: ${e.message}`;
         }
         break;
-      }
 
       case "complete_task": {
         const { summary } = call.args as { summary: string };
@@ -514,10 +513,64 @@ async function executeTool(
 // ─── AGENT LOOP ────────────────────────────────────────────────────────────
 // think → act → observe → repeat
 // - Tight, action-forcing prompts with concrete JSON examples
-// - Progress detection: 2 turns with no file writes → force decision
-// - Context window: only last 3 turns in history
+// - Progress detection: 3 turns with no file writes (after first write) → force decision
+// - Context window: last 6 turns in history
 // - Stall detection: repeated tool call → skip, force complete_task
-// - MAX_TURNS = 8
+// - MAX_TURNS = 15
+
+/**
+ * Robust JSON tool-call extractor. Tries multiple strategies to parse the
+ * AI response into a valid ToolCall, since models often wrap JSON in
+ * markdown fences, add explanatory text, or produce slightly malformed output.
+ */
+function extractToolCall(rawResponse: string): ToolCall | null {
+  // Strategy 1: Direct parse (clean JSON response)
+  try {
+    const parsed = JSON.parse(rawResponse.trim());
+    if (parsed.tool && parsed.args !== undefined) return parsed as ToolCall;
+  } catch { /* continue */ }
+
+  // Strategy 2: Extract from markdown code fences
+  const fenceMatch = rawResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    try {
+      const parsed = JSON.parse(fenceMatch[1].trim());
+      if (parsed.tool && parsed.args !== undefined) return parsed as ToolCall;
+    } catch { /* continue */ }
+  }
+
+  // Strategy 3: Find the first {...} block that contains "tool"
+  const jsonBlocks = rawResponse.match(/\{[\s\S]*?\}/g);
+  if (jsonBlocks) {
+    for (const block of jsonBlocks) {
+      try {
+        const parsed = JSON.parse(block);
+        if (parsed.tool && parsed.args !== undefined) return parsed as ToolCall;
+      } catch { /* continue */ }
+    }
+  }
+
+  // Strategy 4: Find a deeply nested {...} that might span multiple lines
+  const deepMatch = rawResponse.match(/(\{[\s\S]*\})/);
+  if (deepMatch) {
+    try {
+      const parsed = JSON.parse(deepMatch[1]);
+      if (parsed.tool && parsed.args !== undefined) return parsed as ToolCall;
+    } catch { /* continue */ }
+  }
+
+  // Strategy 5: Partial extraction — find tool name and reconstruct
+  const toolMatch = rawResponse.match(/"tool"\s*:\s*"([^"]+)"/);
+  const argsMatch = rawResponse.match(/"args"\s*:\s*(\{[\s\S]*?\})\s*[,}]/);
+  if (toolMatch && argsMatch) {
+    try {
+      const args = JSON.parse(argsMatch[1]);
+      return { tool: toolMatch[1] as ToolName, args };
+    } catch { /* continue */ }
+  }
+
+  return null;
+}
 
 async function runAgentLoop(
   ctx: any,
@@ -534,8 +587,34 @@ async function runAgentLoop(
 ): Promise<string> {
   const files = await ctx.runQuery(api.files.listByProject, { projectId });
   const codeFiles = files.filter((f: any) => !f.isDirectory);
-  const fileList =
-    codeFiles.map((f: any) => `  ${f.path}`).join("\n") || "  (empty project)";
+
+  // Build file context: include ACTUAL file content for small projects,
+  // paths + truncated content for larger ones
+  let fileContext = "";
+  if (codeFiles.length === 0) {
+    fileContext = "  (empty project — no files yet)";
+  } else if (codeFiles.length <= 15) {
+    // Small project: include full content of all files
+    fileContext = codeFiles
+      .map((f: any) => {
+        const content = f.content ?? "";
+        // Cap individual files at 2000 chars to avoid context overflow
+        const truncated =
+          content.length <= 2000
+            ? content
+            : content.slice(0, 1500) + "\n\n// ... (truncated, use read_file to see full content)";
+        return `--- ${f.path} ---\n${truncated}`;
+      })
+      .join("\n\n");
+  } else {
+    // Large project: paths + first 200 chars of each file
+    fileContext = codeFiles
+      .map((f: any) => {
+        const preview = (f.content ?? "").slice(0, 200);
+        return `--- ${f.path} ---\n${preview}${(f.content ?? "").length > 200 ? "\n// ..." : ""}`;
+      })
+      .join("\n\n");
+  }
 
   const role = agentName.toLowerCase();
   let roleSpecificPrompt = "";
@@ -560,7 +639,7 @@ async function runAgentLoop(
 Your task: ${task}
 
 Current project files:
-${fileList}
+${fileContext}
 
 You MUST respond with a JSON object containing ONE tool call to make progress. No explanations outside the JSON.
 
@@ -574,7 +653,7 @@ Available tools:
 - get_context: { "tool": "get_context", "args": { "query": "search term" } }
 - web_search:  { "tool": "web_search",  "args": { "query": "how to implement X in React 2026" } }
 - spawn_agent: { "tool": "spawn_agent", "args": { "role": "coder", "task": "implement X" } }
-- spawn_epic:  { "tool": "spawn_epic",  "args": { "goal": "epic goal", "plan": "{"shards": [...]}" } }
+- spawn_epic:  { "tool": "spawn_epic",  "args": { "goal": "epic goal", "plan": "{\"shards\": [...]}" } }
 - send_message:{ "tool": "send_message","args": { "to": "orchestrator", "message": "done with X" } }
 - deploy_project:{ "tool": "deploy_project", "args": {} }
 - complete_task:{"tool": "complete_task","args": { "summary": "What I accomplished" } }
@@ -583,22 +662,24 @@ Rules:
 1. Always output ONLY valid JSON. Nothing else.
 2. Write COMPLETE file content — never truncate with "// ...rest".
 3. When done with all changes, call complete_task.
-4. If you need to read a file before editing, call read_file first.
-5. Spawn specialist agents for distinct sub-tasks.`;
+4. You already have file contents above — start writing code immediately unless you need to read a specific large file.
+5. Spawn specialist agents for distinct sub-tasks.
+6. For multi-file changes, create/edit files one at a time.`;
 
   const conversationHistory: { role: "user" | "assistant"; content: string }[] =
     [];
-  const MAX_TURNS = 8;
+  const MAX_TURNS = 15;
   let fileWriteCount = 0;
   let turnsWithoutWrite = 0;
   let lastToolCallKey = "";
+  let consecutiveParseFailures = 0;
   let finalSummary = `${agentName} completed: ${task}`;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     // Build the user message for this turn
     const turnMsg =
       conversationHistory.length === 0
-        ? `Begin your task. Respond with your first tool call as JSON.`
+        ? `Begin your task. You have the file contents above — start making changes immediately. Respond with your first tool call as JSON.`
         : `Tool result received. Continue with your next tool call, or call complete_task if done.`;
 
     const messages: {
@@ -606,8 +687,8 @@ Rules:
       content: string;
     }[] = [
       { role: "system", content: SYSTEM_PROMPT },
-      // Keep only last 3 turns to avoid context overflow
-      ...conversationHistory.slice(-6),
+      // Keep last 6 turns (12 messages) for context — doubled from previous 3
+      ...conversationHistory.slice(-12),
       { role: "user", content: turnMsg },
     ];
 
@@ -670,33 +751,36 @@ Rules:
       break; // Abort loop if AI permanently failed
     }
 
-    // Parse the tool call from JSON response
-    let toolCall: ToolCall | null = null;
-    try {
-      // Extract JSON from response (may have markdown fences)
-      const jsonMatch =
-        rawResponse.match(/```(?:json)?\s*([\s\S]*?)```/) ??
-        rawResponse.match(/(\{[\s\S]*\})/);
-      const jsonStr = jsonMatch ? jsonMatch[1] : rawResponse.trim();
-      const parsed = JSON.parse(jsonStr!);
-      if (parsed.tool && parsed.args !== undefined) {
-        toolCall = parsed as ToolCall;
-      }
-    } catch {
-      // If JSON parse fails, try to extract tool name from text
-      const toolMatch = rawResponse.match(/"tool"\s*:\s*"([^"]+)"/);
-      if (!toolMatch) {
-        conversationHistory.push({ role: "assistant", content: rawResponse });
-        conversationHistory.push({
-          role: "user",
-          content:
-            "Your response was not valid JSON. Respond ONLY with a JSON tool call object.",
+    // Parse the tool call using the robust extractor
+    const toolCall = extractToolCall(rawResponse);
+
+    if (!toolCall) {
+      consecutiveParseFailures++;
+      conversationHistory.push({ role: "assistant", content: rawResponse });
+
+      if (consecutiveParseFailures >= 3) {
+        // After 3 consecutive parse failures, force-complete
+        await ctx.runMutation(api.agentThoughts.emit, {
+          projectId,
+          agentId,
+          agentName,
+          type: "warning",
+          content: "3 consecutive parse failures — forcing task completion.",
+          isStreaming: false,
         });
-        continue;
+        break;
       }
+
+      conversationHistory.push({
+        role: "user",
+        content:
+          "Your response was not valid JSON. You MUST respond with ONLY a JSON object like: {\"tool\": \"create_file\", \"args\": {\"path\": \"file.txt\", \"content\": \"...\"}}. No other text.",
+      });
+      continue;
     }
 
-    if (!toolCall) continue;
+    // Reset parse failure counter on success
+    consecutiveParseFailures = 0;
 
     // Stall detection: same tool + same args twice in a row → force complete
     const toolKey = `${toolCall.tool}:${JSON.stringify(toolCall.args)}`;
@@ -745,6 +829,46 @@ Rules:
     if (toolCall.tool === "create_file" || toolCall.tool === "edit_file") {
       fileWriteCount++;
       turnsWithoutWrite = 0;
+    } else {
+      turnsWithoutWrite++;
+    }
+
+    // Add to conversation history
+    conversationHistory.push({
+      role: "assistant",
+      content: JSON.stringify(toolCall),
+    });
+    conversationHistory.push({
+      role: "user",
+      content: result.success
+        ? `Tool result: ${result.output.slice(0, 1200)}`
+        : `Tool error: ${result.error}. Try a different approach.`,
+    });
+
+    // Force progress if stalling — but only AFTER the agent has already written
+    // at least one file. Allow exploratory reads at the start of a mission.
+    if (turnsWithoutWrite >= 3 && fileWriteCount > 0) {
+      conversationHistory.push({
+        role: "user",
+        content:
+          "You've been reading/searching without writing any files for 3 turns. " +
+          "Make a concrete file change now, or call complete_task if the work is done.",
+      });
+      turnsWithoutWrite = 0;
+    } else if (turnsWithoutWrite >= 4 && fileWriteCount === 0) {
+      // Even for exploration, 4 turns without any writes is too long
+      conversationHistory.push({
+        role: "user",
+        content:
+          "You have explored the codebase for several turns without making any changes. " +
+          "Start writing code now, or call complete_task if nothing needs to be done.",
+      });
+      turnsWithoutWrite = 0;
+    }
+  }
+
+  return finalSummary;
+}rite = 0;
     } else {
       turnsWithoutWrite++;
     }
