@@ -448,88 +448,89 @@ export function IDEPage() {
     {
       id: "chat",
       label: "Chat",
-      icon: <MessageSquare className="h-3.5 w-3.5" />,
+      icon: <MessageSquare className="h-4 w-4 md:h-5 md:w-5" />,
       color: "text-primary border-primary",
     },
     {
       id: "suggestions",
       label: "Ideas",
-      icon: <Lightbulb className="h-3.5 w-3.5" />,
+      icon: <Lightbulb className="h-4 w-4 md:h-5 md:w-5" />,
       color: "text-amber-400 border-amber-400",
     },
     {
       id: "agents",
       label: "Agents",
-      icon: <Zap className="h-3.5 w-3.5" />,
+      icon: <Zap className="h-4 w-4 md:h-5 md:w-5" />,
       color: "text-amber-400 border-amber-400",
     },
     {
       id: "memory",
       label: "Memory",
-      icon: <Brain className="h-3.5 w-3.5" />,
+      icon: <Brain className="h-4 w-4 md:h-5 md:w-5" />,
       color: "text-violet-400 border-violet-400",
     },
     {
       id: "thoughts",
       label: "Activity",
-      icon: <Cpu className="h-3.5 w-3.5" />,
+      icon: <Cpu className="h-4 w-4 md:h-5 md:w-5" />,
       color: "text-cyan-400 border-cyan-400",
     },
     {
       id: "git",
       label: "Git",
-      icon: <Github className="h-3.5 w-3.5" />,
+      icon: <Github className="h-4 w-4 md:h-5 md:w-5" />,
       color: "text-orange-400 border-orange-400",
     },
     {
       id: "diff",
       label: "Diff",
-      icon: <Code2 className="h-3.5 w-3.5" />,
+      icon: <Code2 className="h-4 w-4 md:h-5 md:w-5" />,
       color: "text-rose-400 border-rose-400",
     },
     {
       id: "deploy",
       label: "Deploy",
-      icon: <Zap className="h-3.5 w-3.5" />,
+      icon: <Rocket className="h-4 w-4 md:h-5 md:w-5" />,
       color: "text-green-400 border-green-400",
     },
     {
       id: "cinema",
       label: "Cinema",
-      icon: <Film className="h-3.5 w-3.5" />,
+      icon: <Film className="h-4 w-4 md:h-5 md:w-5" />,
       color: "text-pink-400 border-pink-400",
     },
     {
       id: "errors",
       label: "Errors",
-      icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      icon: <AlertTriangle className="h-4 w-4 md:h-5 md:w-5" />,
       color: "text-red-400 border-red-400",
     },
     {
       id: "analytics",
       label: "Analytics",
-      icon: <BarChart3 className="h-3.5 w-3.5" />,
+      icon: <BarChart3 className="h-4 w-4 md:h-5 md:w-5" />,
       color: "text-teal-400 border-teal-400",
     },
   ];
 
   const rightPanelContent = (
-    <div className="h-full flex flex-col">
-      {/* Tab bar — horizontally scrollable on mobile */}
-      <div className="flex border-b border-border bg-[oklch(0.10_0.02_260)] overflow-x-auto scrollbar-none shrink-0">
+    <div className="h-full flex flex-col md:flex-row">
+      {/* Tab bar — horizontally scrollable on mobile, vertical activity bar on desktop */}
+      <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto scrollbar-none border-b md:border-b-0 md:border-r border-border bg-[oklch(0.10_0.02_260)] shrink-0 md:w-14 md:py-3 md:items-center md:gap-3">
         {panelTabs.map(tab => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setRightPanel(tab.id)}
-            className={`flex items-center gap-1 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap transition-colors shrink-0 ${
+            title={tab.label}
+            className={`flex items-center justify-center gap-1 px-4 py-3 md:p-0 md:w-10 md:h-10 md:rounded-xl transition-all shrink-0 ${
               rightPanel === tab.id
-                ? `${tab.color} border-b-2`
-                : "text-muted-foreground hover:text-foreground"
+                ? `md:bg-white/10 md:shadow-inner md:border-transparent ${tab.color} border-b-2 md:border-b-0`
+                : "text-muted-foreground hover:text-foreground hover:bg-white/5 border-b-2 md:border-b-0 border-transparent"
             }`}
           >
             {tab.icon}
-            <span className="hidden sm:inline">{tab.label}</span>
+            <span className="md:hidden text-xs font-bold uppercase tracking-wider">{tab.label}</span>
           </button>
         ))}
       </div>
