@@ -878,6 +878,9 @@ export async function callAIWithFallback(
     "or-llama-3.3-70b",
     "or-qwen-coder",
     "or-deepseek-v3",
+    "gemini-2.5-flash",
+    "cerebras-glm-4.7",
+    "groq-llama-3.1-8b",
   ].filter((m, i, arr) => arr.indexOf(m) === i && MODELS[m]);
 
   // For lifetime users: filter chain to only models their keys can serve
