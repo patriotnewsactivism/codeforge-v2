@@ -1,5 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { api, internal } from "./_generated/api";
 import {
   action,
@@ -511,7 +511,12 @@ IMPORTANT: This is an additive improvement. Do NOT remove or break any existing 
         suggestionId: args.suggestionId,
         status: "pending",
       });
-      throw e;
+      // Re-throw as ConvexError so the real failure reason reaches the
+      // client instead of Convex's generic sanitized "Server Error" message
+      // (plain Error/exceptions thrown from actions get their details
+      // stripped in production; only ConvexError payloads pass through).
+      const message = e instanceof Error ? e.message : String(e);
+      throw new ConvexError(`implementSuggestion failed: ${message}`);
     }
   },
 });
