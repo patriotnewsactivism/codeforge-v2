@@ -483,6 +483,7 @@ async function executeTool(
           output = `Deployment failed: ${e.message}`;
         }
         break;
+      }
 
       case "complete_task": {
         const { summary } = call.args as { summary: string };
