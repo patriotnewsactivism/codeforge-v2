@@ -243,7 +243,7 @@ export const setAutonomousMode = mutation({
       await ctx.db.insert("projectSettings", {
         projectId: args.projectId,
         autonomousMode: args.autonomousMode,
-        autonomousLevel: args.autonomousLevel ?? "manual",
+        autonomousLevel: args.autonomousLevel ?? "autonomous",
         autoIntervalMinutes: args.autoIntervalMinutes ?? 15,
         projectSoul: args.projectSoul,
         lastAutoRunAt: undefined,
@@ -546,7 +546,7 @@ export function isLowRisk(suggestion: {
 //   "autopilot" → full autonomy: auto-builds the single highest-value
 //                suggestion regardless of risk
 const FULL_AUTONOMY_LEVEL = "autopilot";
-const NON_BUILDING_LEVELS = new Set(["manual", "suggest"]);
+const NON_BUILDING_LEVELS = new Set(["suggest"]);
 
 // Floor on how often any single project may auto-run, regardless of the
 // autoIntervalMinutes it stores. Prevents a misconfigured project from

@@ -319,6 +319,17 @@ export const MODELS: Record<string, ModelConfig> = {
     maxTokens: 8192,
     tier: "fast",
   },
+
+  "or-mistral-small-24b": {
+    id: "or-mistral-small-24b",
+    name: "Mistral Small 24B (OpenRouter)",
+    provider: "openrouter",
+    apiModel: "mistralai/mistral-small-24b-instruct-2501:free",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
   // Kimi and Grok via OpenRouter — one key (OPENROUTER_API_KEY) instead of
   // separate Moonshot/xAI (or Azure) accounts.
   "or-kimi-k2": {
@@ -864,9 +875,9 @@ export async function callAIWithFallback(
   // tiny Groq model round it out.
   const fullChain = [
     requested,
-    "deepseek-v3",
-    "cerebras-glm-4.7",
-    "groq-llama-3.1-8b",
+    "or-llama-3.3-70b",
+    "or-qwen-coder",
+    "or-deepseek-v3",
   ].filter((m, i, arr) => arr.indexOf(m) === i && MODELS[m]);
 
   // For lifetime users: filter chain to only models their keys can serve
@@ -915,55 +926,51 @@ export async function callAIWithFallback(
 }
 
 export const MODEL_PROFILES: Record<string, Record<string, string>> = {
-  // Default: DeepSeek (paid, no rate wall) for planning/reasoning, Cerebras
-  // (free) for execution. Handles large swarm prompts that Groq's free tier
-  // rejects.
+  // Default: DeepSeek (paid, no rate wall) for planning/reasoning, OpenRouter
+  // for execution. Handles large swarm prompts that Groq's free tier rejects.
   viktor: {
-    orchestrator: "deepseek-v3",
-    architect: "deepseek-v3",
-    coder: "cerebras-glm-4.7",
-    reviewer: "cerebras-gpt-oss-120b",
-    debugger: "deepseek-reasoner",
-    tester: "cerebras-gpt-oss-120b",
-    devops: "cerebras-gpt-oss-120b",
-    sentry: "groq-llama-3.1-8b",
-    forensic: "deepseek-reasoner",
-    reflection: "deepseek-v3",
-    strategist: "deepseek-v3",
-    default: "deepseek-v3",
+    orchestrator: "or-deepseek-v3",
+    architect: "or-deepseek-v3",
+    coder: "or-llama-3.3-70b",
+    reviewer: "or-qwen-coder",
+    debugger: "or-deepseek-reasoner",
+    tester: "or-llama-3.3-70b",
+    devops: "or-llama-3.3-70b",
+    sentry: "or-qwen-coder",
+    forensic: "or-deepseek-reasoner",
+    reflection: "or-deepseek-v3",
+    strategist: "or-deepseek-v3",
+    default: "or-deepseek-v3",
   },
-  // Free: fully free roster (no paid providers). Cerebras (GLM 4.7 / GPT-OSS
-  // 120B, free tier ~1M tokens/day) does the heavy lifting; small Groq models
-  // handle tiny utility calls. Best-effort — Cerebras free tier still throttles
-  // under a heavy swarm, so use `viktor` (DeepSeek-backed) for large jobs.
+  // Free: fully free roster using OpenRouter free endpoints.
   free: {
-    orchestrator: "cerebras-gpt-oss-120b",
-    architect: "cerebras-glm-4.7",
-    coder: "cerebras-glm-4.7",
-    reviewer: "cerebras-gpt-oss-120b",
-    debugger: "cerebras-glm-4.7",
-    tester: "groq-gpt-oss-20b",
-    devops: "groq-gpt-oss-20b",
-    sentry: "groq-llama-3.1-8b",
-    forensic: "cerebras-glm-4.7",
-    reflection: "cerebras-gpt-oss-120b",
-    strategist: "cerebras-gpt-oss-120b",
-    default: "cerebras-gpt-oss-120b",
+    orchestrator: "or-llama-3.3-70b",
+    architect: "or-llama-3.3-70b",
+    coder: "or-llama-3.3-70b",
+    reviewer: "or-qwen-coder",
+    debugger: "or-qwen-coder",
+    tester: "or-qwen-coder",
+    devops: "or-qwen-coder",
+    sentry: "or-qwen-coder",
+    forensic: "or-llama-3.3-70b",
+    reflection: "or-llama-3.3-70b",
+    strategist: "or-llama-3.3-70b",
+    default: "or-llama-3.3-70b",
   },
-  // Budget: all Groq (~$0.06/M)
+  // Budget: all fast cheap models
   budget: {
-    orchestrator: "groq-llama-3.3-70b",
-    architect: "groq-llama-3.3-70b",
-    coder: "groq-llama-3.3-70b",
-    reviewer: "groq-llama-3.1-8b",
-    debugger: "groq-llama-3.3-70b",
-    tester: "groq-llama-3.1-8b",
-    devops: "groq-llama-3.1-8b",
-    sentry: "groq-llama-3.1-8b",
-    forensic: "groq-llama-3.3-70b",
-    reflection: "groq-llama-3.3-70b",
-    strategist: "groq-llama-3.3-70b",
-    default: "groq-llama-3.3-70b",
+    orchestrator: "or-llama-3.3-70b",
+    architect: "or-llama-3.3-70b",
+    coder: "or-llama-3.3-70b",
+    reviewer: "or-qwen-coder",
+    debugger: "or-llama-3.3-70b",
+    tester: "or-qwen-coder",
+    devops: "or-qwen-coder",
+    sentry: "or-qwen-coder",
+    forensic: "or-llama-3.3-70b",
+    reflection: "or-llama-3.3-70b",
+    strategist: "or-llama-3.3-70b",
+    default: "or-llama-3.3-70b",
   },
   // Premium: Anthropic Claude for everything
   premium: {
