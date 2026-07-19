@@ -155,8 +155,8 @@ export function DeployPanel({ projectId }: DeployPanelProps) {
     },
     {
       id: "zip",
-      label: "Download HTML",
-      desc: "Download index.html to deploy anywhere",
+      label: "Download ZIP",
+      desc: "Download ZIP archive of project files",
       icon: <Download className="h-4 w-4 text-amber-400" />,
       action: handleExportZip,
       badge: "Offline",
