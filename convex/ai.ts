@@ -309,6 +309,62 @@ export const MODELS: Record<string, ModelConfig> = {
     maxTokens: 8192,
     tier: "balanced",
   },
+  // ── FREE-TIER models (no OpenRouter balance required — OpenRouter's own
+  //    ":free" endpoints, rate-limited by OpenRouter itself, not billed).
+  //    Used as the primary fallback chain so the app keeps working even
+  //    with $0 OpenRouter/Cerebras/DeepSeek balance.
+  "or-deepseek-v3-free": {
+    id: "or-deepseek-v3-free",
+    name: "DeepSeek V3.1 (OpenRouter Free)",
+    provider: "openrouter",
+    apiModel: "deepseek/deepseek-chat-v3.1:free",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
+  "or-llama-3.3-70b-free": {
+    id: "or-llama-3.3-70b-free",
+    name: "Llama 3.3 70B (OpenRouter Free)",
+    provider: "openrouter",
+    apiModel: "meta-llama/llama-3.3-70b-instruct:free",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
+  "or-qwen3-coder-free": {
+    id: "or-qwen3-coder-free",
+    name: "Qwen3 Coder (OpenRouter Free)",
+    provider: "openrouter",
+    apiModel: "qwen/qwen3-coder:free",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
+  // Devstral — Mistral's dedicated coding-agent model, free tier via OpenRouter.
+  "or-devstral-free": {
+    id: "or-devstral-free",
+    name: "Devstral Small (Mistral, OpenRouter Free)",
+    provider: "openrouter",
+    apiModel: "mistralai/devstral-small-2505:free",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
+  // Poolside Laguna — free coding-focused model via OpenRouter.
+  "or-poolside-free": {
+    id: "or-poolside-free",
+    name: "Poolside Laguna (OpenRouter Free)",
+    provider: "openrouter",
+    apiModel: "poolside/laguna:free",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    maxTokens: 8192,
+    tier: "balanced",
+  },
   "or-gemini-flash": {
     id: "or-gemini-flash",
     name: "Gemini 2.5 Flash (OpenRouter)",
@@ -873,14 +929,30 @@ export async function callAIWithFallback(
   // errors, the next attempt hits a *different* provider entirely. DeepSeek
   // (paid, no per-minute wall) is the reliable anchor; Cerebras (free) and a
   // tiny Groq model round it out.
+  // Free-first chain: cycles through every free/no-balance-required option
+  // across DIFFERENT providers/accounts before ever touching a paid model,
+  // so a single provider's outage/quota/balance never blocks the app.
+  // Order picked to spread load across the most distinct rate-limit buckets:
+  // OpenRouter free models -> several separate Groq models (each has its
+  // own quota) -> Cerebras free tier -> paid OpenRouter as last resort.
   const fullChain = [
     requested,
+    "or-devstral-free",
+    "or-qwen3-coder-free",
+    "or-llama-3.3-70b-free",
+    "or-deepseek-v3-free",
+    "or-poolside-free",
+    "groq-llama-3.3-70b",
+    "groq-gpt-oss-120b",
+    "groq-llama-4-scout",
+    "groq-qwen3-32b",
+    "groq-gpt-oss-20b",
+    "groq-llama-3.1-8b",
+    "cerebras-glm-4.7",
+    "cerebras-gpt-oss-120b",
+    "or-deepseek-v3",
     "or-llama-3.3-70b",
     "or-qwen-coder",
-    "or-deepseek-v3",
-    "gemini-2.5-flash",
-    "cerebras-glm-4.7",
-    "groq-llama-3.1-8b",
   ].filter((m, i, arr) => arr.indexOf(m) === i && MODELS[m]);
 
   // For lifetime users: filter chain to only models their keys can serve
@@ -931,34 +1003,41 @@ export async function callAIWithFallback(
 export const MODEL_PROFILES: Record<string, Record<string, string>> = {
   // Default: DeepSeek (paid, no rate wall) for planning/reasoning, OpenRouter
   // for execution. Handles large swarm prompts that Groq's free tier rejects.
+  // Default profile switched to free-first 2026-07-19: all paid provider
+  // balances (OpenRouter/DeepSeek/Cerebras/Gemini) were simultaneously
+  // exhausted, breaking "build on an idea". Primary picks are now free-tier
+  // (OpenRouter :free models incl. Mistral's Devstral coding-agent model and
+  // Poolside Laguna, plus Groq's free tier) — callAIWithFallback's chain
+  // still cycles through everything else (more free models, more Groq
+  // models, Cerebras, then paid OpenRouter) if a primary pick is down.
   viktor: {
-    orchestrator: "or-deepseek-v3",
-    architect: "or-deepseek-v3",
-    coder: "or-llama-3.3-70b",
-    reviewer: "or-qwen-coder",
-    debugger: "or-deepseek-reasoner",
-    tester: "or-llama-3.3-70b",
-    devops: "or-llama-3.3-70b",
-    sentry: "or-qwen-coder",
-    forensic: "or-deepseek-reasoner",
-    reflection: "or-deepseek-v3",
-    strategist: "or-deepseek-v3",
-    default: "or-deepseek-v3",
+    orchestrator: "or-devstral-free",
+    architect: "or-devstral-free",
+    coder: "or-qwen3-coder-free",
+    reviewer: "or-devstral-free",
+    debugger: "groq-qwen3-32b",
+    tester: "or-qwen3-coder-free",
+    devops: "or-llama-3.3-70b-free",
+    sentry: "groq-gpt-oss-20b",
+    forensic: "groq-qwen3-32b",
+    reflection: "or-devstral-free",
+    strategist: "or-devstral-free",
+    default: "or-devstral-free",
   },
-  // Free: fully free roster using OpenRouter free endpoints.
+  // Free: fully free roster (OpenRouter free endpoints + Groq free tier).
   free: {
-    orchestrator: "or-llama-3.3-70b",
-    architect: "or-llama-3.3-70b",
-    coder: "or-llama-3.3-70b",
-    reviewer: "or-qwen-coder",
-    debugger: "or-qwen-coder",
-    tester: "or-qwen-coder",
-    devops: "or-qwen-coder",
-    sentry: "or-qwen-coder",
-    forensic: "or-llama-3.3-70b",
-    reflection: "or-llama-3.3-70b",
-    strategist: "or-llama-3.3-70b",
-    default: "or-llama-3.3-70b",
+    orchestrator: "or-devstral-free",
+    architect: "or-llama-3.3-70b-free",
+    coder: "or-qwen3-coder-free",
+    reviewer: "or-devstral-free",
+    debugger: "groq-qwen3-32b",
+    tester: "or-qwen3-coder-free",
+    devops: "or-llama-3.3-70b-free",
+    sentry: "groq-gpt-oss-20b",
+    forensic: "groq-qwen3-32b",
+    reflection: "or-llama-3.3-70b-free",
+    strategist: "or-devstral-free",
+    default: "or-devstral-free",
   },
   // Budget: all fast cheap models
   budget: {
