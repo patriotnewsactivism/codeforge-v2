@@ -854,3 +854,199 @@ export const runMission = action({
     return result;
   },
 });
+
+// ─── PUBLIC ACTION: executeWorkItem ──────────────────────────────────────────
+
+export const executeWorkItem = action({
+  args: {
+    projectId: v.id("projects"),
+    workItemId: v.id("workItems"),
+  },
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    // 1. Fetch the work item
+    const workItem = await ctx.runQuery(api.planner.getWorkItem, {
+      workItemId: args.workItemId,
+    });
+    if (!workItem) throw new Error("Work item not found");
+
+    // 2. Select appropriate agent role based on category
+    let agentRole = "coder";
+    if (workItem.category === "security") agentRole = "forensic";
+    else if (
+      workItem.category === "infrastructure" ||
+      workItem.category === "ci" ||
+      workItem.category === "deploy"
+    )
+      agentRole = "devops";
+    else if (workItem.category === "testing") agentRole = "tester";
+
+    const prompt = `[WORK ITEM: ${workItem.title}]\n\nCategory: ${workItem.category}\nPriority: ${workItem.priority}\n\nDetails:\n${workItem.description}\n\nReview the project files and implement the necessary changes to complete this task.`;
+
+    // Resolve BYOK
+    const userId = await ctx.runQuery(api.auth.currentUser, {});
+    const byok = await resolveByok(
+      ctx,
+      userId?._id ? String(userId._id) : undefined,
+    );
+
+    let currentPrompt = prompt;
+    let finalResult = "";
+    const MAX_ITERATIONS = 3;
+
+    // Fetch limits once
+    let planLimits: PlanLimits | undefined;
+    try {
+      const limitsData = await ctx.runQuery(api.limits.getMyLimits, {});
+      if (limitsData) {
+        planLimits = {
+          maxSpawnDepth: limitsData.limits.maxSpawnDepth,
+          maxSpawnsPerMission: limitsData.limits.maxSpawnsPerMission,
+          maxConcurrentAgents: limitsData.limits.maxConcurrentAgents,
+          hardCapUsdMonthly: limitsData.limits.hardCapUsdMonthly,
+          cappedOut: false,
+          plan: limitsData.plan,
+        };
+      }
+    } catch {
+      planLimits = {
+        maxSpawnDepth: 3,
+        maxSpawnsPerMission: 25,
+        maxConcurrentAgents: 5,
+        hardCapUsdMonthly: 10,
+        cappedOut: false,
+        plan: "free",
+      };
+    }
+
+    for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
+      const missionId = `mission_${args.workItemId}_iter_${iteration}`;
+      const spawnCount = { value: 0 };
+      const model = await getModelForRole(ctx, agentRole as any);
+
+      await ctx.runMutation(api.agentThoughts.emit, {
+        projectId: args.projectId,
+        agentId: "acse-executor",
+        agentName: "ACSE Executor",
+        type: "plan",
+        content: `▶️ Iteration ${iteration}/${MAX_ITERATIONS} for Work Item: ${workItem.title}`,
+        isStreaming: false,
+      });
+
+      // 3. Run the agent loop
+      finalResult = await runAgentLoop(
+        ctx,
+        args.projectId,
+        missionId,
+        agentRole,
+        agentRole.charAt(0).toUpperCase() + agentRole.slice(1),
+        currentPrompt,
+        0,
+        spawnCount,
+        model,
+        planLimits,
+        byok,
+      );
+
+      // 4. Determine what files were changed
+      const toolCalls = await ctx.runQuery(api.engine.listToolCalls, {
+        projectId: args.projectId,
+        missionId,
+        limit: 100,
+      });
+
+      const filesChanged = new Set<string>();
+      for (const call of toolCalls) {
+        if (call.tool === "edit_file" || call.tool === "create_file") {
+          try {
+            const parsedArgs = JSON.parse(call.args);
+            if (parsedArgs.path) filesChanged.add(parsedArgs.path);
+          } catch {
+            // Ignore parse errors
+          }
+        }
+      }
+
+      if (filesChanged.size === 0) {
+        // No files changed, just assume done or no work needed
+        await ctx.runMutation(api.planner.updateWorkItemStatus, {
+          workItemId: args.workItemId,
+          status: "done",
+          result: finalResult,
+        });
+        return finalResult;
+      }
+
+      // 5. Trigger code review
+      const reviewPayloadStr = await ctx.runAction(
+        api.codeReview.reviewChanges,
+        {
+          projectId: args.projectId,
+          filePaths: Array.from(filesChanged),
+          workItemId: args.workItemId,
+          context: workItem.title,
+        },
+      );
+
+      // Parse review payload string: { reviewId, consensus, totalFindings }
+      let consensus = "approved";
+      let reviewId = "";
+      try {
+        const payload = JSON.parse(reviewPayloadStr);
+        consensus = payload.consensus;
+        reviewId = payload.reviewId;
+      } catch {
+        // fallback
+      }
+
+      if (consensus === "approved") {
+        await ctx.runMutation(api.planner.updateWorkItemStatus, {
+          workItemId: args.workItemId,
+          status: "done",
+          result: finalResult,
+        });
+        return finalResult;
+      } else {
+        if (iteration === MAX_ITERATIONS) {
+          await ctx.runMutation(api.planner.updateWorkItemStatus, {
+            workItemId: args.workItemId,
+            status: "skipped",
+            result: `Failed code review after ${MAX_ITERATIONS} iterations.`,
+          });
+          return "Execution failed code review permanently.";
+        }
+
+        // 6. Gather findings and update prompt for next iteration
+        const reviewRecord = await ctx.runQuery(api.codeReview.getReview, {
+          reviewId: reviewId as Id<"codeReviews">,
+        });
+
+        let findingsStr = "";
+        if (reviewRecord?.reviewers) {
+          const reviewersArr = JSON.parse(reviewRecord.reviewers);
+          for (const rev of reviewersArr) {
+            if (rev.verdict !== "approve" && rev.findings.length > 0) {
+              findingsStr += `\nReviewer [${rev.role}]:\n`;
+              for (const f of rev.findings) {
+                findingsStr += `- [${f.severity}] ${f.file}: ${f.message}\n`;
+              }
+            }
+          }
+        }
+
+        currentPrompt = `[CODE REVIEW FAILED]\nYour previous attempt failed code review. Please fix the following findings:\n${findingsStr}\n\nOriginal Task Context:\n${prompt}`;
+
+        await ctx.runMutation(api.agentThoughts.emit, {
+          projectId: args.projectId,
+          agentId: "acse-executor",
+          agentName: "ACSE Executor",
+          type: "warning",
+          content: `⚠️ Work item failed review. Findings:\n${findingsStr}\nRestarting iteration...`,
+          isStreaming: false,
+        });
+      }
+    }
+
+    return finalResult;
+  },
+});

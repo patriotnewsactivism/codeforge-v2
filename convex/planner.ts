@@ -520,11 +520,14 @@ export const startAutonomousExecution = action({
             status: "in_progress",
           });
 
-          // Run the agent mission for this work item
-          const result: string = await ctx.runAction(api.engine.runMission, {
-            projectId: args.projectId,
-            prompt: `[WORK ITEM: ${item.title}]\n\nCategory: ${item.category}\nPriority: ${item.priority}\n\n${item.title}\n\nDetails: Look at the current project files and implement the following:\n${item.title}`,
-          });
+          // Run the agent mission for this work item via executeWorkItem
+          const result: string = await ctx.runAction(
+            api.engine.executeWorkItem,
+            {
+              projectId: args.projectId,
+              workItemId: item.id as Id<"workItems">,
+            },
+          );
 
           // Mark as done
           await ctx.runMutation(api.planner.updateWorkItemStatus, {
@@ -556,4 +559,9 @@ export const startAutonomousExecution = action({
 
     return `Execution complete: ${completedCount}/${order.pendingItems} items.`;
   },
+});
+
+export const getWorkItem = query({
+  args: { workItemId: v.id("workItems") },
+  handler: async (ctx, args) => ctx.db.get(args.workItemId),
 });
