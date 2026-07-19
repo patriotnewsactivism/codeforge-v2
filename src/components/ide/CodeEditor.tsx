@@ -56,9 +56,21 @@ export function CodeEditor({ file, onChange, onSave }: CodeEditorProps) {
 
   useEffect(() => {
     if (editorRef.current && file) {
-      const currentValue = editorRef.current.getValue();
+      const editor = editorRef.current;
+      const model = editor.getModel();
+      if (!model) return;
+
+      const currentValue = model.getValue();
       if (currentValue !== file.content) {
-        editorRef.current.setValue(file.content);
+        // Use executeEdits instead of setValue to preserve cursor position and undo stack
+        const fullRange = model.getFullModelRange();
+        editor.executeEdits("codeforge-agent", [
+          {
+            range: fullRange,
+            text: file.content,
+            forceMoveMarkers: true,
+          },
+        ]);
       }
     }
   }, [file?._id, file?.content, file]);

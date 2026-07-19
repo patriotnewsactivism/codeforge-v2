@@ -36,7 +36,13 @@ export function SmartPreview({
   const kind = useMemo(() => detectProjectKind(files), [files]);
 
   if (kind === "node") {
-    return <WebContainerPreview files={files} />;
+    return (
+      <WebContainerPreview 
+        files={files} 
+        autoRefresh={autoRefresh} 
+        onToggleAutoRefresh={onToggleAutoRefresh} 
+      />
+    );
   }
   if (kind === "server") {
     return <ServerSandboxPlaceholder />;
@@ -59,39 +65,37 @@ const PHASE_LABEL: Record<RuntimeStatus["phase"], string> = {
   error: "Error",
 };
 
-function WebContainerPreview({ files }: { files: Doc<"files">[] }) {
-  // WebContainers needs a cross-origin-isolated document. The IDE route sends
-  // the right headers, but an in-app (soft) navigation reuses the previous
-  // document — a one-time reload activates isolation.
+function WebContainerPreview({ 
+  files, 
+  autoRefresh, 
+  onToggleAutoRefresh 
+}: { 
+  files: Doc<"files">[];
+  autoRefresh: boolean;
+  onToggleAutoRefresh: () => void;
+}) {
+  // WebContainers needs a cross-origin-isolated document.
+  // If headers are missing, gracefully degrade to static preview.
   const isolated =
-    typeof window === "undefined" || window.crossOriginIsolated !== false;
+    typeof window !== "undefined" && window.crossOriginIsolated;
+    
   if (!isolated) {
-    return <ReloadToEnable />;
+    return (
+      <div className="flex flex-col h-full relative">
+        <div className="absolute top-10 left-0 right-0 z-10 flex justify-center pointer-events-none">
+          <div className="bg-yellow-500/20 text-yellow-500/80 border border-yellow-500/30 text-[10px] px-2 py-1 rounded-full backdrop-blur-md">
+            Node sandbox disabled (missing COOP/COEP headers). Running in static mode.
+          </div>
+        </div>
+        <LivePreview
+          files={files}
+          autoRefresh={autoRefresh}
+          onToggleAutoRefresh={onToggleAutoRefresh}
+        />
+      </div>
+    );
   }
   return <WebContainerPreviewInner files={files} />;
-}
-
-function ReloadToEnable() {
-  return (
-    <div className="h-full flex items-center justify-center bg-[oklch(0.11_0.02_260)] p-6">
-      <div className="text-center max-w-sm">
-        <div className="mx-auto size-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-          <RefreshCw className="size-6 text-primary" />
-        </div>
-        <h3 className="font-semibold text-sm mb-1">Enable live build</h3>
-        <p className="text-xs text-muted-foreground mb-3">
-          Reload once to start the in-browser build sandbox for this app.
-        </p>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="text-xs bg-primary text-primary-foreground rounded-md px-3 py-1.5 font-medium"
-        >
-          Reload to enable
-        </button>
-      </div>
-    </div>
-  );
 }
 
 function WebContainerPreviewInner({ files }: { files: Doc<"files">[] }) {
