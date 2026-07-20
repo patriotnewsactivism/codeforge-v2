@@ -310,6 +310,38 @@ const MODELS = [
     price: "$0.80 / $0.80",
     costLevel: "$$",
   },
+  // GitHub Models -- free tier, live in the fallback chain (convex/ai.ts)
+  // as of 2026-07-20. Not OpenRouter-routed; listed here for visibility.
+  {
+    id: "github-gpt-4.1",
+    name: "GPT-4.1 (GitHub Models)",
+    provider: "GitHub",
+    reason: 4,
+    quality: 4,
+    speed: 4,
+    price: "Free",
+    costLevel: "$",
+  },
+  {
+    id: "github-codestral",
+    name: "Codestral 25.01 (GitHub Models)",
+    provider: "GitHub",
+    reason: 3,
+    quality: 4,
+    speed: 4,
+    price: "Free",
+    costLevel: "$",
+  },
+  {
+    id: "github-llama-4-maverick",
+    name: "Llama 4 Maverick (GitHub Models)",
+    provider: "GitHub",
+    reason: 4,
+    quality: 4,
+    speed: 4,
+    price: "Free",
+    costLevel: "$",
+  },
 ];
 export function AIModelsTab() {
   const profile = useQuery(api.users.getProfile, {});
@@ -355,7 +387,7 @@ export function AIModelsTab() {
         </h2>
         <p className="text-sm text-zinc-400 mt-1">
           Select a multi-agent swarm profile to balance reasoning, speed, and
-          API token costs, or browse our OpenRouter-compatible model catalog.
+          API token costs, or browse our model catalog (OpenRouter + free-tier fallbacks).
         </p>
       </div>
 
