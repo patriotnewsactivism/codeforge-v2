@@ -342,6 +342,28 @@ const MODELS = [
     price: "Free",
     costLevel: "$",
   },
+  // Qwen Cloud (Alibaba Cloud Model Studio) -- genuinely paid, not free.
+  // Live in the fallback chain (convex/ai.ts) as of 2026-07-20.
+  {
+    id: "qwen-cloud-max",
+    name: "Qwen Max (Qwen Cloud)",
+    provider: "Qwen Cloud",
+    reason: 4,
+    quality: 4,
+    speed: 3,
+    price: "$1.60 / $6.40",
+    costLevel: "$$",
+  },
+  {
+    id: "qwen-cloud-coder",
+    name: "Qwen3 Coder Plus (Qwen Cloud)",
+    provider: "Qwen Cloud",
+    reason: 4,
+    quality: 4,
+    speed: 3,
+    price: "$1.00 / $5.00",
+    costLevel: "$$",
+  },
 ];
 export function AIModelsTab() {
   const profile = useQuery(api.users.getProfile, {});

@@ -34,7 +34,8 @@ export interface ModelConfig {
     | "azure"
     | "kilocode"
     | "mistral"
-    | "github";
+    | "github"
+    | "qwen";
   apiModel: string;
   inputCostPer1M: number;
   outputCostPer1M: number;
@@ -567,6 +568,37 @@ export const MODELS: Record<string, ModelConfig> = {
     maxTokens: 8192,
     tier: "balanced",
   },
+  // Qwen Cloud (Alibaba Cloud Model Studio, international/dashscope-intl) --
+  // PAID pay-as-you-go, NOT a free tier. Placed late in the fallback chain,
+  // after every free option, as a cheap/high-quality paid tier before the
+  // priciest last-resort OpenRouter paid models. Verified live 2026-07-20
+  // against https://dashscope-intl.aliyuncs.com/compatible-mode/v1.
+  "qwen-cloud-max": {
+    id: "qwen-cloud-max",
+    name: "Qwen Max (Qwen Cloud)",
+    provider: "qwen",
+    apiModel: "qwen-max",
+    // Official Alibaba Cloud Model Studio international pricing, confirmed
+    // 2026-07-20: https://www.alibabacloud.com/help/en/model-studio/model-pricing
+    inputCostPer1M: 1.6,
+    outputCostPer1M: 6.4,
+    maxTokens: 4096,
+    tier: "strong",
+  },
+  "qwen-cloud-coder": {
+    id: "qwen-cloud-coder",
+    name: "Qwen3 Coder Plus (Qwen Cloud)",
+    provider: "qwen",
+    apiModel: "qwen3-coder-plus",
+    // Tiered pricing -- base tier (<=32K input tokens) confirmed 2026-07-20.
+    // Rises to $1.80/$9.00 (32K-128K) then higher; capped via
+    // maxSafeInputTokens to stay in the cheap tier.
+    inputCostPer1M: 1.0,
+    outputCostPer1M: 5.0,
+    maxTokens: 4096,
+    maxSafeInputTokens: 30000,
+    tier: "strong",
+  },
   "kilocode-qwen3-coder": {
     id: "kilocode-qwen3-coder",
     name: "Qwen3 Coder (Kilo Code Free)",
@@ -706,6 +738,10 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
       // GitHub Models — free tier for existing GitHub PATs, OpenAI-compatible.
       // Tight per-request token caps but genuinely frontier-tier models.
       return "https://models.github.ai/inference";
+    case "qwen":
+      // Qwen Cloud (Alibaba Cloud Model Studio) international endpoint --
+      // NOT the mainland Bailian console, that's a separate account/URL.
+      return "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
   }
 }
 
@@ -724,6 +760,7 @@ const PROVIDER_KEY_MAP: Record<ModelConfig["provider"], string> = {
   kilocode: "kilocode",
   mistral: "mistral",
   github: "github",
+  qwen: "qwen",
 };
 
 /**
@@ -777,6 +814,8 @@ function getApiKey(
       return process.env.MISTRAL_API_KEY ?? "";
     case "github":
       return process.env.GITHUB_TOKEN_4 ?? process.env.GITHUB_TOKEN_9 ?? "";
+    case "qwen":
+      return process.env.QWENCLOUD_API_KEY ?? "";
   }
 }
 
@@ -1064,6 +1103,8 @@ export async function callAIWithFallback(
     "groq-llama-3.1-8b",
     "cerebras-glm-4.7",
     "cerebras-gpt-oss-120b",
+    "qwen-cloud-coder",
+    "qwen-cloud-max",
     "or-deepseek-v3",
     "or-llama-3.3-70b",
     "or-qwen-coder",
