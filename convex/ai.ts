@@ -33,7 +33,8 @@ export interface ModelConfig {
     | "openrouter"
     | "azure"
     | "kilocode"
-    | "mistral";
+    | "mistral"
+    | "github";
   apiModel: string;
   inputCostPer1M: number;
   outputCostPer1M: number;
@@ -596,6 +597,45 @@ export const MODELS: Record<string, ModelConfig> = {
     maxTokens: 16384,
     tier: "strong",
   },
+  // GitHub Models -- free via existing GITHUB_TOKEN_4 PAT, no separate signup.
+  // Genuinely frontier-tier models unlike the rest of the free chain, but
+  // GitHub imposes tight per-request token caps -- verified live 2026-07-20
+  // (gpt-4.1, codestral-2501, llama-4-maverick all responded; gpt-5-mini,
+  // o4-mini, deepseek-r1-0528 returned "Unavailable model" on this token's
+  // tier -- left out of the registry below since they don't currently work).
+  "github-gpt-4.1": {
+    id: "github-gpt-4.1",
+    name: "GPT-4.1 (GitHub Models)",
+    provider: "github",
+    apiModel: "openai/gpt-4.1",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    maxTokens: 4096,
+    maxSafeInputTokens: 6000,
+    tier: "strong",
+  },
+  "github-codestral": {
+    id: "github-codestral",
+    name: "Codestral 25.01 (GitHub Models)",
+    provider: "github",
+    apiModel: "mistral-ai/codestral-2501",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    maxTokens: 4096,
+    maxSafeInputTokens: 6000,
+    tier: "balanced",
+  },
+  "github-llama-4-maverick": {
+    id: "github-llama-4-maverick",
+    name: "Llama 4 Maverick (GitHub Models)",
+    provider: "github",
+    apiModel: "meta/llama-4-maverick-17b-128e-instruct-fp8",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    maxTokens: 4096,
+    maxSafeInputTokens: 6000,
+    tier: "balanced",
+  },
 };
 
 export const DEFAULT_MODEL = "deepseek-v3";
@@ -662,6 +702,10 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
       return "https://kilo.ai/api/openrouter/v1";
     case "mistral":
       return "https://api.mistral.ai/v1";
+    case "github":
+      // GitHub Models — free tier for existing GitHub PATs, OpenAI-compatible.
+      // Tight per-request token caps but genuinely frontier-tier models.
+      return "https://models.github.ai/inference";
   }
 }
 
@@ -679,6 +723,7 @@ const PROVIDER_KEY_MAP: Record<ModelConfig["provider"], string> = {
   azure: "openai",
   kilocode: "kilocode",
   mistral: "mistral",
+  github: "github",
 };
 
 /**
@@ -730,6 +775,8 @@ function getApiKey(
       return process.env.KILOCODE_API_KEY ?? "";
     case "mistral":
       return process.env.MISTRAL_API_KEY ?? "";
+    case "github":
+      return process.env.GITHUB_TOKEN_4 ?? process.env.GITHUB_TOKEN_9 ?? "";
   }
 }
 
@@ -1001,6 +1048,9 @@ export async function callAIWithFallback(
     "mistral-codestral",
     "kilocode-qwen3-coder",
     "kilocode-llama-3.3-70b",
+    "github-gpt-4.1",
+    "github-codestral",
+    "github-llama-4-maverick",
     "or-devstral-free",
     "or-qwen3-coder-free",
     "or-llama-3.3-70b-free",
