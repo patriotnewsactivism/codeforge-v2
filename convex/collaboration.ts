@@ -121,7 +121,9 @@ export const createInvite = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const project = await ctx.db.get(args.projectId);
+    const normalizedId = ctx.db.normalizeId("projects", args.projectId);
+    if (!normalizedId) throw new Error("Project not found");
+    const project = await ctx.db.get(normalizedId);
     if (!project || project.ownerId !== userId)
       throw new Error("Not authorized");
 

@@ -46,7 +46,13 @@ export const get = query({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
-    const project = await ctx.db.get(args.projectId);
+    // Guard against malformed/invalid IDs (e.g. a corrupted URL) -- ctx.db.get()
+    // throws a hard server error on a string that can't be decoded as a valid
+    // document ID, which was crashing the whole IDE page instead of showing
+    // a normal "not found" state. normalizeId returns null instead of throwing.
+    const normalizedId = ctx.db.normalizeId("projects", args.projectId);
+    if (!normalizedId) return null;
+    const project = await ctx.db.get(normalizedId);
     if (!project) return null;
     // Check access: owner or collaborator
     if (project.ownerId !== userId) {
@@ -160,7 +166,9 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
-    const project = await ctx.db.get(args.projectId);
+    const normalizedId = ctx.db.normalizeId("projects", args.projectId);
+    if (!normalizedId) throw new Error("Project not found");
+    const project = await ctx.db.get(normalizedId);
     if (!project || project.ownerId !== userId)
       throw new Error("Not authorized");
 
