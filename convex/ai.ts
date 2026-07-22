@@ -127,16 +127,10 @@ export const MODELS: Record<string, ModelConfig> = {
     maxSafeInputTokens: 4000,
     tier: "fast",
   },
-  "groq-llama-4-scout": {
-    id: "groq-llama-4-scout",
-    name: "Llama 4 Scout (Groq)",
-    provider: "groq",
-    apiModel: "meta-llama/llama-4-scout-17b-16e-instruct",
-    inputCostPer1M: 0.11,
-    outputCostPer1M: 0.34,
-    maxTokens: 8192,
-    tier: "balanced",
-  },
+  // "groq-llama-4-scout" REMOVED 2026-07-22 -- confirmed via live /v1/models
+  // query that Groq no longer offers this model on this account at all
+  // (404 model_not_found, not a quota issue). No working substitute needed;
+  // groq-gpt-oss-120b already covers the "balanced/strong" tier.
   // gpt-oss-120b — OpenAI's open-weight 120B on Groq. Very capable coder /
   // diagnostician, near-instant, and cheap. Strong default for planning,
   // debugging, and code generation.
@@ -165,9 +159,12 @@ export const MODELS: Record<string, ModelConfig> = {
   // (emits <think> reasoning). 131k context.
   "groq-qwen3-32b": {
     id: "groq-qwen3-32b",
-    name: "Qwen3 32B (Groq)",
+    // Model id confirmed live 2026-07-22 via Groq's own /v1/models -- they
+    // renamed/replaced qwen/qwen3-32b with qwen/qwen3.6-27b. Key name kept
+    // as-is to avoid touching every reference across AGENT_MODELS/profiles.
+    name: "Qwen3.6 27B (Groq)",
     provider: "groq",
-    apiModel: "qwen/qwen3-32b",
+    apiModel: "qwen/qwen3.6-27b",
     inputCostPer1M: 0.29,
     outputCostPer1M: 0.59,
     maxTokens: 16384,
@@ -331,11 +328,16 @@ export const MODELS: Record<string, ModelConfig> = {
     maxSafeInputTokens: 30000,
     tier: "strong",
   },
+  // Both specific free model ids below were discontinued by Kilo Code
+  // (404 "The free period of this model ended") -- their own error message
+  // names the replacement: kilo-auto/free for limited free inference.
+  // Pointed both chain slots there 2026-07-22; still two chain attempts,
+  // now against a live endpoint instead of two guaranteed 404s.
   "kilocode-qwen3-coder": {
     id: "kilocode-qwen3-coder",
-    name: "Qwen3 Coder (Kilo Code Free)",
+    name: "Kilo Auto (Free)",
     provider: "kilocode",
-    apiModel: "qwen/qwen3-coder:free",
+    apiModel: "kilo-auto/free",
     inputCostPer1M: 0,
     outputCostPer1M: 0,
     maxTokens: 8192,
@@ -343,9 +345,9 @@ export const MODELS: Record<string, ModelConfig> = {
   },
   "kilocode-llama-3.3-70b": {
     id: "kilocode-llama-3.3-70b",
-    name: "Llama 3.3 70B (Kilo Code Free)",
+    name: "Kilo Auto (Free) 2",
     provider: "kilocode",
-    apiModel: "meta-llama/llama-3.3-70b-instruct:free",
+    apiModel: "kilo-auto/free",
     inputCostPer1M: 0,
     outputCostPer1M: 0,
     maxTokens: 8192,
