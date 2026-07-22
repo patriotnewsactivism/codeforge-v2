@@ -30,6 +30,7 @@ export interface ModelConfig {
     | "xai"
     | "moonshot"
     | "openai"
+    | "openrouter"
     | "azure"
     | "kilocode"
     | "mistral"
@@ -333,6 +334,31 @@ export const MODELS: Record<string, ModelConfig> = {
   // names the replacement: kilo-auto/free for limited free inference.
   // Pointed both chain slots there 2026-07-22; still two chain attempts,
   // now against a live endpoint instead of two guaranteed 404s.
+  // OpenRouter FREE tier re-added 2026-07-22 (last-resort only) -- Don
+  // confirmed OPENROUTER_API_KEY is still valid; only the PAID balance
+  // stays retired. Re-verified live against openrouter.ai/api/v1/models --
+  // the free catalog changed since these were last used, old devstral/
+  // qwen-coder/llama-3.3-70b :free ids are gone.
+  "or-gpt-oss-20b-free": {
+    id: "or-gpt-oss-20b-free",
+    name: "GPT-OSS 20B (OpenRouter Free)",
+    provider: "openrouter",
+    apiModel: "openai/gpt-oss-20b:free",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    maxTokens: 8192,
+    tier: "fast",
+  },
+  "or-nemotron-3-super-free": {
+    id: "or-nemotron-3-super-free",
+    name: "Nemotron 3 Super 120B (OpenRouter Free)",
+    provider: "openrouter",
+    apiModel: "nvidia/nemotron-3-super-120b-a12b:free",
+    inputCostPer1M: 0,
+    outputCostPer1M: 0,
+    maxTokens: 8192,
+    tier: "strong",
+  },
   "kilocode-qwen3-coder": {
     id: "kilocode-qwen3-coder",
     name: "Kilo Auto (Free)",
@@ -446,6 +472,8 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
       return "https://api.cerebras.ai/v1";
     case "google":
       return "https://generativelanguage.googleapis.com/v1beta/openai";
+    case "openrouter":
+      return "https://openrouter.ai/api/v1";
     case "azure":
       return process.env.AZURE_OPENAI_ENDPOINT ?? "";
     case "kilocode":
@@ -476,6 +504,7 @@ const PROVIDER_KEY_MAP: Record<ModelConfig["provider"], string> = {
   xai: "xai",
   moonshot: "moonshot",
   openai: "openai",
+  openrouter: "openrouter",
   azure: "openai",
   kilocode: "kilocode",
   mistral: "mistral",
@@ -524,6 +553,8 @@ function getApiKey(
       return process.env.CEREBRAS_API_KEY ?? "";
     case "google":
       return process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? "";
+    case "openrouter":
+      return process.env.OPENROUTER_API_KEY ?? "";
     case "azure":
       return process.env.AZURE_OPENAI_API_KEY ?? "";
     case "kilocode":
@@ -717,6 +748,11 @@ export async function callAI(
     "Content-Type": "application/json",
     Authorization: `Bearer ${apiKey}`,
   };
+  if (config.provider === "openrouter") {
+    headers["HTTP-Referer"] =
+      process.env.SITE_URL ?? "https://code.donmatthews.live";
+    headers["X-Title"] = "CodeForge";
+  }
 
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
@@ -818,6 +854,8 @@ export async function callAIWithFallback(
     "or-deepseek-v3",
     "groq-llama-3.3-70b",
     "qwen-cloud-coder",
+    "or-gpt-oss-20b-free",
+    "or-nemotron-3-super-free",
   ].filter((m, i, arr) => arr.indexOf(m) === i && MODELS[m]);
 
   // For lifetime users: filter chain to only models their keys can serve
