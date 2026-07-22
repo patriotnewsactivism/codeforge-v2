@@ -34,6 +34,9 @@ const CheckoutSuccess = lazy(() =>
 const XRayPage = lazy(() =>
   import("./pages/XRayPage").then(m => ({ default: m.XRayPage })),
 );
+const JoinPage = lazy(() =>
+  import("./pages/JoinPage").then(m => ({ default: m.JoinPage })),
+);
 
 // Simple full-screen loading spinner for lazy pages
 function PageLoader() {
@@ -74,6 +77,8 @@ function App() {
               <Route path="/project/:projectId/xray" element={<XRayPage />} />
               {/* Onboarding - full screen, no sidebar */}
               <Route path="/onboarding" element={<OnboardingPage />} />
+              {/* Collaboration invite links - resolves inviteCode -> real project, full screen */}
+              <Route path="/join/:inviteCode" element={<JoinPage />} />
             </Route>
 
             {/* Public pricing page */}
