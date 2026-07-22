@@ -30,7 +30,6 @@ export interface ModelConfig {
     | "xai"
     | "moonshot"
     | "openai"
-    | "openrouter"
     | "azure"
     | "kilocode"
     | "mistral"
@@ -280,273 +279,6 @@ export const MODELS: Record<string, ModelConfig> = {
     maxTokens: 8192,
     tier: "strong",
   },
-
-  // ── OpenRouter — one key, dozens of cheap models (OpenAI-compatible).
-  //    Ideal for spawning many agents cheaply. Requires OPENROUTER_API_KEY.
-  "or-deepseek-v3": {
-    id: "or-deepseek-v3",
-    name: "DeepSeek V3 (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "deepseek/deepseek-chat",
-    inputCostPer1M: 0.28,
-    outputCostPer1M: 1.14,
-    maxTokens: 16384,
-    tier: "balanced",
-  },
-  "or-llama-3.3-70b": {
-    id: "or-llama-3.3-70b",
-    name: "Llama 3.3 70B (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "meta-llama/llama-3.3-70b-instruct",
-    inputCostPer1M: 0.12,
-    outputCostPer1M: 0.3,
-    maxTokens: 8192,
-    tier: "balanced",
-  },
-  "or-qwen-coder": {
-    id: "or-qwen-coder",
-    name: "Qwen 2.5 Coder 32B (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "qwen/qwen-2.5-coder-32b-instruct",
-    inputCostPer1M: 0.06,
-    outputCostPer1M: 0.15,
-    maxTokens: 8192,
-    tier: "balanced",
-  },
-  // ── FREE-TIER models (no OpenRouter balance required — OpenRouter's own
-  //    ":free" endpoints, rate-limited by OpenRouter itself, not billed).
-  //    Used as the primary fallback chain so the app keeps working even
-  //    with $0 OpenRouter/Cerebras/DeepSeek balance.
-  "or-deepseek-v3-free": {
-    id: "or-deepseek-v3-free",
-    name: "Nemotron 3 Super 120B (OpenRouter Free)",
-    provider: "openrouter",
-    apiModel: "nvidia/nemotron-3-super-120b-a12b:free",
-    inputCostPer1M: 0,
-    outputCostPer1M: 0,
-    maxTokens: 8192,
-    tier: "balanced",
-  },
-  "or-llama-3.3-70b-free": {
-    id: "or-llama-3.3-70b-free",
-    name: "Llama 3.3 70B (OpenRouter Free)",
-    provider: "openrouter",
-    apiModel: "meta-llama/llama-3.3-70b-instruct:free",
-    inputCostPer1M: 0,
-    outputCostPer1M: 0,
-    maxTokens: 8192,
-    tier: "balanced",
-  },
-  "or-qwen3-coder-free": {
-    id: "or-qwen3-coder-free",
-    name: "Qwen3 Coder (OpenRouter Free)",
-    provider: "openrouter",
-    apiModel: "qwen/qwen3-coder:free",
-    inputCostPer1M: 0,
-    outputCostPer1M: 0,
-    maxTokens: 8192,
-    tier: "balanced",
-  },
-  // NOTE: kept id "or-devstral-free" for wiring simplicity, but OpenRouter
-  // has no free Devstral/Mistral coding-agent tier right now (checked live
-  // 2026-07-19) -- substituted Cohere's free code-focused model instead.
-  // For a TRUE Mistral coding agent (Codestral), Don needs to add a native
-  // "mistral" provider + MISTRAL_API_KEY (La Plateforme has a free tier) --
-  // not yet wired here, flagging as a follow-up.
-  "or-devstral-free": {
-    id: "or-devstral-free",
-    name: "North Mini Code (Cohere, OpenRouter Free)",
-    provider: "openrouter",
-    apiModel: "cohere/north-mini-code:free",
-    inputCostPer1M: 0,
-    outputCostPer1M: 0,
-    maxTokens: 8192,
-    tier: "balanced",
-  },
-  // Poolside Laguna — free coding-focused model via OpenRouter.
-  "or-poolside-free": {
-    id: "or-poolside-free",
-    name: "Poolside Laguna (OpenRouter Free)",
-    provider: "openrouter",
-    apiModel: "poolside/laguna-m.1:free",
-    inputCostPer1M: 0,
-    outputCostPer1M: 0,
-    maxTokens: 8192,
-    tier: "balanced",
-  },
-  "or-gemini-flash": {
-    id: "or-gemini-flash",
-    name: "Gemini 2.5 Flash (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "google/gemini-2.5-flash",
-    inputCostPer1M: 0.3,
-    outputCostPer1M: 2.5,
-    maxTokens: 8192,
-    tier: "fast",
-  },
-
-  "or-mistral-small-24b": {
-    id: "or-mistral-small-24b",
-    name: "Mistral Small 24B (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "mistralai/mistral-small-24b-instruct-2501:free",
-    inputCostPer1M: 0,
-    outputCostPer1M: 0,
-    maxTokens: 8192,
-    tier: "balanced",
-  },
-  // Kimi and Grok via OpenRouter — one key (OPENROUTER_API_KEY) instead of
-  // separate Moonshot/xAI (or Azure) accounts.
-  "or-kimi-k2": {
-    id: "or-kimi-k2",
-    name: "Kimi K2 (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "moonshotai/kimi-k2",
-    inputCostPer1M: 0.14,
-    outputCostPer1M: 0.14,
-    maxTokens: 16384,
-    tier: "fast",
-  },
-  "or-deepseek-reasoner": {
-    id: "or-deepseek-reasoner",
-    name: "DeepSeek R1 (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "deepseek/deepseek-r1",
-    inputCostPer1M: 0.55,
-    outputCostPer1M: 2.19,
-    maxTokens: 16384,
-    tier: "strong",
-  },
-  "or-grok-4": {
-    id: "or-grok-4",
-    name: "Grok 4 (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "x-ai/grok-4",
-    inputCostPer1M: 5.0,
-    outputCostPer1M: 25.0,
-    maxTokens: 16384,
-    tier: "strong",
-  },
-  "or-grok-3": {
-    id: "or-grok-3",
-    name: "Grok 4 Fast (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "x-ai/grok-4-fast",
-    inputCostPer1M: 0.2,
-    outputCostPer1M: 0.5,
-    maxTokens: 16384,
-    tier: "fast",
-  },
-  "or-claude-sonnet": {
-    id: "or-claude-sonnet",
-    name: "Claude Opus 4.8 (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "anthropic/claude-opus-4.8",
-    inputCostPer1M: 5.0,
-    outputCostPer1M: 25.0,
-    maxTokens: 16384,
-    tier: "strong",
-  },
-  "or-claude-haiku": {
-    id: "or-claude-haiku",
-    name: "Claude Haiku 4.5 (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "anthropic/claude-haiku-4.5",
-    inputCostPer1M: 1.0,
-    outputCostPer1M: 5.0,
-    maxTokens: 8192,
-    tier: "balanced",
-  },
-  "or-gpt-4o-mini": {
-    id: "or-gpt-4o-mini",
-    name: "GPT-4o Mini (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "openai/gpt-4o-mini",
-    inputCostPer1M: 0.15,
-    outputCostPer1M: 0.6,
-    maxTokens: 8192,
-    tier: "fast",
-  },
-  "or-gpt-4o": {
-    id: "or-gpt-4o",
-    name: "GPT-4o (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "openai/gpt-4o",
-    inputCostPer1M: 2.5,
-    outputCostPer1M: 10.0,
-    maxTokens: 8192,
-    tier: "strong",
-  },
-  "or-o3-mini": {
-    id: "or-o3-mini",
-    name: "o4-mini (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "openai/o4-mini",
-    inputCostPer1M: 1.1,
-    outputCostPer1M: 4.4,
-    maxTokens: 8192,
-    tier: "strong",
-  },
-  "or-gpt-4-5": {
-    id: "or-gpt-4-5",
-    name: "GPT-4.1 Mini (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "openai/gpt-4.1-mini",
-    inputCostPer1M: 0.4,
-    outputCostPer1M: 1.6,
-    maxTokens: 16384,
-    tier: "balanced",
-  },
-  "or-llama-4-maverick": {
-    id: "or-llama-4-maverick",
-    name: "Llama 4 Maverick (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "meta-llama/llama-4-maverick",
-    inputCostPer1M: 0.2,
-    outputCostPer1M: 0.6,
-    maxTokens: 8192,
-    tier: "balanced",
-  },
-  "or-qwen-3-235b": {
-    id: "or-qwen-3-235b",
-    name: "Qwen 3 235B (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "qwen/qwen-3-235b",
-    inputCostPer1M: 0.2,
-    outputCostPer1M: 0.6,
-    maxTokens: 8192,
-    tier: "balanced",
-  },
-  "or-codestral": {
-    id: "or-codestral",
-    name: "Codestral (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "mistralai/codestral",
-    inputCostPer1M: 0.3,
-    outputCostPer1M: 0.9,
-    maxTokens: 8192,
-    tier: "balanced",
-  },
-  "or-hermes-3-405b": {
-    id: "or-hermes-3-405b",
-    name: "Hermes 3 405B (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "nousresearch/hermes-3-llama-3.1-405b",
-    inputCostPer1M: 0.8,
-    outputCostPer1M: 0.8,
-    maxTokens: 8192,
-    tier: "strong",
-  },
-  "or-poolside": {
-    id: "or-poolside",
-    name: "Poolside (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "poolside/poolside-ai",
-    inputCostPer1M: 0.0,
-    outputCostPer1M: 0.0,
-    maxTokens: 8192,
-    tier: "strong",
-  },
   // ── Kilo Code Gateway — separate free-tier account/quota, proxies the same
   //    OpenRouter model catalog through its own rate limits (kilocode.ai).
   //    Requires KILOCODE_API_KEY. Adding this as its own provider gives the
@@ -556,7 +288,7 @@ export const MODELS: Record<string, ModelConfig> = {
   // Real Mistral La Plateforme -- Codestral is Mistral's dedicated coding
   // agent model. La Plateforme has a free tier (~1B tokens/month). Requires
   // MISTRAL_API_KEY. This is the genuine "mistral coding agent model" --
-  // "or-devstral-free" elsewhere is a substitute (Cohere) since OpenRouter
+  // "mistral-codestral" elsewhere is a substitute (Cohere) since OpenRouter
   // has no free Devstral/Mistral tier.
   "mistral-codestral": {
     id: "mistral-codestral",
@@ -619,16 +351,6 @@ export const MODELS: Record<string, ModelConfig> = {
     maxTokens: 8192,
     tier: "balanced",
   },
-  "or-gemini-pro": {
-    id: "or-gemini-pro",
-    name: "Gemini 2.5 Pro (OpenRouter)",
-    provider: "openrouter",
-    apiModel: "google/gemini-2.5-pro",
-    inputCostPer1M: 1.25,
-    outputCostPer1M: 10.0,
-    maxTokens: 16384,
-    tier: "strong",
-  },
   // GitHub Models -- free via existing GITHUB_TOKEN_4 PAT, no separate signup.
   // Genuinely frontier-tier models unlike the rest of the free chain, but
   // GitHub imposes tight per-request token caps -- verified live 2026-07-20
@@ -667,8 +389,7 @@ export const MODELS: Record<string, ModelConfig> = {
     maxTokens: 4096,
     maxSafeInputTokens: 6000,
     tier: "balanced",
-  },
-};
+  },};
 
 export const DEFAULT_MODEL = "deepseek-v3";
 
@@ -723,8 +444,6 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
       return "https://api.cerebras.ai/v1";
     case "google":
       return "https://generativelanguage.googleapis.com/v1beta/openai";
-    case "openrouter":
-      return "https://openrouter.ai/api/v1";
     case "azure":
       return process.env.AZURE_OPENAI_ENDPOINT ?? "";
     case "kilocode":
@@ -755,7 +474,6 @@ const PROVIDER_KEY_MAP: Record<ModelConfig["provider"], string> = {
   xai: "xai",
   moonshot: "moonshot",
   openai: "openai",
-  openrouter: "openrouter",
   azure: "openai",
   kilocode: "kilocode",
   mistral: "mistral",
@@ -804,8 +522,6 @@ function getApiKey(
       return process.env.CEREBRAS_API_KEY ?? "";
     case "google":
       return process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? "";
-    case "openrouter":
-      return process.env.OPENROUTER_API_KEY ?? "";
     case "azure":
       return process.env.AZURE_OPENAI_API_KEY ?? "";
     case "kilocode":
@@ -995,18 +711,10 @@ export async function callAI(
     );
   }
 
-  // OpenRouter recommends app-identifying headers for attribution and to
-  // avoid request deprioritization. Harmless for other providers, but only
-  // sent for OpenRouter.
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${apiKey}`,
   };
-  if (config.provider === "openrouter") {
-    headers["HTTP-Referer"] =
-      process.env.SITE_URL ?? "https://code.donmatthews.live";
-    headers["X-Title"] = "CodeForge";
-  }
 
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
@@ -1090,9 +798,9 @@ export async function callAIWithFallback(
     "github-gpt-4.1",
     "github-codestral",
     "github-llama-4-maverick",
-    "or-devstral-free",
-    "or-qwen3-coder-free",
-    "or-llama-3.3-70b-free",
+    "mistral-codestral",
+    "kilocode-qwen3-coder",
+    "groq-llama-3.3-70b",
     "or-deepseek-v3-free",
     "or-poolside-free",
     "groq-llama-3.3-70b",
@@ -1106,8 +814,8 @@ export async function callAIWithFallback(
     "qwen-cloud-coder",
     "qwen-cloud-max",
     "or-deepseek-v3",
-    "or-llama-3.3-70b",
-    "or-qwen-coder",
+    "groq-llama-3.3-70b",
+    "qwen-cloud-coder",
   ].filter((m, i, arr) => arr.indexOf(m) === i && MODELS[m]);
 
   // For lifetime users: filter chain to only models their keys can serve
@@ -1166,48 +874,48 @@ export const MODEL_PROFILES: Record<string, Record<string, string>> = {
   // still cycles through everything else (more free models, more Groq
   // models, Cerebras, then paid OpenRouter) if a primary pick is down.
   viktor: {
-    orchestrator: "or-devstral-free",
-    architect: "or-devstral-free",
-    coder: "or-qwen3-coder-free",
-    reviewer: "or-devstral-free",
+    orchestrator: "mistral-codestral",
+    architect: "mistral-codestral",
+    coder: "kilocode-qwen3-coder",
+    reviewer: "mistral-codestral",
     debugger: "groq-qwen3-32b",
-    tester: "or-qwen3-coder-free",
-    devops: "or-llama-3.3-70b-free",
+    tester: "kilocode-qwen3-coder",
+    devops: "groq-llama-3.3-70b",
     sentry: "groq-gpt-oss-20b",
     forensic: "groq-qwen3-32b",
-    reflection: "or-devstral-free",
-    strategist: "or-devstral-free",
-    default: "or-devstral-free",
+    reflection: "mistral-codestral",
+    strategist: "mistral-codestral",
+    default: "mistral-codestral",
   },
   // Free: fully free roster (OpenRouter free endpoints + Groq free tier).
   free: {
-    orchestrator: "or-devstral-free",
-    architect: "or-llama-3.3-70b-free",
-    coder: "or-qwen3-coder-free",
-    reviewer: "or-devstral-free",
+    orchestrator: "mistral-codestral",
+    architect: "groq-llama-3.3-70b",
+    coder: "kilocode-qwen3-coder",
+    reviewer: "mistral-codestral",
     debugger: "groq-qwen3-32b",
-    tester: "or-qwen3-coder-free",
-    devops: "or-llama-3.3-70b-free",
+    tester: "kilocode-qwen3-coder",
+    devops: "groq-llama-3.3-70b",
     sentry: "groq-gpt-oss-20b",
     forensic: "groq-qwen3-32b",
-    reflection: "or-llama-3.3-70b-free",
-    strategist: "or-devstral-free",
-    default: "or-devstral-free",
+    reflection: "groq-llama-3.3-70b",
+    strategist: "mistral-codestral",
+    default: "mistral-codestral",
   },
   // Budget: all fast cheap models
   budget: {
-    orchestrator: "or-llama-3.3-70b",
-    architect: "or-llama-3.3-70b",
-    coder: "or-llama-3.3-70b",
-    reviewer: "or-qwen-coder",
-    debugger: "or-llama-3.3-70b",
-    tester: "or-qwen-coder",
-    devops: "or-qwen-coder",
-    sentry: "or-qwen-coder",
-    forensic: "or-llama-3.3-70b",
-    reflection: "or-llama-3.3-70b",
-    strategist: "or-llama-3.3-70b",
-    default: "or-llama-3.3-70b",
+    orchestrator: "groq-llama-3.3-70b",
+    architect: "groq-llama-3.3-70b",
+    coder: "groq-llama-3.3-70b",
+    reviewer: "qwen-cloud-coder",
+    debugger: "groq-llama-3.3-70b",
+    tester: "qwen-cloud-coder",
+    devops: "qwen-cloud-coder",
+    sentry: "qwen-cloud-coder",
+    forensic: "groq-llama-3.3-70b",
+    reflection: "groq-llama-3.3-70b",
+    strategist: "groq-llama-3.3-70b",
+    default: "groq-llama-3.3-70b",
   },
   // Premium: Anthropic Claude for everything
   premium: {
