@@ -105,22 +105,34 @@ type RightPanel =
 // Mobile views: one panel visible at a time
 type MobileView = "files" | "editor" | "preview" | "panel";
 
+// Convex document IDs are lowercase base32 (letters + digits) only -- no
+// hyphens or other punctuation. A malformed projectId in the URL (e.g. a
+// mangled/corrupted link) fails Convex's own v.id() argument validation
+// BEFORE any query handler runs, which crashes the whole page with an
+// unrecoverable "Server Error" instead of a normal not-found state. Validate
+// the shape client-side first so we can "skip" the queries and show a clean
+// "invalid project link" message instead of ever sending a bad ID to Convex.
+const VALID_CONVEX_ID = /^[a-z0-9]+$/i;
+
 export function IDEPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const userId = useAuthToken();
   const isMobile = useIsMobile();
 
+  const validProjectId =
+    projectId && VALID_CONVEX_ID.test(projectId) ? projectId : null;
+
   const project = useQuery(
     api.projects.get,
-    projectId ? { projectId: projectId as Id<"projects"> } : "skip",
+    validProjectId ? { projectId: validProjectId as Id<"projects"> } : "skip",
   );
   const files = useQuery(
     api.files.listByProject,
-    projectId ? { projectId: projectId as Id<"projects"> } : "skip",
+    validProjectId ? { projectId: validProjectId as Id<"projects"> } : "skip",
   );
   const collaborators = useQuery(
     api.collaboration.listActive,
-    projectId ? { projectId: projectId as Id<"projects"> } : "skip",
+    validProjectId ? { projectId: validProjectId as Id<"projects"> } : "skip",
   );
 
   const updateFileContent = useMutation(api.files.updateContent);
@@ -155,19 +167,19 @@ export function IDEPage() {
 
   // Initialize chat session
   useEffect(() => {
-    if (projectId && userId && !sessionId) {
-      getOrCreateSession({ projectId: projectId as Id<"projects"> }).then(
+    if (validProjectId && userId && !sessionId) {
+      getOrCreateSession({ projectId: validProjectId as Id<"projects"> }).then(
         setSessionId,
       );
     }
-  }, [projectId, userId, sessionId, getOrCreateSession]);
+  }, [validProjectId, userId, sessionId, getOrCreateSession]);
 
   // Presence heartbeat
   useEffect(() => {
-    if (!projectId) return;
+    if (!validProjectId) return;
     const sendHeartbeat = () => {
       heartbeat({
-        projectId: projectId as Id<"projects">,
+        projectId: validProjectId as Id<"projects">,
         activeFile: activeFilePath ?? undefined,
       }).catch(() => {});
     };
@@ -175,7 +187,7 @@ export function IDEPage() {
     sendHeartbeat();
     const interval = setInterval(sendHeartbeat, 30_000);
     return () => clearInterval(interval);
-  }, [projectId, activeFilePath, heartbeat]);
+  }, [validProjectId, activeFilePath, heartbeat]);
 
   // Auto-open first file
   useEffect(() => {
@@ -195,13 +207,13 @@ export function IDEPage() {
 
   // Auto-generate suggestions on first load, and run autonomous cycle if enabled
   useEffect(() => {
-    if (!projectId || files === undefined || files.length === 0) return;
+    if (!validProjectId || files === undefined || files.length === 0) return;
     // Fire-and-forget: generate suggestions in background
-    generateSuggestions({ projectId: projectId as Id<"projects"> }).catch(
+    generateSuggestions({ projectId: validProjectId as Id<"projects"> }).catch(
       () => {},
     );
   }, [
-    projectId,
+    validProjectId,
     files?.length, // Fire-and-forget: generate suggestions in background
     generateSuggestions,
     files,
@@ -460,7 +472,17 @@ export function IDEPage() {
     (f: NonNullable<typeof files>[number]) => !f.isDirectory,
   );
 
-  if (!projectId || project === undefined) {
+  if (!projectId || (!validProjectId && projectId)) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <p className="text-muted-foreground">
+          Invalid project link. Please open this project from your dashboard.
+        </p>
+      </div>
+    );
+  }
+
+  if (project === undefined) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
