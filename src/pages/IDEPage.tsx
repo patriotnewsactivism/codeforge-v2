@@ -225,7 +225,7 @@ export function IDEPage() {
   // Missions list for Cinema panel picker
   const missionsList = useQuery(
     api.missions.listByProject,
-    projectId ? { projectId: projectId as Id<"projects"> } : "skip",
+    validProjectId ? { projectId: validProjectId as Id<"projects"> } : "skip",
   );
 
   const activeFile =
@@ -368,12 +368,12 @@ export function IDEPage() {
 
   const handleCreateFile = useCallback(
     async (path: string, isDirectory: boolean) => {
-      if (!projectId) return;
+      if (!validProjectId) return;
       const parts = path.split("/");
       const name = parts[parts.length - 1] ?? path;
       try {
         await createFile({
-          projectId: projectId as Id<"projects">,
+          projectId: validProjectId as Id<"projects">,
           path,
           name,
           content: isDirectory ? "" : "",
