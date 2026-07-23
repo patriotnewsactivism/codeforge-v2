@@ -15,7 +15,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
-import { action, mutation, query } from "./_generated/server";
+import { action, internalQuery, mutation, query } from "./_generated/server";
 
 // ─── OBFUSCATION ─────────────────────────────────────────────────────────────
 // Simple XOR obfuscation — not cryptographic, but prevents plaintext storage
@@ -170,8 +170,12 @@ export const getKeyForProvider = query({
   },
 });
 
-/** Get all decrypted keys for a user — used by AI router for lifetime users */
-export const getAllKeysForUser = query({
+/**
+ * Get all decrypted keys for a user — used by AI router for lifetime users.
+ * internalQuery ONLY: this returns plaintext API keys and must never be
+ * client-callable. Only reachable server-side via ctx.runQuery(internal.apiKeys.getAllKeysForUser, ...).
+ */
+export const getAllKeysForUser = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     const keys = await ctx.db

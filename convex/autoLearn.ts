@@ -19,7 +19,7 @@
  */
 
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { internalAction, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
 
@@ -38,7 +38,7 @@ async function resolveByok(
     if (!userId) return { callerPlan };
 
     const userKeys: Record<string, string> = await ctx.runQuery(
-      api.apiKeys.getAllKeysForUser,
+      internal.apiKeys.getAllKeysForUser,
       { userId },
     );
     if (!userKeys || Object.keys(userKeys).length === 0) {

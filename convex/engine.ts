@@ -29,7 +29,7 @@ async function resolveByok(
     if (!userId) return { callerPlan };
 
     const userKeys: Record<string, string> = await ctx.runQuery(
-      api.apiKeys.getAllKeysForUser,
+      internal.apiKeys.getAllKeysForUser,
       { userId },
     );
     if (!userKeys || Object.keys(userKeys).length === 0) {
