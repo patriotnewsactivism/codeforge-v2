@@ -32,8 +32,6 @@ export function MissionControlBar({ projectId }: MissionControlBarProps) {
     limit: 200,
   });
 
-  if (!tasks) return null;
-
   // Active agents: unique agent IDs that have a streaming thought right now
   const streamingAgentIds = new Set(
     (thoughts ?? []).filter(t => t.isStreaming).map(t => t.agentId),
@@ -41,13 +39,31 @@ export function MissionControlBar({ projectId }: MissionControlBarProps) {
   const activeAgentCount = streamingAgentIds.size;
 
   // Fall back to task-based detection when nothing is streaming
-  const runningTaskCount = tasks.filter(
+  const runningTaskCount = (tasks ?? []).filter(
     t => t.status === "running" || t.status === "queued",
   ).length;
 
   const displayAgentCount =
     activeAgentCount > 0 ? activeAgentCount : runningTaskCount;
   const isRunning = displayAgentCount > 0;
+
+  // Agent mission toasts — hooks must run unconditionally on every render,
+  // so this stays above the `!tasks` early return below (was previously
+  // called after it, which crashed with React error #310 — "Rendered more
+  // hooks than during the previous render" — once the query resolved from
+  // undefined to an array between renders).
+  const prevIsRunning = useRef(isRunning);
+  useEffect(() => {
+    if (tasks === undefined) return;
+    if (isRunning && !prevIsRunning.current) {
+      toast.success("Agents deployed on mission");
+    } else if (!isRunning && prevIsRunning.current) {
+      toast.info("Agent mission completed");
+    }
+    prevIsRunning.current = isRunning;
+  }, [isRunning, tasks]);
+
+  if (!tasks) return null;
 
   // Files modified: unique paths across all done tasks this session
   const doneTasks = tasks.filter(t => t.status === "done");
@@ -64,17 +80,6 @@ export function MissionControlBar({ projectId }: MissionControlBarProps) {
     totalFinished > 0
       ? Math.round((doneTasks.length / totalFinished) * 100)
       : null;
-
-  // Agent mission toasts
-  const prevIsRunning = useRef(isRunning);
-  useEffect(() => {
-    if (isRunning && !prevIsRunning.current) {
-      toast.success("Agents deployed on mission");
-    } else if (!isRunning && prevIsRunning.current) {
-      toast.info("Agent mission completed");
-    }
-    prevIsRunning.current = isRunning;
-  }, [isRunning]);
 
   return (
     <div className="flex items-center gap-4 px-4 py-2 border-t border-border bg-[oklch(0.12_0.02_260)] shrink-0 min-h-[48px]">
