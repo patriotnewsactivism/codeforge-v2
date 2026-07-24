@@ -819,15 +819,16 @@ export async function callAIWithFallback(
   // Build fallback chain. Defaults stay on OpenRouter so a single
   // OPENROUTER_API_KEY can serve the whole chain.
   // Provider-diverse fallback: if one provider rate-limits (Groq free tier) or
-  // errors, the next attempt hits a *different* provider entirely. DeepSeek
-  // (paid, no per-minute wall) is the reliable anchor; Cerebras (free) and a
-  // tiny Groq model round it out.
+  // errors, the next attempt hits a *different* provider entirely.
   // Free-first chain: cycles through every free/no-balance-required option
   // across DIFFERENT providers/accounts before ever touching a paid model,
   // so a single provider's outage/quota/balance never blocks the app.
   // Order picked to spread load across the most distinct rate-limit buckets:
   // OpenRouter free models -> several separate Groq models (each has its
-  // own quota) -> Cerebras free tier -> paid OpenRouter as last resort.
+  // own quota) -> Cerebras free tier -> paid direct-provider models as the
+  // final anchor (DeepSeek/Moonshot/OpenAI/xAI — whichever the deployment
+  // has a key for) so a day where every free tier is simultaneously
+  // exhausted still doesn't surface "All models failed" to the user.
   const fullChain = [
     requested,
     "mistral-codestral",
@@ -839,9 +840,6 @@ export async function callAIWithFallback(
     "mistral-codestral",
     "kilocode-qwen3-coder",
     "groq-llama-3.3-70b",
-    "or-deepseek-v3-free",
-    "or-poolside-free",
-    "groq-llama-3.3-70b",
     "groq-gpt-oss-120b",
     "groq-llama-4-scout",
     "groq-qwen3-32b",
@@ -851,11 +849,16 @@ export async function callAIWithFallback(
     "cerebras-gpt-oss-120b",
     "qwen-cloud-coder",
     "qwen-cloud-max",
-    "or-deepseek-v3",
     "groq-llama-3.3-70b",
     "qwen-cloud-coder",
     "or-gpt-oss-20b-free",
     "or-nemotron-3-super-free",
+    // Paid last resort — only reached once every free option above has
+    // failed; each is a no-op if its API key isn't configured.
+    "deepseek-v3",
+    "kimi-k2",
+    "gpt-4o-mini",
+    "grok-3-fast",
   ].filter((m, i, arr) => arr.indexOf(m) === i && MODELS[m]);
 
   // For lifetime users: filter chain to only models their keys can serve
