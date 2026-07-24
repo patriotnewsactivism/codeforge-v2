@@ -37,6 +37,11 @@ const XRayPage = lazy(() =>
 const JoinPage = lazy(() =>
   import("./pages/JoinPage").then(m => ({ default: m.JoinPage })),
 );
+const MissionControlPage = lazy(() =>
+  import("./pages/MissionControlPage").then(m => ({
+    default: m.MissionControlPage,
+  })),
+);
 
 // Simple full-screen loading spinner for lazy pages
 function PageLoader() {
@@ -75,6 +80,11 @@ function App() {
               <Route path="/project/:projectId" element={<IDEPage />} />
               {/* X-Ray dashboard - full screen, no sidebar */}
               <Route path="/project/:projectId/xray" element={<XRayPage />} />
+              {/* Mission Control - full screen, no sidebar */}
+              <Route
+                path="/project/:projectId/mission"
+                element={<MissionControlPage />}
+              />
               {/* Onboarding - full screen, no sidebar */}
               <Route path="/onboarding" element={<OnboardingPage />} />
               {/* Collaboration invite links - resolves inviteCode -> real project, full screen */}
