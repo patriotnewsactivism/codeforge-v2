@@ -504,6 +504,8 @@ function ProgressRow({
   );
 }
 
+type MobilePane = "feed" | "plan" | "status";
+
 export function MissionControlPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
@@ -518,6 +520,7 @@ export function MissionControlPage() {
   );
   const [expandedFeed, setExpandedFeed] = useState<Record<number, boolean>>({});
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
+  const [mobilePane, setMobilePane] = useState<MobilePane>("feed");
 
   const isAdvanced = mode === "advanced";
   const isShipped = view === "shipped";
@@ -619,10 +622,665 @@ export function MissionControlPage() {
     : "7 of 14";
   const freeRoleCount = ROSTER.filter(r => r.badge.includes("Free")).length;
 
+  // ── Reusable pane content — shared between the desktop 4-column layout
+  // and the mobile single-pane + bottom-tab layout below, so the two
+  // layouts never drift out of sync with each other.
+
+  const missionsRailContent = (
+    <>
+      <div
+        className={`${SECTION_LABEL} px-1.5 pb-2 tracking-[.06em] text-[oklch(0.55_0.02_260)]`}
+      >
+        Missions
+      </div>
+      <div className="flex flex-col gap-[3px]">
+        {missions.map(ms => {
+          const st = AGENT_STYLE[ms.status];
+          return (
+            <div
+              key={ms.label}
+              className="px-2 py-2 rounded-[7px] border border-transparent"
+              style={{
+                background: ms.current
+                  ? "rgba(255,255,255,.06)"
+                  : "transparent",
+              }}
+            >
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 inline-block${st.pulse ? " animate-pulse [animation-duration:1.2s]" : ""}`}
+                  style={{ background: st.dot }}
+                />
+                <span
+                  className="text-[11px] font-semibold leading-[1.3]"
+                  style={{ color: st.text }}
+                >
+                  {ms.label}
+                </span>
+              </div>
+              <div className="text-[9px] text-[oklch(0.48_0.02_260)] ml-3 mt-0.5">
+                {ms.time}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+
+  const planColumnContent = (
+    <>
+      <div>
+        <div className={`${SECTION_LABEL} mb-2`}>Mission Plan</div>
+        <div className="flex flex-col gap-1.5">
+          {SUBTASKS.map(t => {
+            const st = isShipped
+              ? { icon: "✓", color: EMERALD, rowBg: "transparent" }
+              : SUBTASK_STYLE[t.status];
+            return (
+              <div
+                key={t.text}
+                className="flex items-start gap-2 px-2 py-[7px] rounded-[7px]"
+                style={{ background: st.rowBg }}
+              >
+                <span
+                  className="text-[13px] w-4 shrink-0 mt-px"
+                  style={{ color: st.color }}
+                >
+                  {st.icon}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11.5px] leading-[1.4]">{t.text}</div>
+                  <div className="text-[10px] text-[oklch(0.55_0.02_260)] mt-0.5">
+                    {t.icon} {t.agent}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {isAdvanced && (
+        <div>
+          <div className={`${SECTION_LABEL} mb-2`}>Agent Swarm</div>
+          <div className="flex flex-col gap-0.5">
+            {SWARM.map(a => {
+              const st = isShipped
+                ? {
+                    dot: EMERALD,
+                    text: "oklch(0.80 0.01 260)",
+                    label: "done",
+                    pulse: false,
+                  }
+                : AGENT_STYLE[a.status];
+              return (
+                <div
+                  key={a.name}
+                  className="px-2 py-1.5"
+                  style={{
+                    marginLeft: a.depth * 16,
+                    borderLeft:
+                      a.depth > 0
+                        ? "2px solid oklch(0.25 0.02 260)"
+                        : "2px solid transparent",
+                  }}
+                >
+                  <div className="flex items-center gap-[7px] text-[11.5px]">
+                    <span
+                      className={`w-[7px] h-[7px] rounded-full shrink-0 inline-block${st.pulse ? " animate-pulse [animation-duration:1.2s]" : ""}`}
+                      style={{ background: st.dot }}
+                    />
+                    <span
+                      className="flex-1 font-semibold"
+                      style={{ color: st.text }}
+                    >
+                      {a.name}
+                    </span>
+                    <span
+                      className="text-[9px] font-bold uppercase"
+                      style={{ color: st.text }}
+                    >
+                      {st.label}
+                    </span>
+                  </div>
+                  <div className="text-[9.5px] text-[oklch(0.50_0.02_260)] ml-3.5 mt-px">
+                    {a.model} · {a.freeTag}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <div className={`${SECTION_LABEL} mb-2`}>Checkpoints</div>
+        <div className="flex flex-col">
+          {checkpoints.map(cp => (
+            <div key={cp.time} className="flex gap-2">
+              <div className="flex flex-col items-center shrink-0 w-[7px]">
+                <span className="w-[7px] h-[7px] rounded-full bg-primary shrink-0" />
+                <span className="w-px flex-1 bg-[oklch(0.22_0.02_260)] mt-[3px]" />
+              </div>
+              <div className="flex-1 min-w-0 pb-3">
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="text-[10.5px] text-[oklch(0.80_0.01_260)] leading-[1.3]">
+                    {cp.label}
+                  </span>
+                  <button
+                    type="button"
+                    className="text-[9px] text-[oklch(0.55_0.02_260)] bg-[rgba(255,255,255,.05)] border-0 rounded-[5px] px-1.5 py-0.5 shrink-0 whitespace-nowrap"
+                  >
+                    Restore
+                  </button>
+                </div>
+                <div className="text-[9px] text-[oklch(0.45_0.02_260)] font-mono mt-px">
+                  {cp.time}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+
+  const feedColumnContent = (
+    <>
+      <div className="flex items-center gap-2 px-4 py-[9px] border-b border-border shrink-0">
+        <span className="text-[#a78bfa]">🧠</span>
+        <span className="text-[11px] font-bold uppercase tracking-[.05em] text-[oklch(0.60_0.02_260)]">
+          Live Build Feed
+        </span>
+        <span className="ml-auto text-[10px] text-[oklch(0.55_0.02_260)] flex items-center gap-[5px]">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block animate-pulse [animation-duration:1.5s]" />
+          autoscroll
+        </span>
+      </div>
+      <div className="flex-1 overflow-y-auto px-3.5 py-2.5 flex flex-col gap-1.5 text-xs">
+        {feed.map((f, i) => (
+          <div
+            key={`${f.time}-${f.type}`}
+            className="flex gap-2.5 px-2.5 py-2 rounded-lg min-w-0 max-w-full cursor-pointer"
+            style={{
+              background: f.isHeal
+                ? "rgba(251,191,36,.07)"
+                : "rgba(255,255,255,.02)",
+              border: f.isHeal
+                ? "1px solid rgba(251,191,36,.2)"
+                : "1px solid transparent",
+            }}
+            onClick={() => setExpandedFeed(s => ({ ...s, [i]: !s[i] }))}
+          >
+            <span className="font-mono text-[10px] text-[oklch(0.45_0.02_260)] w-14 shrink-0 mt-px">
+              {f.time}
+            </span>
+            <span className="shrink-0 mt-px">{f.icon}</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-[7px]">
+                <span
+                  className="text-[9.5px] font-extrabold tracking-[.04em] uppercase"
+                  style={{ color: f.color }}
+                >
+                  [{f.type}]
+                </span>
+                <span className="text-[10.5px] text-[oklch(0.55_0.02_260)]">
+                  {f.agent}
+                </span>
+                <span className="ml-auto text-[8.5px] text-[oklch(0.42_0.02_260)]">
+                  why?
+                </span>
+              </div>
+              <div
+                className="leading-normal mt-0.5 break-words"
+                style={{ color: f.isHeal ? "#fca5a5" : "oklch(0.85 0.01 260)" }}
+              >
+                {f.content}
+                {f.isRunning && (
+                  <span
+                    className="inline-block w-1.5 h-3 ml-0.5 align-middle animate-pulse [animation-duration:1s]"
+                    style={{ background: "oklch(0.85 0.01 260)" }}
+                  />
+                )}
+              </div>
+              {f.isHeal && f.resolved && (
+                <div className="text-[#34d399] leading-normal mt-[3px] font-semibold">
+                  ↳ {f.resolved}
+                </div>
+              )}
+              {expandedFeed[i] && f.reasoning && (
+                <div className="mt-[5px] pt-[5px] border-t border-[rgba(255,255,255,.06)] text-[10.5px] italic text-[oklch(0.55_0.02_260)] leading-normal">
+                  {f.reasoning}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
+  const rightPanelContent = (
+    <>
+      <div className="flex rounded-lg overflow-hidden border border-border shrink-0">
+        {(["ship", "deploy", "errors"] as const).map(tab => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setRightTab(tab)}
+            className="flex-1 py-1.5 text-[10px] font-bold uppercase border-0"
+            style={{
+              background: rightTab === tab ? CYAN : "transparent",
+              color: rightTab === tab ? INK : MUTED,
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {rightTab === "ship" && (
+        <>
+          <div className="flex flex-col items-center gap-2 shrink-0">
+            <div className="relative w-32 h-32">
+              <svg
+                width="128"
+                height="128"
+                viewBox="0 0 128 128"
+                role="img"
+                aria-label={`Ship score ${score}%`}
+              >
+                <defs>
+                  <linearGradient
+                    id="shipRing"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#fb923c" />
+                    <stop offset="100%" stopColor="#f472b6" />
+                  </linearGradient>
+                </defs>
+                <circle
+                  cx="64"
+                  cy="64"
+                  r={radius}
+                  fill="none"
+                  stroke="oklch(0.22 0.02 260)"
+                  strokeWidth="10"
+                />
+                <circle
+                  cx="64"
+                  cy="64"
+                  r={radius}
+                  fill="none"
+                  stroke="url(#shipRing)"
+                  strokeWidth="10"
+                  strokeLinecap="round"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={dashOffset}
+                  transform="rotate(-90 64 64)"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+                <span className="text-[26px] font-extrabold text-foreground leading-none">
+                  {score}%
+                </span>
+                <span className="text-[10px] text-[oklch(0.60_0.02_260)] tracking-[.03em]">
+                  SHIP SCORE
+                </span>
+              </div>
+            </div>
+            {!isAdvanced && (
+              <p className="text-xs text-[oklch(0.75_0.02_260)] text-center leading-normal m-0">
+                {isShipped
+                  ? "Your app is built and shipped. All 18 files are live — the swarm is standing by for the next mission."
+                  : `Your app is ${score}% built. Estimated 4 minutes left — the swarm is finishing search and running final tests.`}
+              </p>
+            )}
+          </div>
+
+          {isAdvanced && (
+            <div className="flex flex-col gap-[9px] shrink-0">
+              <ProgressRow
+                label="Plan"
+                value="100%"
+                color={EMERALD}
+                width="100%"
+              />
+              <ProgressRow
+                label="Files"
+                value={isShipped ? "18 / 18" : "14 / 18"}
+                width={isShipped ? "100%" : "78%"}
+              />
+              <ProgressRow
+                label="Tests"
+                value="41 / 41 passing"
+                color={EMERALD}
+                width="100%"
+              />
+              <ProgressRow
+                label="Review"
+                value={isShipped ? "approved" : "in progress"}
+                color={isShipped ? EMERALD : AMBER}
+                width={isShipped ? "100%" : "60%"}
+              />
+              <ProgressRow
+                label="Deploy"
+                value={isShipped ? "live" : "pending"}
+                color={isShipped ? EMERALD : MUTED}
+                width={isShipped ? "100%" : "0%"}
+              />
+            </div>
+          )}
+
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className={SECTION_LABEL}>Files touched</span>
+              <span className="text-[10px] text-[oklch(0.50_0.02_260)]">
+                {filesTouchedLabel}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              {files.map(fl => (
+                <div key={fl.path}>
+                  <div
+                    className="flex items-center gap-1.5 text-[10.5px] font-mono text-[oklch(0.65_0.02_260)]"
+                    style={{ cursor: fl.diff ? "pointer" : "default" }}
+                    onClick={() =>
+                      fl.diff &&
+                      setExpandedFile(p => (p === fl.path ? null : fl.path))
+                    }
+                  >
+                    <span
+                      className="shrink-0"
+                      style={{
+                        color: fl.action === "created" ? EMERALD : CYAN,
+                      }}
+                    >
+                      {fl.action === "created" ? "+" : "±"}
+                    </span>
+                    <span className="truncate flex-1 min-w-0">{fl.path}</span>
+                    {fl.diff && (
+                      <span className="text-[9px] text-[oklch(0.45_0.02_260)] shrink-0">
+                        {expandedFile === fl.path ? "hide diff" : "view diff"}
+                      </span>
+                    )}
+                  </div>
+                  {expandedFile === fl.path && fl.diff && (
+                    <div className="mt-1 mb-0.5 ml-3.5 px-2 py-1.5 bg-[oklch(0.09_0.02_260)] border border-[oklch(0.22_0.02_260)] rounded-md font-mono text-[9.5px] leading-[1.6]">
+                      {fl.diff.map(dl => (
+                        <div
+                          key={dl.s}
+                          className="whitespace-pre-wrap break-words"
+                          style={{
+                            color:
+                              dl.t === "add"
+                                ? EMERALD
+                                : dl.t === "del"
+                                  ? "#f87171"
+                                  : "oklch(0.55 0.02 260)",
+                          }}
+                        >
+                          {dl.s}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className={`${SECTION_LABEL} mb-2`}>
+              🧠 Memory reused ({MEMORIES.length})
+            </div>
+            <div className="flex flex-wrap gap-[5px]">
+              {MEMORIES.map(m => (
+                <span
+                  key={m}
+                  className="text-[9.5px] px-2 py-1 rounded-xl bg-[rgba(192,132,252,.12)] text-[#c084fc] border border-[rgba(192,132,252,.2)]"
+                >
+                  {m}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className={SECTION_LABEL}>Model roster</span>
+              <span className="text-[9.5px] px-[7px] py-0.5 rounded-[10px] bg-[rgba(52,211,153,.12)] text-[#34d399] font-bold">
+                {freeRoleCount}/{ROSTER.length} free-tier
+              </span>
+            </div>
+            <div className="flex flex-col gap-[5px] mb-2">
+              {ROSTER.map(r => (
+                <div
+                  key={r.role}
+                  className="flex items-center gap-1.5 text-[10.5px]"
+                >
+                  <span className="w-[62px] shrink-0 text-[oklch(0.55_0.02_260)]">
+                    {r.role}
+                  </span>
+                  <span className="flex-1 min-w-0 text-[oklch(0.88_0.01_260)] truncate">
+                    {r.model}{" "}
+                    <span className="text-[oklch(0.50_0.02_260)]">
+                      ({r.provider})
+                    </span>
+                  </span>
+                  <span
+                    className="text-[9px] font-bold px-1.5 py-0.5 rounded-lg whitespace-nowrap shrink-0"
+                    style={{ background: r.badgeBg, color: r.badgeColor }}
+                  >
+                    {r.badge}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="m-0 text-[9.5px] text-[oklch(0.48_0.02_260)] leading-normal">
+              Utility calls moved off Groq's free tier (6K tok/min cap, stalls
+              fast) onto Cerebras + Mistral — ~1000× the daily headroom at $0.
+            </p>
+          </div>
+
+          {isAdvanced && isLive && (
+            <div>
+              <div
+                className={`${SECTION_LABEL} mb-2 flex items-center justify-between`}
+              >
+                <span>Budget</span>
+                <span className="font-normal normal-case text-[oklch(0.55_0.02_260)]">
+                  $2.14 / $5.00
+                </span>
+              </div>
+              <div className="h-[5px] bg-[oklch(0.20_0.02_260)] rounded-[3px] overflow-hidden mb-3">
+                <div className="h-full w-[43%] bg-[#fbbf24]" />
+              </div>
+              <div className={`${SECTION_LABEL} mb-1.5`}>Autonomy level</div>
+              <select className="w-full bg-[rgba(255,255,255,.05)] border border-border text-[oklch(0.90_0.01_260)] text-[11px] font-semibold px-2 py-1.5 rounded-md">
+                <option>Full Autopilot</option>
+              </select>
+            </div>
+          )}
+
+          {isAdvanced && isShipped && (
+            <div>
+              <div className={`${SECTION_LABEL} mb-2`}>
+                Mission retrospective
+              </div>
+              <div className="flex gap-3 text-[10.5px] text-[oklch(0.65_0.02_260)] mb-2.5">
+                <span>⏱ {RETRO.duration}</span>
+                <span>💲 {RETRO.cost}</span>
+                <span>🖐 0 interventions</span>
+              </div>
+              <div className="text-[9.5px] font-bold uppercase text-[#34d399] mb-[5px]">
+                What worked
+              </div>
+              {RETRO.worked.map(w => (
+                <div
+                  key={w}
+                  className="text-[10.5px] text-[oklch(0.75_0.02_260)] leading-normal mb-[3px]"
+                >
+                  ✓ {w}
+                </div>
+              ))}
+              <div className="text-[9.5px] font-bold uppercase text-[#fbbf24] mt-2 mb-[5px]">
+                What failed (self-healed)
+              </div>
+              {RETRO.failed.map(w => (
+                <div
+                  key={w}
+                  className="text-[10.5px] text-[oklch(0.75_0.02_260)] leading-normal mb-[3px]"
+                >
+                  ⚠ {w}
+                </div>
+              ))}
+              <div className="text-[9.5px] font-bold uppercase text-[#c084fc] mt-2 mb-[5px]">
+                🧠 New memories saved
+              </div>
+              <div className="flex flex-wrap gap-[5px]">
+                {RETRO.newMemories.map(nm => (
+                  <span
+                    key={nm}
+                    className="text-[9.5px] px-2 py-1 rounded-xl bg-[rgba(192,132,252,.12)] text-[#c084fc] border border-[rgba(192,132,252,.2)]"
+                  >
+                    {nm}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {rightTab === "deploy" && (
+        <>
+          <div>
+            <div className={`${SECTION_LABEL} mb-2`}>Domain</div>
+            <div className="flex items-center gap-1.5 bg-[rgba(255,255,255,.04)] border border-border rounded-md px-[9px] py-[7px] mb-1.5">
+              <span className="text-[#34d399]">●</span>
+              <span className="text-[10.5px] font-mono text-[oklch(0.85_0.01_260)] flex-1 min-w-0 truncate">
+                recipe-share-mvp.codeforge.app
+              </span>
+            </div>
+            <button
+              type="button"
+              className="w-full py-1.5 text-[10.5px] text-[oklch(0.65_0.02_260)] bg-[rgba(255,255,255,.04)] border border-dashed border-[oklch(0.30_0.02_260)] rounded-md"
+            >
+              + Add custom domain
+            </button>
+          </div>
+
+          <div>
+            <div className={`${SECTION_LABEL} mb-2`}>Environment secrets</div>
+            <div className="flex flex-col gap-[5px] mb-2">
+              {SECRETS.map(sec => (
+                <div
+                  key={sec.name}
+                  className="flex items-center gap-[7px] text-[10.5px] font-mono"
+                >
+                  <span
+                    style={{
+                      color: sec.set ? EMERALD : "oklch(0.35 0.02 260)",
+                    }}
+                  >
+                    ●
+                  </span>
+                  <span className="flex-1 min-w-0 text-[oklch(0.75_0.02_260)] truncate">
+                    {sec.name}
+                  </span>
+                  <span className="text-[oklch(0.45_0.02_260)] tracking-[1px]">
+                    {sec.set ? "••••••" : "not set"}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="w-full py-1.5 text-[10.5px] text-[oklch(0.65_0.02_260)] bg-[rgba(255,255,255,.04)] border border-dashed border-[oklch(0.30_0.02_260)] rounded-md"
+            >
+              + Add secret
+            </button>
+          </div>
+
+          <div>
+            <div className={`${SECTION_LABEL} mb-2`}>Deploy history</div>
+            <div className="flex flex-col gap-1.5">
+              {deployHistory.map(dh => (
+                <div
+                  key={dh.label}
+                  className="flex items-center gap-[7px] text-[10.5px]"
+                >
+                  <span className="flex-1 min-w-0 text-[oklch(0.75_0.02_260)]">
+                    {dh.label}
+                  </span>
+                  <span
+                    className="text-[9px] font-bold px-1.5 py-0.5 rounded-lg bg-[rgba(255,255,255,.06)] whitespace-nowrap"
+                    style={{ color: dh.tagColor }}
+                  >
+                    {dh.tag}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {rightTab === "errors" && (
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className={SECTION_LABEL}>Production error monitor</span>
+            <span className="text-[9px] font-bold px-[7px] py-0.5 rounded-[10px] bg-[rgba(52,211,153,.12)] text-[#34d399]">
+              auto-fix ON
+            </span>
+          </div>
+          {errorIncidents.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {errorIncidents.map(err => (
+                <div
+                  key={err.title}
+                  className="p-2 rounded-[7px] bg-[rgba(52,211,153,.05)] border border-[rgba(52,211,153,.15)]"
+                >
+                  <div className="text-[10.5px] text-[oklch(0.85_0.01_260)] leading-[1.4]">
+                    {err.title}
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-[9px] text-[oklch(0.50_0.02_260)]">
+                      {err.source} · {err.time}
+                    </span>
+                    <span className="text-[9px] font-bold text-[#34d399]">
+                      ✓ auto-fixed
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] text-[oklch(0.55_0.02_260)] leading-normal m-0">
+              Monitoring starts once this mission ships. No production errors
+              reported yet.
+            </p>
+          )}
+        </div>
+      )}
+    </>
+  );
+
+  const MOBILE_TABS: { id: MobilePane; label: string; icon: string }[] = [
+    { id: "feed", label: "Feed", icon: "🧠" },
+    { id: "plan", label: "Plan", icon: "🗺️" },
+    { id: "status", label: "Status", icon: "🚀" },
+  ];
+
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
       {/* Top bar */}
-      <div className="flex items-center gap-3 px-4 py-2.5 bg-[oklch(0.09_0.02_260)] border-b border-border shrink-0">
+      <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 bg-[oklch(0.09_0.02_260)] border-b border-border shrink-0 flex-wrap">
         <button
           type="button"
           onClick={() => navigate(`/project/${projectId}`)}
@@ -631,10 +1289,10 @@ export function MissionControlPage() {
         >
           {"</>"}
         </button>
-        <span className="text-[13px] text-[oklch(0.60_0.02_260)]">
+        <span className="text-[13px] text-[oklch(0.60_0.02_260)] hidden sm:inline">
           Recipe Share — MVP
         </span>
-        <span className="text-[oklch(0.30_0.02_260)]">/</span>
+        <span className="text-[oklch(0.30_0.02_260)] hidden sm:inline">/</span>
         <span className="text-sm font-bold">Mission Control</span>
         <div className="flex-1" />
         <div
@@ -673,7 +1331,7 @@ export function MissionControlPage() {
       </div>
 
       {/* Hero composer */}
-      <div className="relative overflow-hidden px-5 pt-2.5 pb-2 bg-[oklch(0.11_0.02_260)] border-b border-border shrink-0 max-h-[34vh]">
+      <div className="relative overflow-hidden px-3 sm:px-5 pt-2.5 pb-2 bg-[oklch(0.11_0.02_260)] border-b border-border shrink-0 max-h-[34vh]">
         <div
           className="absolute -top-[140px] left-1/2 -translate-x-1/2 w-[600px] h-[220px] pointer-events-none blur-[40px]"
           style={{
@@ -682,7 +1340,7 @@ export function MissionControlPage() {
           }}
         />
         <div className="relative max-w-[900px] mx-auto">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-2 flex-1 min-w-0 bg-[oklch(0.15_0.02_260)] border border-[oklch(0.27_0.02_260)] rounded-xl px-3 py-[7px] shadow-[0_8px_20px_rgba(0,0,0,.3)]">
               <span className="text-sm text-[oklch(0.55_0.02_260)] shrink-0">
                 ＋
@@ -691,7 +1349,7 @@ export function MissionControlPage() {
                 "Build a recipe-sharing app with user auth, recipe CRUD, and
                 search."
               </span>
-              <span className="flex items-center gap-[5px] px-2 py-[3px] rounded-2xl bg-[rgba(251,146,60,.15)] border border-[rgba(251,146,60,.3)] text-[9.5px] font-bold text-[#fb923c] whitespace-nowrap shrink-0">
+              <span className="hidden sm:flex items-center gap-[5px] px-2 py-[3px] rounded-2xl bg-[rgba(251,146,60,.15)] border border-[rgba(251,146,60,.3)] text-[9.5px] font-bold text-[#fb923c] whitespace-nowrap shrink-0">
                 🐝 4 agents
               </span>
               <button
@@ -705,7 +1363,7 @@ export function MissionControlPage() {
                 ↑
               </button>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="hidden sm:flex items-center gap-1.5 shrink-0">
               <div className="flex rounded-md overflow-hidden border border-[oklch(0.27_0.02_260)]">
                 <button
                   type="button"
@@ -736,7 +1394,7 @@ export function MissionControlPage() {
               </div>
             </div>
           </div>
-          <div className="flex items-center justify-center gap-1.5 mt-[7px] flex-wrap">
+          <div className="hidden sm:flex items-center justify-center gap-1.5 mt-[7px] flex-wrap">
             {["🌐 Web", "📱 Mobile", "🔌 API"].map(chip => (
               <span
                 key={chip}
@@ -770,7 +1428,7 @@ export function MissionControlPage() {
               </span>
             ))}
           </div>
-          <p className="text-center mt-[5px] mb-0 text-[9.5px] text-[oklch(0.48_0.02_260)]">
+          <p className="hidden sm:block text-center mt-[5px] mb-0 text-[9.5px] text-[oklch(0.48_0.02_260)]">
             {isShipped
               ? "Shipped in 7m 42s · Full Autopilot"
               : "Started 6 min ago · Full Autopilot ON"}
@@ -780,663 +1438,64 @@ export function MissionControlPage() {
 
       {/* Body */}
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* Mission history rail */}
-        <div className="w-[172px] shrink-0 bg-[oklch(0.09_0.02_260)] border-r border-border overflow-y-auto px-2 py-3">
-          <div
-            className={`${SECTION_LABEL} px-1.5 pb-2 tracking-[.06em] text-[oklch(0.55_0.02_260)]`}
-          >
-            Missions
+        {/* Desktop: 4-column layout (mission rail / plan / feed / ship status) */}
+        <div className="hidden xl:flex flex-1 overflow-hidden min-h-0">
+          <div className="w-[172px] shrink-0 bg-[oklch(0.09_0.02_260)] border-r border-border overflow-y-auto px-2 py-3">
+            {missionsRailContent}
           </div>
-          <div className="flex flex-col gap-[3px]">
-            {missions.map(ms => {
-              const st = AGENT_STYLE[ms.status];
-              return (
-                <div
-                  key={ms.label}
-                  className="px-2 py-2 rounded-[7px] border border-transparent"
-                  style={{
-                    background: ms.current
-                      ? "rgba(255,255,255,.06)"
-                      : "transparent",
-                  }}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full shrink-0 inline-block${st.pulse ? " animate-pulse [animation-duration:1.2s]" : ""}`}
-                      style={{ background: st.dot }}
-                    />
-                    <span
-                      className="text-[11px] font-semibold leading-[1.3]"
-                      style={{ color: st.text }}
-                    >
-                      {ms.label}
-                    </span>
-                  </div>
-                  <div className="text-[9px] text-[oklch(0.48_0.02_260)] ml-3 mt-0.5">
-                    {ms.time}
-                  </div>
-                </div>
-              );
-            })}
+
+          <div className="w-[280px] shrink-0 bg-[oklch(0.11_0.02_260)] border-r border-border overflow-y-auto px-3 py-3.5 flex flex-col gap-[18px]">
+            {planColumnContent}
+          </div>
+
+          <div className="flex-1 flex flex-col min-w-0 bg-[oklch(0.115_0.02_260)]">
+            {feedColumnContent}
+          </div>
+
+          <div className="w-[300px] shrink-0 bg-[oklch(0.11_0.02_260)] border-l border-border overflow-y-auto px-3.5 py-4 flex flex-col gap-[18px]">
+            {rightPanelContent}
           </div>
         </div>
 
-        {/* Plan + swarm + checkpoints */}
-        <div className="w-[280px] shrink-0 bg-[oklch(0.11_0.02_260)] border-r border-border overflow-y-auto px-3 py-3.5 flex flex-col gap-[18px]">
-          <div>
-            <div className={`${SECTION_LABEL} mb-2`}>Mission Plan</div>
-            <div className="flex flex-col gap-1.5">
-              {SUBTASKS.map(t => {
-                const st = isShipped
-                  ? { icon: "✓", color: EMERALD, rowBg: "transparent" }
-                  : SUBTASK_STYLE[t.status];
-                return (
-                  <div
-                    key={t.text}
-                    className="flex items-start gap-2 px-2 py-[7px] rounded-[7px]"
-                    style={{ background: st.rowBg }}
-                  >
-                    <span
-                      className="text-[13px] w-4 shrink-0 mt-px"
-                      style={{ color: st.color }}
-                    >
-                      {st.icon}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[11.5px] leading-[1.4]">
-                        {t.text}
-                      </div>
-                      <div className="text-[10px] text-[oklch(0.55_0.02_260)] mt-0.5">
-                        {t.icon} {t.agent}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {isAdvanced && (
-            <div>
-              <div className={`${SECTION_LABEL} mb-2`}>Agent Swarm</div>
-              <div className="flex flex-col gap-0.5">
-                {SWARM.map(a => {
-                  const st = isShipped
-                    ? {
-                        dot: EMERALD,
-                        text: "oklch(0.80 0.01 260)",
-                        label: "done",
-                        pulse: false,
-                      }
-                    : AGENT_STYLE[a.status];
-                  return (
-                    <div
-                      key={a.name}
-                      className="px-2 py-1.5"
-                      style={{
-                        marginLeft: a.depth * 16,
-                        borderLeft:
-                          a.depth > 0
-                            ? "2px solid oklch(0.25 0.02 260)"
-                            : "2px solid transparent",
-                      }}
-                    >
-                      <div className="flex items-center gap-[7px] text-[11.5px]">
-                        <span
-                          className={`w-[7px] h-[7px] rounded-full shrink-0 inline-block${st.pulse ? " animate-pulse [animation-duration:1.2s]" : ""}`}
-                          style={{ background: st.dot }}
-                        />
-                        <span
-                          className="flex-1 font-semibold"
-                          style={{ color: st.text }}
-                        >
-                          {a.name}
-                        </span>
-                        <span
-                          className="text-[9px] font-bold uppercase"
-                          style={{ color: st.text }}
-                        >
-                          {st.label}
-                        </span>
-                      </div>
-                      <div className="text-[9.5px] text-[oklch(0.50_0.02_260)] ml-3.5 mt-px">
-                        {a.model} · {a.freeTag}
-                      </div>
-                    </div>
-                  );
-                })}
+        {/* Mobile: single active pane + bottom tab bar */}
+        <div className="flex xl:hidden flex-1 flex-col overflow-hidden min-h-0">
+          <div className="flex-1 overflow-y-auto">
+            {mobilePane === "feed" && (
+              <div className="h-full flex flex-col bg-[oklch(0.115_0.02_260)]">
+                {feedColumnContent}
               </div>
-            </div>
-          )}
-
-          <div>
-            <div className={`${SECTION_LABEL} mb-2`}>Checkpoints</div>
-            <div className="flex flex-col">
-              {checkpoints.map(cp => (
-                <div key={cp.time} className="flex gap-2">
-                  <div className="flex flex-col items-center shrink-0 w-[7px]">
-                    <span className="w-[7px] h-[7px] rounded-full bg-primary shrink-0" />
-                    <span className="w-px flex-1 bg-[oklch(0.22_0.02_260)] mt-[3px]" />
-                  </div>
-                  <div className="flex-1 min-w-0 pb-3">
-                    <div className="flex items-center justify-between gap-1.5">
-                      <span className="text-[10.5px] text-[oklch(0.80_0.01_260)] leading-[1.3]">
-                        {cp.label}
-                      </span>
-                      <button
-                        type="button"
-                        className="text-[9px] text-[oklch(0.55_0.02_260)] bg-[rgba(255,255,255,.05)] border-0 rounded-[5px] px-1.5 py-0.5 shrink-0 whitespace-nowrap"
-                      >
-                        Restore
-                      </button>
-                    </div>
-                    <div className="text-[9px] text-[oklch(0.45_0.02_260)] font-mono mt-px">
-                      {cp.time}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Live feed */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[oklch(0.115_0.02_260)]">
-          <div className="flex items-center gap-2 px-4 py-[9px] border-b border-border shrink-0">
-            <span className="text-[#a78bfa]">🧠</span>
-            <span className="text-[11px] font-bold uppercase tracking-[.05em] text-[oklch(0.60_0.02_260)]">
-              Live Build Feed
-            </span>
-            <span className="ml-auto text-[10px] text-[oklch(0.55_0.02_260)] flex items-center gap-[5px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block animate-pulse [animation-duration:1.5s]" />
-              autoscroll
-            </span>
-          </div>
-          <div className="flex-1 overflow-y-auto px-3.5 py-2.5 flex flex-col gap-1.5 text-xs">
-            {feed.map((f, i) => (
-              <div
-                key={`${f.time}-${f.type}`}
-                className="flex gap-2.5 px-2.5 py-2 rounded-lg min-w-0 max-w-full cursor-pointer"
-                style={{
-                  background: f.isHeal
-                    ? "rgba(251,191,36,.07)"
-                    : "rgba(255,255,255,.02)",
-                  border: f.isHeal
-                    ? "1px solid rgba(251,191,36,.2)"
-                    : "1px solid transparent",
-                }}
-                onClick={() => setExpandedFeed(s => ({ ...s, [i]: !s[i] }))}
-              >
-                <span className="font-mono text-[10px] text-[oklch(0.45_0.02_260)] w-14 shrink-0 mt-px">
-                  {f.time}
-                </span>
-                <span className="shrink-0 mt-px">{f.icon}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-[7px]">
-                    <span
-                      className="text-[9.5px] font-extrabold tracking-[.04em] uppercase"
-                      style={{ color: f.color }}
-                    >
-                      [{f.type}]
-                    </span>
-                    <span className="text-[10.5px] text-[oklch(0.55_0.02_260)]">
-                      {f.agent}
-                    </span>
-                    <span className="ml-auto text-[8.5px] text-[oklch(0.42_0.02_260)]">
-                      why?
-                    </span>
-                  </div>
-                  <div
-                    className="leading-normal mt-0.5 break-words"
-                    style={{
-                      color: f.isHeal ? "#fca5a5" : "oklch(0.85 0.01 260)",
-                    }}
-                  >
-                    {f.content}
-                    {f.isRunning && (
-                      <span
-                        className="inline-block w-1.5 h-3 ml-0.5 align-middle animate-pulse [animation-duration:1s]"
-                        style={{ background: "oklch(0.85 0.01 260)" }}
-                      />
-                    )}
-                  </div>
-                  {f.isHeal && f.resolved && (
-                    <div className="text-[#34d399] leading-normal mt-[3px] font-semibold">
-                      ↳ {f.resolved}
-                    </div>
-                  )}
-                  {expandedFeed[i] && f.reasoning && (
-                    <div className="mt-[5px] pt-[5px] border-t border-[rgba(255,255,255,.06)] text-[10.5px] italic text-[oklch(0.55_0.02_260)] leading-normal">
-                      {f.reasoning}
-                    </div>
-                  )}
-                </div>
+            )}
+            {mobilePane === "plan" && (
+              <div className="px-3 py-3.5 flex flex-col gap-[18px]">
+                {missionsRailContent}
+                {planColumnContent}
               </div>
-            ))}
+            )}
+            {mobilePane === "status" && (
+              <div className="px-3.5 py-4 flex flex-col gap-[18px]">
+                {rightPanelContent}
+              </div>
+            )}
           </div>
-        </div>
-
-        {/* Right panel */}
-        <div className="w-[300px] shrink-0 bg-[oklch(0.11_0.02_260)] border-l border-border overflow-y-auto px-3.5 py-4 flex flex-col gap-[18px]">
-          <div className="flex rounded-lg overflow-hidden border border-border shrink-0">
-            {(["ship", "deploy", "errors"] as const).map(tab => (
+          <div className="shrink-0 flex border-t border-border bg-[oklch(0.09_0.02_260)]">
+            {MOBILE_TABS.map(t => (
               <button
-                key={tab}
+                key={t.id}
                 type="button"
-                onClick={() => setRightTab(tab)}
-                className="flex-1 py-1.5 text-[10px] font-bold uppercase border-0"
-                style={{
-                  background: rightTab === tab ? CYAN : "transparent",
-                  color: rightTab === tab ? INK : MUTED,
-                }}
+                onClick={() => setMobilePane(t.id)}
+                className="flex-1 flex flex-col items-center gap-0.5 py-2"
+                style={{ color: mobilePane === t.id ? CYAN : MUTED }}
               >
-                {tab}
+                <span className="text-base leading-none">{t.icon}</span>
+                <span className="text-[10px] font-semibold">{t.label}</span>
               </button>
             ))}
           </div>
-
-          {rightTab === "ship" && (
-            <>
-              <div className="flex flex-col items-center gap-2 shrink-0">
-                <div className="relative w-32 h-32">
-                  <svg
-                    width="128"
-                    height="128"
-                    viewBox="0 0 128 128"
-                    role="img"
-                    aria-label={`Ship score ${score}%`}
-                  >
-                    <defs>
-                      <linearGradient
-                        id="shipRing"
-                        x1="0%"
-                        y1="0%"
-                        x2="100%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#fb923c" />
-                        <stop offset="100%" stopColor="#f472b6" />
-                      </linearGradient>
-                    </defs>
-                    <circle
-                      cx="64"
-                      cy="64"
-                      r={radius}
-                      fill="none"
-                      stroke="oklch(0.22 0.02 260)"
-                      strokeWidth="10"
-                    />
-                    <circle
-                      cx="64"
-                      cy="64"
-                      r={radius}
-                      fill="none"
-                      stroke="url(#shipRing)"
-                      strokeWidth="10"
-                      strokeLinecap="round"
-                      strokeDasharray={circumference}
-                      strokeDashoffset={dashOffset}
-                      transform="rotate(-90 64 64)"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-                    <span className="text-[26px] font-extrabold text-foreground leading-none">
-                      {score}%
-                    </span>
-                    <span className="text-[10px] text-[oklch(0.60_0.02_260)] tracking-[.03em]">
-                      SHIP SCORE
-                    </span>
-                  </div>
-                </div>
-                {!isAdvanced && (
-                  <p className="text-xs text-[oklch(0.75_0.02_260)] text-center leading-normal m-0">
-                    {isShipped
-                      ? "Your app is built and shipped. All 18 files are live — the swarm is standing by for the next mission."
-                      : `Your app is ${score}% built. Estimated 4 minutes left — the swarm is finishing search and running final tests.`}
-                  </p>
-                )}
-              </div>
-
-              {isAdvanced && (
-                <div className="flex flex-col gap-[9px] shrink-0">
-                  <ProgressRow
-                    label="Plan"
-                    value="100%"
-                    color={EMERALD}
-                    width="100%"
-                  />
-                  <ProgressRow
-                    label="Files"
-                    value={isShipped ? "18 / 18" : "14 / 18"}
-                    width={isShipped ? "100%" : "78%"}
-                  />
-                  <ProgressRow
-                    label="Tests"
-                    value="41 / 41 passing"
-                    color={EMERALD}
-                    width="100%"
-                  />
-                  <ProgressRow
-                    label="Review"
-                    value={isShipped ? "approved" : "in progress"}
-                    color={isShipped ? EMERALD : AMBER}
-                    width={isShipped ? "100%" : "60%"}
-                  />
-                  <ProgressRow
-                    label="Deploy"
-                    value={isShipped ? "live" : "pending"}
-                    color={isShipped ? EMERALD : MUTED}
-                    width={isShipped ? "100%" : "0%"}
-                  />
-                </div>
-              )}
-
-              <div>
-                <div className="flex items-center gap-1.5 mb-2">
-                  <span className={SECTION_LABEL}>Files touched</span>
-                  <span className="text-[10px] text-[oklch(0.50_0.02_260)]">
-                    {filesTouchedLabel}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  {files.map(fl => (
-                    <div key={fl.path}>
-                      <div
-                        className="flex items-center gap-1.5 text-[10.5px] font-mono text-[oklch(0.65_0.02_260)]"
-                        style={{ cursor: fl.diff ? "pointer" : "default" }}
-                        onClick={() =>
-                          fl.diff &&
-                          setExpandedFile(p => (p === fl.path ? null : fl.path))
-                        }
-                      >
-                        <span
-                          className="shrink-0"
-                          style={{
-                            color: fl.action === "created" ? EMERALD : CYAN,
-                          }}
-                        >
-                          {fl.action === "created" ? "+" : "±"}
-                        </span>
-                        <span className="truncate flex-1 min-w-0">
-                          {fl.path}
-                        </span>
-                        {fl.diff && (
-                          <span className="text-[9px] text-[oklch(0.45_0.02_260)] shrink-0">
-                            {expandedFile === fl.path
-                              ? "hide diff"
-                              : "view diff"}
-                          </span>
-                        )}
-                      </div>
-                      {expandedFile === fl.path && fl.diff && (
-                        <div className="mt-1 mb-0.5 ml-3.5 px-2 py-1.5 bg-[oklch(0.09_0.02_260)] border border-[oklch(0.22_0.02_260)] rounded-md font-mono text-[9.5px] leading-[1.6]">
-                          {fl.diff.map(dl => (
-                            <div
-                              key={dl.s}
-                              className="whitespace-pre-wrap break-words"
-                              style={{
-                                color:
-                                  dl.t === "add"
-                                    ? EMERALD
-                                    : dl.t === "del"
-                                      ? "#f87171"
-                                      : "oklch(0.55 0.02 260)",
-                              }}
-                            >
-                              {dl.s}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className={`${SECTION_LABEL} mb-2`}>
-                  🧠 Memory reused ({MEMORIES.length})
-                </div>
-                <div className="flex flex-wrap gap-[5px]">
-                  {MEMORIES.map(m => (
-                    <span
-                      key={m}
-                      className="text-[9.5px] px-2 py-1 rounded-xl bg-[rgba(192,132,252,.12)] text-[#c084fc] border border-[rgba(192,132,252,.2)]"
-                    >
-                      {m}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center gap-1.5 mb-2">
-                  <span className={SECTION_LABEL}>Model roster</span>
-                  <span className="text-[9.5px] px-[7px] py-0.5 rounded-[10px] bg-[rgba(52,211,153,.12)] text-[#34d399] font-bold">
-                    {freeRoleCount}/{ROSTER.length} free-tier
-                  </span>
-                </div>
-                <div className="flex flex-col gap-[5px] mb-2">
-                  {ROSTER.map(r => (
-                    <div
-                      key={r.role}
-                      className="flex items-center gap-1.5 text-[10.5px]"
-                    >
-                      <span className="w-[62px] shrink-0 text-[oklch(0.55_0.02_260)]">
-                        {r.role}
-                      </span>
-                      <span className="flex-1 min-w-0 text-[oklch(0.88_0.01_260)] truncate">
-                        {r.model}{" "}
-                        <span className="text-[oklch(0.50_0.02_260)]">
-                          ({r.provider})
-                        </span>
-                      </span>
-                      <span
-                        className="text-[9px] font-bold px-1.5 py-0.5 rounded-lg whitespace-nowrap shrink-0"
-                        style={{ background: r.badgeBg, color: r.badgeColor }}
-                      >
-                        {r.badge}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <p className="m-0 text-[9.5px] text-[oklch(0.48_0.02_260)] leading-normal">
-                  Utility calls moved off Groq's free tier (6K tok/min cap,
-                  stalls fast) onto Cerebras + Mistral — ~1000× the daily
-                  headroom at $0.
-                </p>
-              </div>
-
-              {isAdvanced && isLive && (
-                <div>
-                  <div
-                    className={`${SECTION_LABEL} mb-2 flex items-center justify-between`}
-                  >
-                    <span>Budget</span>
-                    <span className="font-normal normal-case text-[oklch(0.55_0.02_260)]">
-                      $2.14 / $5.00
-                    </span>
-                  </div>
-                  <div className="h-[5px] bg-[oklch(0.20_0.02_260)] rounded-[3px] overflow-hidden mb-3">
-                    <div className="h-full w-[43%] bg-[#fbbf24]" />
-                  </div>
-                  <div className={`${SECTION_LABEL} mb-1.5`}>
-                    Autonomy level
-                  </div>
-                  <select className="w-full bg-[rgba(255,255,255,.05)] border border-border text-[oklch(0.90_0.01_260)] text-[11px] font-semibold px-2 py-1.5 rounded-md">
-                    <option>Full Autopilot</option>
-                  </select>
-                </div>
-              )}
-
-              {isAdvanced && isShipped && (
-                <div>
-                  <div className={`${SECTION_LABEL} mb-2`}>
-                    Mission retrospective
-                  </div>
-                  <div className="flex gap-3 text-[10.5px] text-[oklch(0.65_0.02_260)] mb-2.5">
-                    <span>⏱ {RETRO.duration}</span>
-                    <span>💲 {RETRO.cost}</span>
-                    <span>🖐 0 interventions</span>
-                  </div>
-                  <div className="text-[9.5px] font-bold uppercase text-[#34d399] mb-[5px]">
-                    What worked
-                  </div>
-                  {RETRO.worked.map(w => (
-                    <div
-                      key={w}
-                      className="text-[10.5px] text-[oklch(0.75_0.02_260)] leading-normal mb-[3px]"
-                    >
-                      ✓ {w}
-                    </div>
-                  ))}
-                  <div className="text-[9.5px] font-bold uppercase text-[#fbbf24] mt-2 mb-[5px]">
-                    What failed (self-healed)
-                  </div>
-                  {RETRO.failed.map(w => (
-                    <div
-                      key={w}
-                      className="text-[10.5px] text-[oklch(0.75_0.02_260)] leading-normal mb-[3px]"
-                    >
-                      ⚠ {w}
-                    </div>
-                  ))}
-                  <div className="text-[9.5px] font-bold uppercase text-[#c084fc] mt-2 mb-[5px]">
-                    🧠 New memories saved
-                  </div>
-                  <div className="flex flex-wrap gap-[5px]">
-                    {RETRO.newMemories.map(nm => (
-                      <span
-                        key={nm}
-                        className="text-[9.5px] px-2 py-1 rounded-xl bg-[rgba(192,132,252,.12)] text-[#c084fc] border border-[rgba(192,132,252,.2)]"
-                      >
-                        {nm}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          {rightTab === "deploy" && (
-            <>
-              <div>
-                <div className={`${SECTION_LABEL} mb-2`}>Domain</div>
-                <div className="flex items-center gap-1.5 bg-[rgba(255,255,255,.04)] border border-border rounded-md px-[9px] py-[7px] mb-1.5">
-                  <span className="text-[#34d399]">●</span>
-                  <span className="text-[10.5px] font-mono text-[oklch(0.85_0.01_260)] flex-1 min-w-0 truncate">
-                    recipe-share-mvp.codeforge.app
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="w-full py-1.5 text-[10.5px] text-[oklch(0.65_0.02_260)] bg-[rgba(255,255,255,.04)] border border-dashed border-[oklch(0.30_0.02_260)] rounded-md"
-                >
-                  + Add custom domain
-                </button>
-              </div>
-
-              <div>
-                <div className={`${SECTION_LABEL} mb-2`}>
-                  Environment secrets
-                </div>
-                <div className="flex flex-col gap-[5px] mb-2">
-                  {SECRETS.map(sec => (
-                    <div
-                      key={sec.name}
-                      className="flex items-center gap-[7px] text-[10.5px] font-mono"
-                    >
-                      <span
-                        style={{
-                          color: sec.set ? EMERALD : "oklch(0.35 0.02 260)",
-                        }}
-                      >
-                        ●
-                      </span>
-                      <span className="flex-1 min-w-0 text-[oklch(0.75_0.02_260)] truncate">
-                        {sec.name}
-                      </span>
-                      <span className="text-[oklch(0.45_0.02_260)] tracking-[1px]">
-                        {sec.set ? "••••••" : "not set"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className="w-full py-1.5 text-[10.5px] text-[oklch(0.65_0.02_260)] bg-[rgba(255,255,255,.04)] border border-dashed border-[oklch(0.30_0.02_260)] rounded-md"
-                >
-                  + Add secret
-                </button>
-              </div>
-
-              <div>
-                <div className={`${SECTION_LABEL} mb-2`}>Deploy history</div>
-                <div className="flex flex-col gap-1.5">
-                  {deployHistory.map(dh => (
-                    <div
-                      key={dh.label}
-                      className="flex items-center gap-[7px] text-[10.5px]"
-                    >
-                      <span className="flex-1 min-w-0 text-[oklch(0.75_0.02_260)]">
-                        {dh.label}
-                      </span>
-                      <span
-                        className="text-[9px] font-bold px-1.5 py-0.5 rounded-lg bg-[rgba(255,255,255,.06)] whitespace-nowrap"
-                        style={{ color: dh.tagColor }}
-                      >
-                        {dh.tag}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-
-          {rightTab === "errors" && (
-            <div>
-              <div className="flex items-center gap-1.5 mb-2">
-                <span className={SECTION_LABEL}>Production error monitor</span>
-                <span className="text-[9px] font-bold px-[7px] py-0.5 rounded-[10px] bg-[rgba(52,211,153,.12)] text-[#34d399]">
-                  auto-fix ON
-                </span>
-              </div>
-              {errorIncidents.length > 0 ? (
-                <div className="flex flex-col gap-2">
-                  {errorIncidents.map(err => (
-                    <div
-                      key={err.title}
-                      className="p-2 rounded-[7px] bg-[rgba(52,211,153,.05)] border border-[rgba(52,211,153,.15)]"
-                    >
-                      <div className="text-[10.5px] text-[oklch(0.85_0.01_260)] leading-[1.4]">
-                        {err.title}
-                      </div>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-[9px] text-[oklch(0.50_0.02_260)]">
-                          {err.source} · {err.time}
-                        </span>
-                        <span className="text-[9px] font-bold text-[#34d399]">
-                          ✓ auto-fixed
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-[11px] text-[oklch(0.55_0.02_260)] leading-normal m-0">
-                  Monitoring starts once this mission ships. No production
-                  errors reported yet.
-                </p>
-              )}
-            </div>
-          )}
         </div>
       </div>
 
       {/* Bottom bar */}
-      <div className="flex items-center gap-5 px-4 py-[9px] border-t border-border bg-[oklch(0.09_0.02_260)] shrink-0">
+      <div className="flex items-center gap-3 sm:gap-5 px-3 sm:px-4 py-[9px] border-t border-border bg-[oklch(0.09_0.02_260)] shrink-0 flex-wrap">
         <div className="flex items-center gap-1.5">
           <StatusDot live={isLive} color={pillDotColor} size={10} />
           <span
@@ -1446,7 +1505,7 @@ export function MissionControlPage() {
             {topStatusLabel}
           </span>
         </div>
-        <div className="flex items-center gap-5 text-[11px] text-[oklch(0.65_0.02_260)] flex-1">
+        <div className="hidden sm:flex items-center gap-5 text-[11px] text-[oklch(0.65_0.02_260)] flex-1">
           <span>
             Ship score <strong className="text-foreground">{score}%</strong>
           </span>
@@ -1460,34 +1519,36 @@ export function MissionControlPage() {
             Tests <strong className="text-[#34d399]">41/41</strong>
           </span>
         </div>
-        {isLive && (
+        <div className="flex items-center gap-2 ml-auto sm:ml-0">
+          {isLive && (
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-md bg-[rgba(239,68,68,.18)] text-[#f87171] border-0 text-[11px] font-semibold"
+            >
+              ⏸ Pause
+            </button>
+          )}
           <button
             type="button"
-            className="px-3 py-1.5 rounded-md bg-[rgba(239,68,68,.18)] text-[#f87171] border-0 text-[11px] font-semibold"
+            className="px-3 py-1.5 rounded-md bg-transparent text-[oklch(0.60_0.02_260)] border-0 text-[11px]"
           >
-            ⏸ Pause
+            ↺ Rollback
           </button>
-        )}
-        <button
-          type="button"
-          className="px-3 py-1.5 rounded-md bg-transparent text-[oklch(0.60_0.02_260)] border-0 text-[11px]"
-        >
-          ↺ Rollback
-        </button>
-        <button
-          type="button"
-          className="px-3.5 py-1.5 rounded-md border-0 text-[11px] font-bold"
-          style={{
-            background: isShipped
-              ? EMERALD
-              : canShip
-                ? "linear-gradient(135deg,#fb923c,#f472b6)"
-                : "rgba(255,255,255,.06)",
-            color: isShipped || canShip ? INK : "oklch(0.45 0.02 260)",
-          }}
-        >
-          {isShipped ? "✅ Shipped" : "🚀 Ship Now"}
-        </button>
+          <button
+            type="button"
+            className="px-3.5 py-1.5 rounded-md border-0 text-[11px] font-bold"
+            style={{
+              background: isShipped
+                ? EMERALD
+                : canShip
+                  ? "linear-gradient(135deg,#fb923c,#f472b6)"
+                  : "rgba(255,255,255,.06)",
+              color: isShipped || canShip ? INK : "oklch(0.45 0.02 260)",
+            }}
+          >
+            {isShipped ? "✅ Shipped" : "🚀 Ship Now"}
+          </button>
+        </div>
       </div>
     </div>
   );
