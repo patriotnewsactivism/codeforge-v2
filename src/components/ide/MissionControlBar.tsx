@@ -6,10 +6,12 @@ import {
   Loader2,
   Pause,
   Play,
+  Rocket,
   RotateCcw,
   ShieldAlert,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,7 @@ interface MissionControlBarProps {
 
 export function MissionControlBar({ projectId }: MissionControlBarProps) {
   const [isPausing, setIsPausing] = useState(false);
+  const navigate = useNavigate();
 
   const tasks = useQuery(api.tasks.listTasks, { projectId });
   const thoughts = useQuery(api.agentThoughts.listRecent, {
@@ -132,6 +135,14 @@ export function MissionControlBar({ projectId }: MissionControlBarProps) {
 
       {/* Controls */}
       <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 text-xs text-primary hover:text-primary"
+          onClick={() => navigate(`/project/${projectId}/mission`)}
+        >
+          <Rocket className="h-3.5 w-3.5 mr-1" /> Mission Control
+        </Button>
         <Badge
           variant="outline"
           className="text-[10px] uppercase bg-amber-500/10 text-amber-400 border-amber-500/20 mr-2"
