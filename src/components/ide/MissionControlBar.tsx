@@ -6,10 +6,12 @@ import {
   Loader2,
   Pause,
   Play,
+  Rocket,
   RotateCcw,
   ShieldAlert,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,14 +24,13 @@ interface MissionControlBarProps {
 
 export function MissionControlBar({ projectId }: MissionControlBarProps) {
   const [isPausing, setIsPausing] = useState(false);
+  const navigate = useNavigate();
 
   const tasks = useQuery(api.tasks.listTasks, { projectId });
   const thoughts = useQuery(api.agentThoughts.listRecent, {
     projectId,
     limit: 200,
   });
-
-  if (!tasks) return null;
 
   // Active agents: unique agent IDs that have a streaming thought right now
   const streamingAgentIds = new Set(
@@ -38,13 +39,31 @@ export function MissionControlBar({ projectId }: MissionControlBarProps) {
   const activeAgentCount = streamingAgentIds.size;
 
   // Fall back to task-based detection when nothing is streaming
-  const runningTaskCount = tasks.filter(
+  const runningTaskCount = (tasks ?? []).filter(
     t => t.status === "running" || t.status === "queued",
   ).length;
 
   const displayAgentCount =
     activeAgentCount > 0 ? activeAgentCount : runningTaskCount;
   const isRunning = displayAgentCount > 0;
+
+  // Agent mission toasts — hooks must run unconditionally on every render,
+  // so this stays above the `!tasks` early return below (was previously
+  // called after it, which crashed with React error #310 — "Rendered more
+  // hooks than during the previous render" — once the query resolved from
+  // undefined to an array between renders).
+  const prevIsRunning = useRef(isRunning);
+  useEffect(() => {
+    if (tasks === undefined) return;
+    if (isRunning && !prevIsRunning.current) {
+      toast.success("Agents deployed on mission");
+    } else if (!isRunning && prevIsRunning.current) {
+      toast.info("Agent mission completed");
+    }
+    prevIsRunning.current = isRunning;
+  }, [isRunning, tasks]);
+
+  if (!tasks) return null;
 
   // Files modified: unique paths across all done tasks this session
   const doneTasks = tasks.filter(t => t.status === "done");
@@ -61,17 +80,6 @@ export function MissionControlBar({ projectId }: MissionControlBarProps) {
     totalFinished > 0
       ? Math.round((doneTasks.length / totalFinished) * 100)
       : null;
-
-  // Agent mission toasts
-  const prevIsRunning = useRef(isRunning);
-  useEffect(() => {
-    if (isRunning && !prevIsRunning.current) {
-      toast.success("Agents deployed on mission");
-    } else if (!isRunning && prevIsRunning.current) {
-      toast.info("Agent mission completed");
-    }
-    prevIsRunning.current = isRunning;
-  }, [isRunning]);
 
   return (
     <div className="flex items-center gap-4 px-4 py-2 border-t border-border bg-[oklch(0.12_0.02_260)] shrink-0 min-h-[48px]">
@@ -132,6 +140,14 @@ export function MissionControlBar({ projectId }: MissionControlBarProps) {
 
       {/* Controls */}
       <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 text-xs text-primary hover:text-primary"
+          onClick={() => navigate(`/project/${projectId}/mission`)}
+        >
+          <Rocket className="h-3.5 w-3.5 mr-1" /> Mission Control
+        </Button>
         <Badge
           variant="outline"
           className="text-[10px] uppercase bg-amber-500/10 text-amber-400 border-amber-500/20 mr-2"

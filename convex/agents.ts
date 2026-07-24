@@ -214,7 +214,7 @@ export const runMultiAgent = action({
         profileMap.default ??
         AGENT_MODELS[role] ??
         AGENT_MODELS.default ??
-        "or-deepseek-v3"
+        "deepseek-v3"
       );
     };
 

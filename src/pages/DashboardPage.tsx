@@ -9,6 +9,7 @@ import {
   Github,
   Loader2,
   Plus,
+  Rocket,
   Sparkles,
   Trash2,
   Zap,
@@ -313,7 +314,19 @@ export function DashboardPage() {
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-primary/10 rounded transition-all"
+                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1 hover:bg-primary/10 rounded transition-all"
+                        onClick={e => {
+                          e.stopPropagation();
+                          navigate(`/project/${project._id}/mission`);
+                        }}
+                        aria-label="Mission Control"
+                        title="Mission Control"
+                      >
+                        <Rocket className="h-4 w-4 text-primary" />
+                      </button>
+                      <button
+                        type="button"
+                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1 hover:bg-primary/10 rounded transition-all"
                         onClick={e => {
                           e.stopPropagation();
                           navigate(`/project/${project._id}/xray`);
@@ -325,7 +338,7 @@ export function DashboardPage() {
                       </button>
                       <button
                         type="button"
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-all"
+                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-all"
                         onClick={e =>
                           handleDelete(project._id, project.name, e)
                         }
