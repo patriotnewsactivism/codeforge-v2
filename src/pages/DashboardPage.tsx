@@ -314,7 +314,7 @@ export function DashboardPage() {
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-primary/10 rounded transition-all"
+                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1 hover:bg-primary/10 rounded transition-all"
                         onClick={e => {
                           e.stopPropagation();
                           navigate(`/project/${project._id}/mission`);
@@ -326,7 +326,7 @@ export function DashboardPage() {
                       </button>
                       <button
                         type="button"
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-primary/10 rounded transition-all"
+                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1 hover:bg-primary/10 rounded transition-all"
                         onClick={e => {
                           e.stopPropagation();
                           navigate(`/project/${project._id}/xray`);
@@ -338,7 +338,7 @@ export function DashboardPage() {
                       </button>
                       <button
                         type="button"
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-all"
+                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-all"
                         onClick={e =>
                           handleDelete(project._id, project.name, e)
                         }
