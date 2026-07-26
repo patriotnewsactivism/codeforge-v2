@@ -2,7 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { action, mutation, query } from "./_generated/server";
-import { callAIWithFallback, DEFAULT_MODEL, estimateCost, MODELS } from "./ai";
+import { callAIWithFallback, estimateCost, getModelForRole, MODELS } from "./ai";
 
 // ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
 // Lifetime users get their stored keys injected into AI calls.
@@ -56,7 +56,7 @@ export const getOrCreateSession = mutation({
     return await ctx.db.insert("chatSessions", {
       projectId: args.projectId,
       userId,
-      model: args.model ?? DEFAULT_MODEL,
+      model: args.model ?? "auto",
       totalTokensUsed: 0,
       totalCost: 0,
       createdAt: Date.now(),
@@ -79,7 +79,7 @@ export const createSession = mutation({
       projectId: args.projectId,
       userId,
       title: args.title ?? "New Chat",
-      model: args.model ?? DEFAULT_MODEL,
+      model: args.model ?? "auto",
       totalTokensUsed: 0,
       totalCost: 0,
       createdAt: Date.now(),
@@ -161,6 +161,22 @@ export const archiveSession = mutation({
 export const getSession = query({
   args: { sessionId: v.id("chatSessions") },
   handler: async (ctx, args) => ctx.db.get(args.sessionId),
+});
+
+// Used internally by getModelForRole (convex/ai.ts) so action contexts
+// (no direct ctx.db access) can resolve "what model did the user pick for
+// this project's chat" via ctx.runQuery. Queries the REAL chatSessions
+// table (not the unrelated, unused `sessions` table).
+export const getLatestModelForProjectInternal = query({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, { projectId }) => {
+    const session = await ctx.db
+      .query("chatSessions")
+      .withIndex("by_project", q => q.eq("projectId", projectId))
+      .order("desc")
+      .first();
+    return session?.model ?? null;
+  },
 });
 
 export const updateModel = mutation({
@@ -380,8 +396,16 @@ export const sendMessage = action({
       messages.push({ role: "user", content: userMessage });
 
       try {
+        // "auto" is the model picker's sentinel for "no explicit pick --
+        // use profile-based per-role routing" (see getModelForRole in
+        // convex/ai.ts). Resolve it to a real model id before it ever
+        // reaches callAIWithFallback, which has no idea what "auto" means.
+        const effectiveModel =
+          args.model === "auto"
+            ? await getModelForRole(ctx, "orchestrator", args.projectId)
+            : args.model;
         const { text: result, modelUsed } = await callAIWithFallback(messages, {
-          model: args.model,
+          model: effectiveModel,
           callerPlan: byok.callerPlan,
           userKeys: byok.userKeys,
         });

@@ -21,22 +21,6 @@ export const get = query({
   },
 });
 
-// Used internally by getModelForRole (convex/ai.ts) so that action
-// contexts -- which have no direct ctx.db access -- can resolve "what
-// model did the user explicitly pick for this project's chat" via
-// ctx.runQuery instead of a raw (and unavailable) ctx.db.query call.
-export const getLatestModelForProjectInternal = query({
-  args: { projectId: v.id("projects") },
-  handler: async (ctx, { projectId }) => {
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("by_project", q => q.eq("projectId", projectId))
-      .order("desc")
-      .first();
-    return session?.model ?? null;
-  },
-});
-
 export const getActive = query({
   args: {},
   handler: async ctx => {

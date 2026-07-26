@@ -1041,11 +1041,21 @@ export async function getModelForRole(
     try {
       // NOTE: most callers are Convex actions (they call external LLM APIs),
       // which have no direct ctx.db access -- must go through ctx.runQuery.
+      //
+      // CORRECTION (2026-07-26): this originally queried api.sessions.* (the
+      // `sessions` table) -- that table turned out to be dead/unused code,
+      // never written to by the real chat flow, so the lookup always
+      // silently returned null and this whole override was a no-op. The
+      // REAL model picker in ChatPanel.tsx writes to the `chatSessions`
+      // table via api.chat.updateModel. Fixed to query the right table.
       const sessionModel = await ctx.runQuery(
-        api.sessions.getLatestModelForProjectInternal,
+        api.chat.getLatestModelForProjectInternal,
         { projectId },
       );
-      if (sessionModel) return sessionModel;
+      // "auto" is the model picker's explicit "use automatic/profile-based
+      // routing" choice -- not a real model id, so it must NOT short-circuit
+      // here. Only a genuine concrete model id counts as a user override.
+      if (sessionModel && sessionModel !== "auto") return sessionModel;
     } catch (_err) {
       // Fall through to profile-based routing if the session lookup fails.
     }

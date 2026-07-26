@@ -68,10 +68,11 @@ export function ChatPanel({
   const updateModel = useMutation(api.chat.updateModel);
   const userId = useAuthToken();
 
-  const currentModel = session?.model ?? "deepseek-v3";
-  const currentModelConfig = backendModels?.find(
-    (m: any) => m.id === currentModel,
-  );
+  const currentModel = session?.model ?? "auto";
+  const currentModelConfig =
+    currentModel === "auto"
+      ? { id: "auto", name: "Automatic" }
+      : backendModels?.find((m: any) => m.id === currentModel);
 
   // Elapsed time counter during loading
   useEffect(() => {
@@ -180,6 +181,32 @@ export function ChatPanel({
                 onClick={() => setModelDropdownOpen(false)}
               />
               <div className="absolute right-0 top-full mt-1 z-50 bg-[oklch(0.14_0.02_260)] border border-border rounded-lg shadow-2xl py-1 min-w-[260px] max-h-[400px] overflow-y-auto">
+                <div>
+                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 border-b border-border/30">
+                    Recommended
+                  </div>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex items-center justify-between w-full px-3 py-2 text-xs hover:bg-[oklch(0.20_0.02_260)] transition-colors",
+                      currentModel === "auto" && "bg-[oklch(0.18_0.02_260)]",
+                    )}
+                    onClick={() => {
+                      if (sessionId) updateModel({ sessionId, model: "auto" });
+                      setModelDropdownOpen(false);
+                    }}
+                  >
+                    <span className="flex flex-col items-start">
+                      <span className="text-foreground">Automatic</span>
+                      <span className="text-[9px] text-muted-foreground/60">
+                        Best model per task
+                      </span>
+                    </span>
+                    {currentModel === "auto" && (
+                      <Zap className="h-3 w-3 text-primary shrink-0 ml-2" />
+                    )}
+                  </button>
+                </div>
                 {(["strong", "balanced", "fast"] as const).map(tier => {
                   const models = modelsByTier[tier];
                   if (!models?.length) return null;
