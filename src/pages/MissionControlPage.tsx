@@ -4,8 +4,8 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
-// Frontend-only demo of the Mission Control redesign. All mission data is
-// mocked; the Live/Shipped toggle switches between the two demo states.
+// Mission Control -- live, Convex-reactive. Feed/files/swarm/roster/project
+// title/missions list all pull from real data (see useQuery calls below).
 
 const AUTONOMY_LABEL = "Full Autopilot";
 
@@ -114,6 +114,7 @@ const ROSTER = [
 ];
 
 interface FeedEntry {
+  id: string;
   time: string;
   type: string;
   color: string;
@@ -297,6 +298,15 @@ export function MissionControlPage() {
     api.engine.listToolCalls,
     validProjectId ? { projectId: validProjectId, limit: 150 } : "skip",
   );
+  const realProject = useQuery(
+    api.projects.get,
+    validProjectId ? { projectId: validProjectId } : "skip",
+  );
+  const rawMissions = useQuery(
+    api.missions.listByProject,
+    validProjectId ? { projectId: validProjectId } : "skip",
+  );
+  const realRoster = useQuery(api.users.getModelRoster, {});
 
   const FEED_TYPE_META: Record<string, { color: string; icon: string }> = {
     plan: { color: "#a78bfa", icon: "🗺️" },
@@ -322,6 +332,7 @@ export function MissionControlPage() {
     return rawThoughts.map(t => {
       const meta = FEED_TYPE_META[t.type ?? "action"] ?? { color: MUTED, icon: "•" };
       return {
+        id: t._id,
         time: new Date(t.timestamp).toLocaleTimeString(),
         type: t.type ?? "action",
         color: meta.color,
@@ -469,26 +480,35 @@ export function MissionControlPage() {
   const feed = realFeed;
   const files = realFiles;
 
-  const missions = [
-    {
-      label: "Payment checkout",
-      status: "done" as AgentStatus,
-      time: "2 days ago",
-      current: false,
-    },
-    {
-      label: "Recipe search + auth",
-      status: (isShipped ? "done" : "active") as AgentStatus,
-      time: isShipped ? "shipped" : "now",
-      current: true,
-    },
-    {
-      label: "Social sharing + comments",
-      status: "queued" as AgentStatus,
-      time: "queued",
-      current: false,
-    },
-  ];
+  // Real build-session history for this project (was a 3-item hardcoded
+  // mock -- "Payment checkout" / "Recipe search + auth" / "Social sharing"
+  // -- that never matched whatever project was actually open).
+  const missionStatusMap: Record<string, AgentStatus> = {
+    running: "active",
+    completed: "done",
+    paused: "queued",
+    error: "error" as AgentStatus,
+  };
+  const missions = (rawMissions ?? []).map((m, i) => {
+    const stepsLabel =
+      m.totalSteps != null
+        ? `Step ${m.completedSteps ?? 0}/${m.totalSteps}`
+        : (m.currentStep ?? "Build session");
+    const ageMs = Date.now() - m.startedAt;
+    const ageMin = Math.round(ageMs / 60000);
+    const time =
+      m.status === "running"
+        ? "now"
+        : ageMin < 60
+          ? `${ageMin}m ago`
+          : `${Math.round(ageMin / 60)}h ago`;
+    return {
+      label: stepsLabel,
+      status: missionStatusMap[m.status] ?? ("queued" as AgentStatus),
+      time,
+      current: i === 0,
+    };
+  });
 
   const integrations = [
     { name: "GitHub", icon: "🐙", connected: true },
@@ -542,7 +562,8 @@ export function MissionControlPage() {
   const filesTouchedLabel = isShipped
     ? `${files.length} of ${files.length}`
     : "7 of 14";
-  const freeRoleCount = ROSTER.filter(r => r.badge.includes("Free")).length;
+  const liveRoster = realRoster ?? ROSTER;
+  const freeRoleCount = liveRoster.filter(r => r.badge.includes("Free")).length;
 
   // ── Reusable pane content — shared between the desktop 4-column layout
   // and the mobile single-pane + bottom-tab layout below, so the two
@@ -723,7 +744,7 @@ export function MissionControlPage() {
       <div className="flex-1 overflow-y-auto px-3.5 py-2.5 flex flex-col gap-1.5 text-xs">
         {feed.map((f, i) => (
           <div
-            key={`${f.time}-${f.type}`}
+            key={f.id}
             className="flex gap-2.5 px-2.5 py-2 rounded-lg min-w-0 max-w-full cursor-pointer"
             style={{
               background: f.isHeal
@@ -976,11 +997,11 @@ export function MissionControlPage() {
             <div className="flex items-center gap-1.5 mb-2">
               <span className={SECTION_LABEL}>Model roster</span>
               <span className="text-[9.5px] px-[7px] py-0.5 rounded-[10px] bg-[rgba(52,211,153,.12)] text-[#34d399] font-bold">
-                {freeRoleCount}/{ROSTER.length} free-tier
+                {freeRoleCount}/{liveRoster.length} free-tier
               </span>
             </div>
             <div className="flex flex-col gap-[5px] mb-2">
-              {ROSTER.map(r => (
+              {(realRoster ?? ROSTER).map(r => (
                 <div
                   key={r.role}
                   className="flex items-center gap-1.5 text-[10.5px]"
@@ -996,7 +1017,11 @@ export function MissionControlPage() {
                   </span>
                   <span
                     className="text-[9px] font-bold px-1.5 py-0.5 rounded-lg whitespace-nowrap shrink-0"
-                    style={{ background: r.badgeBg, color: r.badgeColor }}
+                    style={{
+                      background:
+                        "badgeBg" in r ? r.badgeBg : "rgba(96,165,250,.1)",
+                      color: "badgeColor" in r ? r.badgeColor : "#60a5fa",
+                    }}
                   >
                     {r.badge}
                   </span>
@@ -1212,7 +1237,7 @@ export function MissionControlPage() {
           {"</>"}
         </button>
         <span className="text-[13px] text-[oklch(0.60_0.02_260)] hidden sm:inline">
-          Recipe Share — MVP
+          {realProject?.name ?? "Untitled Project"}
         </span>
         <span className="text-[oklch(0.30_0.02_260)] hidden sm:inline">/</span>
         <span className="text-sm font-bold">Mission Control</span>
@@ -1268,11 +1293,12 @@ export function MissionControlPage() {
                 ＋
               </span>
               <span className="flex-1 min-w-0 text-xs italic text-[oklch(0.90_0.01_260)] truncate">
-                "Build a recipe-sharing app with user auth, recipe CRUD, and
-                search."
+                {missions[0]
+                  ? `Working on: ${missions[0].label}`
+                  : "No active mission"}
               </span>
               <span className="hidden sm:flex items-center gap-[5px] px-2 py-[3px] rounded-2xl bg-[rgba(251,146,60,.15)] border border-[rgba(251,146,60,.3)] text-[9.5px] font-bold text-[#fb923c] whitespace-nowrap shrink-0">
-                🐝 4 agents
+                🐝 {realSwarm.length} agents
               </span>
               <button
                 type="button"
