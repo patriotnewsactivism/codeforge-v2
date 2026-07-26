@@ -14,6 +14,7 @@ import type { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
 import { resolveByok } from "./lib/byok";
+import { selectRoleForCategory } from "./agentRoles";
 
 // ─── TOOL CALL SCHEMA ──────────────────────────────────────────────────────
 
@@ -1063,26 +1064,8 @@ export const executeWorkItem = action({
     });
     if (!workItem) throw new Error("Work item not found");
 
-    // 2. Select appropriate agent role based on category
-    // Canonical categories (from planner): security, feature, test, docs, infra, performance, refactor
-    // Also accept legacy variants: infrastructure, ci, deploy, testing, bug
-    let agentRole = "coder";
-    if (workItem.category === "security") agentRole = "forensic";
-    else if (
-      workItem.category === "infra" ||
-      workItem.category === "infrastructure" ||
-      workItem.category === "ci" ||
-      workItem.category === "deploy"
-    )
-      agentRole = "devops";
-    else if (
-      workItem.category === "test" ||
-      workItem.category === "testing"
-    )
-      agentRole = "tester";
-    else if (workItem.category === "performance") agentRole = "optimizer";
-    else if (workItem.category === "refactor") agentRole = "architect";
-    else if (workItem.category === "bug") agentRole = "debugger";
+    // 2. Select appropriate agent role based on category using centralized mapping
+    const agentRole = selectRoleForCategory(workItem.category);
 
     const prompt = `[WORK ITEM: ${workItem.title}]\n\nCategory: ${workItem.category}\nPriority: ${workItem.priority}\n\nDetails:\n${workItem.description}\n\nReview the project files and implement the necessary changes to complete this task.`;
 
