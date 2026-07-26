@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as agentRoles from "../agentRoles.js";
 import type * as agentThoughts from "../agentThoughts.js";
 import type * as agents from "../agents.js";
 import type * as ai from "../ai.js";
@@ -24,6 +25,7 @@ import type * as codeReview from "../codeReview.js";
 import type * as collaboration from "../collaboration.js";
 import type * as completionScore from "../completionScore.js";
 import type * as constants from "../constants.js";
+import type * as contextAssembler from "../contextAssembler.js";
 import type * as costEntries from "../costEntries.js";
 import type * as crons from "../crons.js";
 import type * as crossProject from "../crossProject.js";
@@ -41,14 +43,20 @@ import type * as github from "../github.js";
 import type * as gitops from "../gitops.js";
 import type * as http from "../http.js";
 import type * as intelligence from "../intelligence.js";
+import type * as knowledgeGraph from "../knowledgeGraph.js";
+import type * as lib_byok from "../lib/byok.js";
 import type * as limits from "../limits.js";
 import type * as memory from "../memory.js";
 import type * as missions from "../missions.js";
+import type * as multiEdit from "../multiEdit.js";
 import type * as mutation from "../mutation.js";
+import type * as orchestrator from "../orchestrator.js";
 import type * as planner from "../planner.js";
 import type * as previews from "../previews.js";
 import type * as projects from "../projects.js";
+import type * as providers_types from "../providers/types.js";
 import type * as rag from "../rag.js";
+import type * as recovery from "../recovery.js";
 import type * as reflection from "../reflection.js";
 import type * as repoImport from "../repoImport.js";
 import type * as seedTestUser from "../seedTestUser.js";
@@ -58,11 +66,13 @@ import type * as spawnEngine from "../spawnEngine.js";
 import type * as stripe from "../stripe.js";
 import type * as suggestions from "../suggestions.js";
 import type * as swarm from "../swarm.js";
+import type * as taskQueue from "../taskQueue.js";
 import type * as tasks from "../tasks.js";
 import type * as testAuth from "../testAuth.js";
 import type * as users from "../users.js";
 import type * as vision from "../vision.js";
 import type * as webSearch from "../webSearch.js";
+import type * as worktrees from "../worktrees.js";
 import type * as xray from "../xray.js";
 
 import type {
@@ -72,6 +82,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  agentRoles: typeof agentRoles;
   agentThoughts: typeof agentThoughts;
   agents: typeof agents;
   ai: typeof ai;
@@ -88,6 +99,7 @@ declare const fullApi: ApiFromModules<{
   collaboration: typeof collaboration;
   completionScore: typeof completionScore;
   constants: typeof constants;
+  contextAssembler: typeof contextAssembler;
   costEntries: typeof costEntries;
   crons: typeof crons;
   crossProject: typeof crossProject;
@@ -105,14 +117,20 @@ declare const fullApi: ApiFromModules<{
   gitops: typeof gitops;
   http: typeof http;
   intelligence: typeof intelligence;
+  knowledgeGraph: typeof knowledgeGraph;
+  "lib/byok": typeof lib_byok;
   limits: typeof limits;
   memory: typeof memory;
   missions: typeof missions;
+  multiEdit: typeof multiEdit;
   mutation: typeof mutation;
+  orchestrator: typeof orchestrator;
   planner: typeof planner;
   previews: typeof previews;
   projects: typeof projects;
+  "providers/types": typeof providers_types;
   rag: typeof rag;
+  recovery: typeof recovery;
   reflection: typeof reflection;
   repoImport: typeof repoImport;
   seedTestUser: typeof seedTestUser;
@@ -122,11 +140,13 @@ declare const fullApi: ApiFromModules<{
   stripe: typeof stripe;
   suggestions: typeof suggestions;
   swarm: typeof swarm;
+  taskQueue: typeof taskQueue;
   tasks: typeof tasks;
   testAuth: typeof testAuth;
   users: typeof users;
   vision: typeof vision;
   webSearch: typeof webSearch;
+  worktrees: typeof worktrees;
   xray: typeof xray;
 }>;
 
