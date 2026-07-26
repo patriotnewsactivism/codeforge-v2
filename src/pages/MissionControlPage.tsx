@@ -748,7 +748,7 @@ export function MissionControlPage() {
         {feed.map((f, i) => (
           <div
             key={f.id}
-            className="flex gap-2.5 px-2.5 py-2 rounded-lg min-w-0 max-w-full cursor-pointer"
+            className="grid grid-cols-[56px_16px_1fr] gap-2.5 px-2.5 py-2 rounded-lg min-w-0 max-w-full cursor-pointer items-start"
             style={{
               background: f.isHeal
                 ? "rgba(251,191,36,.07)"
@@ -759,11 +759,11 @@ export function MissionControlPage() {
             }}
             onClick={() => setExpandedFeed(s => ({ ...s, [i]: !s[i] }))}
           >
-            <span className="font-mono text-[10px] text-[oklch(0.45_0.02_260)] w-14 shrink-0 mt-px">
+            <span className="font-mono text-[10px] text-[oklch(0.45_0.02_260)] mt-px">
               {f.time}
             </span>
-            <span className="shrink-0 mt-px">{f.icon}</span>
-            <div className="min-w-0 flex-1">
+            <span className="mt-px">{f.icon}</span>
+            <div className="min-w-0">
               <div className="flex items-baseline gap-[7px]">
                 <span
                   className="text-[9.5px] font-extrabold tracking-[.04em] uppercase"
