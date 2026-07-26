@@ -1,13 +1,3 @@
-<<<<<<< Updated upstream
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
-
-// Mission Control -- live, Convex-reactive. Feed/files/swarm/roster/project
-// title/missions list all pull from real data (see useQuery calls below).
-=======
 import { useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -17,7 +7,6 @@ import type { Id } from "../../convex/_generated/dataModel";
 // Mission Control — wired to real Convex reactive queries. The Live/Shipped
 // toggle switches between the in-progress view and an "everything done" view
 // derived from the same underlying data.
->>>>>>> Stashed changes
 
 const AUTONOMY_LABEL = "Full Autopilot";
 
@@ -37,12 +26,6 @@ interface Subtask {
   icon: string;
 }
 
-<<<<<<< Updated upstream
-// [SUBTASKS now derived live from Convex -- see useMemo blocks in the component below]
-
-
-=======
->>>>>>> Stashed changes
 const SUBTASK_STYLE: Record<
   SubtaskStatus,
   { icon: string; color: string; rowBg: string }
@@ -63,12 +46,6 @@ interface SwarmAgent {
   summary: string;
 }
 
-<<<<<<< Updated upstream
-// [SWARM now derived live from Convex -- see useMemo blocks in the component below]
-
-
-=======
->>>>>>> Stashed changes
 const AGENT_STYLE: Record<
   AgentStatus,
   { dot: string; text: string; label: string; pulse: boolean }
@@ -97,13 +74,6 @@ interface FeedEntry {
   isRunning?: boolean;
 }
 
-<<<<<<< Updated upstream
-// [LIVE_FEED now derived live from Convex -- see useMemo blocks in the component below]
-
-
-// [SHIPPED_FEED now derived live from Convex -- see useMemo blocks in the component below]
-
-=======
 // Map an agentThought `type` to feed styling.
 const THOUGHT_STYLE: Record<string, { icon: string; color: string }> = {
   plan: { icon: "🗺️", color: "#a78bfa" },
@@ -132,21 +102,15 @@ const CATEGORY_ICON: Record<string, string> = {
   infra: "🏗️",
   performance: "⚡",
 };
->>>>>>> Stashed changes
 
 interface TouchedFile {
   path: string;
   action: "created" | "modified";
 }
 
-<<<<<<< Updated upstream
-// [FILES now derived live from Convex -- see useMemo blocks in the component below]
-
-=======
 function fmtTime(ts: number): string {
   return new Date(ts).toLocaleTimeString("en-GB", { hour12: false });
 }
->>>>>>> Stashed changes
 
 function fmtRelative(ts: number): string {
   const diff = Date.now() - ts;
@@ -291,192 +255,14 @@ export function MissionControlPage() {
   );
   const [expandedFeed, setExpandedFeed] = useState<Record<number, boolean>>({});
   const [mobilePane, setMobilePane] = useState<MobilePane>("feed");
-  const feedScrollRef = useRef<HTMLDivElement>(null);
-  const feedNearBottomRef = useRef(true);
 
-  // ─── LIVE DATA (real, Convex-reactive -- replaces the old static demo) ───
-  // Convex IDs are lowercase base32 only; guard against a malformed URL param
-  // so we never pass a bad shape into v.id() (that crashes the whole page).
-  const validProjectId =
-    projectId && /^[a-z0-9]+$/i.test(projectId)
-      ? (projectId as Id<"projects">)
-      : null;
-
-  const rawThoughts = useQuery(
-    api.agentThoughts.listRecent,
-    validProjectId ? { projectId: validProjectId, limit: 200 } : "skip",
-  );
-  const rawToolCalls = useQuery(
-    api.engine.listToolCalls,
-    validProjectId ? { projectId: validProjectId, limit: 150 } : "skip",
-  );
-  const realProject = useQuery(
-    api.projects.get,
-    validProjectId ? { projectId: validProjectId } : "skip",
-  );
-  const rawMissions = useQuery(
-    api.missions.listByProject,
-    validProjectId ? { projectId: validProjectId } : "skip",
-  );
-  const realRoster = useQuery(api.users.getModelRoster, {});
-
-  const FEED_TYPE_META: Record<string, { color: string; icon: string }> = {
-    plan: { color: "#a78bfa", icon: "🗺️" },
-    analyze: { color: "#a78bfa", icon: "🔍" },
-    code: { color: "#4ade80", icon: "⚙️" },
-    debug: { color: AMBER, icon: "🐛" },
-    review: { color: "#fb923c", icon: "🔎" },
-    memory: { color: "#c084fc", icon: "🧠" },
-    search: { color: CYAN, icon: "🔎" },
-    commit: { color: "#facc15", icon: "📦" },
-    broadcast: { color: "#818cf8", icon: "⚡" },
-    done: { color: EMERALD, icon: "✅" },
-    action: { color: CYAN, icon: "⚡" },
-    complete: { color: EMERALD, icon: "✅" },
-    error: { color: "#f87171", icon: "⚠️" },
-    warning: { color: AMBER, icon: "⚠️" },
-    thinking: { color: CYAN, icon: "💭" },
-    finding: { color: "#a78bfa", icon: "🔎" },
-  };
-
-  const realFeed: FeedEntry[] = useMemo(() => {
-    if (!rawThoughts) return [];
-    return rawThoughts.map(t => {
-      const meta = FEED_TYPE_META[t.type ?? "action"] ?? { color: MUTED, icon: "•" };
-      return {
-        id: t._id,
-        time: new Date(t.timestamp).toLocaleTimeString(),
-        type: t.type ?? "action",
-        color: meta.color,
-        icon: meta.icon,
-        agent: t.agentName ?? "Agent",
-        content: t.content,
-        isRunning: t.isStreaming,
-        isHeal: t.type === "error" || t.type === "warning",
-      };
-    });
-  }, [rawThoughts]);
-
-  const TOOL_ICON: Record<string, string> = {
-    create_file: "⚙️",
-    edit_file: "⚙️",
-    delete_file: "🗑️",
-    read_file: "📖",
-    list_files: "📁",
-    search_files: "🔎",
-    web_search: "🌐",
-    spawn_agent: "⚡",
-    spawn_epic: "⚡",
-    send_message: "💬",
-    deploy_project: "🚀",
-    complete_task: "✅",
-  };
-
-  const realSubtasks: Subtask[] = useMemo(() => {
-    if (!rawToolCalls) return [];
-    return [...rawToolCalls]
-      .sort((a, b) => a.timestamp - b.timestamp)
-      .map(tc => {
-        let path = "";
-        try {
-          path = JSON.parse(tc.args)?.path ?? "";
-        } catch {
-          /* ignore malformed args JSON */
-        }
-        const status: SubtaskStatus =
-          tc.status === "done"
-            ? "done"
-            : tc.status === "error"
-              ? "healed"
-              : tc.status === "running" || tc.status === "pending"
-                ? "running"
-                : "queued";
-        return {
-          status,
-          text: path ? `${tc.tool} → ${path}` : tc.tool,
-          agent: tc.agentName,
-          icon: TOOL_ICON[tc.tool] ?? "⚙️",
-        };
-      });
-  }, [rawToolCalls]);
-
-  const realSwarm: SwarmAgent[] = useMemo(() => {
-    const byAgent = new Map<
-      string,
-      { name: string; lastTs: number; running: boolean }
-    >();
-    for (const t of rawThoughts ?? []) {
-      const tAgentId = t.agentId ?? "unknown";
-      const prev = byAgent.get(tAgentId);
-      if (!prev || t.timestamp > prev.lastTs) {
-        byAgent.set(tAgentId, {
-          name: t.agentName ?? "Agent",
-          lastTs: t.timestamp,
-          running: prev?.running ?? false,
-        });
-      }
-    }
-    for (const tc of rawToolCalls ?? []) {
-      const prev = byAgent.get(tc.agentId);
-      const running = tc.status === "running" || tc.status === "pending";
-      if (!prev || tc.timestamp > prev.lastTs) {
-        byAgent.set(tc.agentId, {
-          name: tc.agentName,
-          lastTs: tc.timestamp,
-          running,
-        });
-      } else if (running) {
-        prev.running = true;
-      }
-    }
-    const now = Date.now();
-    return Array.from(byAgent.values())
-      .sort((a, b) => b.lastTs - a.lastTs)
-      .map(a => ({
-        name: a.name,
-        status: (a.running || now - a.lastTs < 60_000
-          ? "active"
-          : "done") as AgentStatus,
-        depth: a.name.toLowerCase() === "orchestrator" ? 0 : 1,
-        model: "—",
-        freeTag: "",
-      }));
-  }, [rawThoughts, rawToolCalls]);
-
-  const realFiles: TouchedFile[] = useMemo(() => {
-    if (!rawToolCalls) return [];
-    const byPath = new Map<string, TouchedFile>();
-    for (const tc of [...rawToolCalls].sort((a, b) => a.timestamp - b.timestamp)) {
-      if (!["create_file", "edit_file", "delete_file"].includes(tc.tool)) continue;
-      let path = "";
-      try {
-        path = JSON.parse(tc.args)?.path ?? "";
-      } catch {
-        continue;
-      }
-      if (!path) continue;
-      byPath.set(path, {
-        path,
-        action: tc.tool === "create_file" ? "created" : "modified",
-      });
-    }
-    return Array.from(byPath.values());
-  }, [rawToolCalls]);
-
-  const hasLiveActivity = (rawThoughts?.length ?? 0) > 0 || (rawToolCalls?.length ?? 0) > 0;
-  const realScore = useMemo(() => {
-    if (!rawToolCalls || rawToolCalls.length === 0) return 0;
-    const done = rawToolCalls.filter(tc => tc.status === "done").length;
-    return Math.round((done / rawToolCalls.length) * 100);
-  }, [rawToolCalls]);
+  const hasLiveActivity =
+    (thoughts?.length ?? 0) > 0 || (toolCalls?.length ?? 0) > 0;
 
 
   const isAdvanced = mode === "advanced";
   const isShipped = view === "shipped";
   const isLive = !isShipped;
-<<<<<<< Updated upstream
-  const score = realScore;
-=======
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -676,7 +462,6 @@ export function MissionControlPage() {
 
   const baseScore = totalTasks > 0 ? taskPct : planPct;
   const score = isShipped ? 100 : baseScore;
->>>>>>> Stashed changes
   const canShip = score >= 90;
 
   const agentRuns = costSummary?.totalAgentRuns ?? 0;
@@ -703,54 +488,7 @@ export function MissionControlPage() {
       ? "Shipped ✅"
       : `${AUTONOMY_LABEL} · Building`;
 
-<<<<<<< Updated upstream
-  const feed = realFeed;
-
-  // Auto-scroll the Live Build Feed to the newest entry, but only if the
-  // user was already near the bottom (so manually scrolling up to read
-  // history doesn't get yanked back down on every new agent message).
-  useEffect(() => {
-    const el = feedScrollRef.current;
-    if (!el || !feedNearBottomRef.current) return;
-    el.scrollTop = el.scrollHeight;
-  }, [feed.length]);
-  const files = realFiles;
-
-  // Real build-session history for this project (was a 3-item hardcoded
-  // mock -- "Payment checkout" / "Recipe search + auth" / "Social sharing"
-  // -- that never matched whatever project was actually open).
-  const missionStatusMap: Record<string, AgentStatus> = {
-    running: "active",
-    completed: "done",
-    paused: "queued",
-    error: "error" as AgentStatus,
-  };
-  const missions = (rawMissions ?? []).map((m, i) => {
-    // Prefer the real original prompt (goal) captured at session start;
-    // fall back to a derived step label for older sessions predating it.
-    const fallbackLabel =
-      m.totalSteps != null
-        ? `Step ${m.completedSteps ?? 0}/${m.totalSteps}`
-        : (m.currentStep ?? "Build session");
-    const label = m.goal ?? fallbackLabel;
-    const ageMs = Date.now() - m.startedAt;
-    const ageMin = Math.round(ageMs / 60000);
-    const time =
-      m.status === "running"
-        ? "now"
-        : ageMin < 60
-          ? `${ageMin}m ago`
-          : `${Math.round(ageMin / 60)}h ago`;
-    return {
-      label,
-      status: missionStatusMap[m.status] ?? ("queued" as AgentStatus),
-      time,
-      current: i === 0,
-    };
-  });
-=======
   const filesTouchedLabel = `${files.length} file${files.length === 1 ? "" : "s"}`;
->>>>>>> Stashed changes
 
   const integrations = [
     { name: "GitHub", icon: "🐙", connected: true },
@@ -759,57 +497,7 @@ export function MissionControlPage() {
     { name: "Stripe", icon: "💳", connected: false },
   ];
 
-<<<<<<< Updated upstream
-  const checkpoints = [
-    { time: "14:00:05", label: "Scaffold + auth complete" },
-    { time: "14:01:10", label: "Recipe CRUD + UI complete" },
-    { time: "14:01:52", label: "Pre-fix checkpoint (before test failure)" },
-    { time: "14:02:31", label: "Search + fuzzy match added" },
-    ...(isShipped
-      ? [{ time: "14:07:42", label: "Shipped to production" }]
-      : []),
-  ];
-
-  const deployHistory = [
-    ...(isShipped
-      ? [
-          {
-            label: "Deployed — recipe search + auth",
-            tag: "live",
-            tagColor: EMERALD,
-          },
-        ]
-      : []),
-    {
-      label: "Deployed — payment checkout",
-      tag: isShipped ? "previous" : "live",
-      tagColor: isShipped ? MUTED : EMERALD,
-    },
-  ];
-
-  const errorIncidents = isShipped
-    ? [
-        {
-          title: "TypeError: undefined price in checkout",
-          source: "Production · Sentry",
-          time: "2m after deploy",
-        },
-        {
-          title: "404 on /api/recipes/search (cold start)",
-          source: "Production · Sentry",
-          time: "5m after deploy",
-        },
-      ]
-    : [];
-
-  const filesTouchedLabel = isShipped
-    ? `${files.length} of ${files.length}`
-    : "7 of 14";
-  const liveRoster = realRoster ?? ROSTER;
-  const freeRoleCount = liveRoster.filter(r => r.badge.includes("Free")).length;
-=======
   const heroPrompt = project?.description ?? "Describe your next mission…";
->>>>>>> Stashed changes
 
   // ── Reusable pane content — shared between the desktop 4-column layout
   // and the mobile single-pane + bottom-tab layout below, so the two
@@ -867,16 +555,12 @@ export function MissionControlPage() {
       <div>
         <div className={`${SECTION_LABEL} mb-2`}>Mission Plan</div>
         <div className="flex flex-col gap-1.5">
-<<<<<<< Updated upstream
-          {realSubtasks.map(t => {
-=======
           {subtasks.length === 0 && (
             <div className="px-2 py-2 text-[10px] text-[oklch(0.48_0.02_260)]">
               No plan generated yet.
             </div>
           )}
           {subtasks.map(t => {
->>>>>>> Stashed changes
             const st = isShipped
               ? { icon: "✓", color: EMERALD, rowBg: "transparent" }
               : SUBTASK_STYLE[t.status];
@@ -908,16 +592,12 @@ export function MissionControlPage() {
         <div>
           <div className={`${SECTION_LABEL} mb-2`}>Agent Swarm</div>
           <div className="flex flex-col gap-0.5">
-<<<<<<< Updated upstream
-            {realSwarm.map(a => {
-=======
             {swarm.length === 0 && (
               <div className="px-2 py-2 text-[10px] text-[oklch(0.48_0.02_260)]">
                 No agents deployed yet.
               </div>
             )}
             {swarm.map(a => {
->>>>>>> Stashed changes
               const st = isShipped
                 ? {
                     dot: EMERALD,
@@ -1015,21 +695,6 @@ export function MissionControlPage() {
           autoscroll
         </span>
       </div>
-<<<<<<< Updated upstream
-      <div
-        ref={feedScrollRef}
-        onScroll={e => {
-          const el = e.currentTarget;
-          feedNearBottomRef.current =
-            el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-        }}
-        className="flex-1 overflow-y-auto px-3.5 py-2.5 flex flex-col gap-1.5 text-xs"
-      >
-        {feed.map((f, i) => (
-          <div
-            key={f.id}
-            className="grid grid-cols-[56px_16px_1fr] gap-2.5 px-2.5 py-2 rounded-lg min-w-0 max-w-full cursor-pointer items-start"
-=======
       <div className="flex-1 overflow-y-auto px-3.5 py-2.5 flex flex-col gap-1.5 text-xs">
         {thoughts === undefined && (
           <div className="text-[11px] text-[oklch(0.55_0.02_260)] py-4 text-center">
@@ -1045,7 +710,6 @@ export function MissionControlPage() {
           <div
             key={f.id}
             className="flex gap-2.5 px-2.5 py-2 rounded-lg min-w-0 max-w-full cursor-pointer"
->>>>>>> Stashed changes
             style={{
               background: f.isHeal
                 ? "rgba(251,191,36,.07)"
@@ -1278,36 +942,6 @@ export function MissionControlPage() {
             <div className="flex items-center gap-1.5 mb-2">
               <span className={SECTION_LABEL}>Agent roster</span>
               <span className="text-[9.5px] px-[7px] py-0.5 rounded-[10px] bg-[rgba(52,211,153,.12)] text-[#34d399] font-bold">
-<<<<<<< Updated upstream
-                {freeRoleCount}/{liveRoster.length} free-tier
-              </span>
-            </div>
-            <div className="flex flex-col gap-[5px] mb-2">
-              {(realRoster ?? ROSTER).map(r => (
-                <div
-                  key={r.role}
-                  className="flex items-center gap-1.5 text-[10.5px]"
-                >
-                  <span className="w-[62px] shrink-0 text-[oklch(0.55_0.02_260)]">
-                    {r.role}
-                  </span>
-                  <span className="flex-1 min-w-0 text-[oklch(0.88_0.01_260)] truncate">
-                    {r.model}{" "}
-                    <span className="text-[oklch(0.50_0.02_260)]">
-                      ({r.provider})
-                    </span>
-                  </span>
-                  <span
-                    className="text-[9px] font-bold px-1.5 py-0.5 rounded-lg whitespace-nowrap shrink-0"
-                    style={{
-                      background:
-                        "badgeBg" in r ? r.badgeBg : "rgba(96,165,250,.1)",
-                      color: "badgeColor" in r ? r.badgeColor : "#60a5fa",
-                    }}
-                  >
-                    {r.badge}
-                  </span>
-=======
                 {swarm.length} agent{swarm.length === 1 ? "" : "s"}
               </span>
             </div>
@@ -1315,7 +949,6 @@ export function MissionControlPage() {
               {swarm.length === 0 && (
                 <div className="text-[10px] text-[oklch(0.48_0.02_260)]">
                   No agents deployed yet.
->>>>>>> Stashed changes
                 </div>
               )}
               {swarm.map(a => {
@@ -1557,11 +1190,7 @@ export function MissionControlPage() {
           {"</>"}
         </button>
         <span className="text-[13px] text-[oklch(0.60_0.02_260)] hidden sm:inline">
-<<<<<<< Updated upstream
-          {realProject?.name ?? "Untitled Project"}
-=======
           {project?.name ?? "Project"}
->>>>>>> Stashed changes
         </span>
         <span className="text-[oklch(0.30_0.02_260)] hidden sm:inline">/</span>
         <span className="text-sm font-bold">Mission Control</span>
@@ -1617,17 +1246,10 @@ export function MissionControlPage() {
                 ＋
               </span>
               <span className="flex-1 min-w-0 text-xs italic text-[oklch(0.90_0.01_260)] truncate">
-<<<<<<< Updated upstream
-                {missions[0] ? `"${missions[0].label}"` : "No active mission"}
-              </span>
-              <span className="hidden sm:flex items-center gap-[5px] px-2 py-[3px] rounded-2xl bg-[rgba(251,146,60,.15)] border border-[rgba(251,146,60,.3)] text-[9.5px] font-bold text-[#fb923c] whitespace-nowrap shrink-0">
-                🐝 {realSwarm.length} agents
-=======
                 "{heroPrompt}"
               </span>
               <span className="hidden sm:flex items-center gap-[5px] px-2 py-[3px] rounded-2xl bg-[rgba(251,146,60,.15)] border border-[rgba(251,146,60,.3)] text-[9.5px] font-bold text-[#fb923c] whitespace-nowrap shrink-0">
                 🐝 {activeAgentCount} agent{activeAgentCount === 1 ? "" : "s"}
->>>>>>> Stashed changes
               </span>
               <button
                 type="button"

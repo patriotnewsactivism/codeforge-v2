@@ -116,6 +116,7 @@ export const commitToWorktree = mutation({
       branch: args.branchName,
       filesChanged: args.filesChanged,
       timestamp: Date.now(),
+      pushedAt: Date.now(),
     });
   },
 });

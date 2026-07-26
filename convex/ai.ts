@@ -393,7 +393,7 @@ export const MODELS: Record<string, ModelConfig> = {
     inputCostPer1M: 0,
     outputCostPer1M: 0,
     maxTokens: 4096,
-    maxSafeInputTokens: 6000,
+    maxSafeInputTokens: 5500,
     tier: "strong",
   },
   "github-codestral": {
@@ -404,7 +404,7 @@ export const MODELS: Record<string, ModelConfig> = {
     inputCostPer1M: 0,
     outputCostPer1M: 0,
     maxTokens: 4096,
-    maxSafeInputTokens: 6000,
+    maxSafeInputTokens: 5500,
     tier: "balanced",
   },
   "github-llama-4-maverick": {
@@ -415,7 +415,7 @@ export const MODELS: Record<string, ModelConfig> = {
     inputCostPer1M: 0,
     outputCostPer1M: 0,
     maxTokens: 4096,
-    maxSafeInputTokens: 6000,
+    maxSafeInputTokens: 5500,
     tier: "balanced",
   },};
 
