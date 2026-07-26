@@ -321,9 +321,9 @@ export const MODELS: Record<string, ModelConfig> = {
   // against https://dashscope-intl.aliyuncs.com/compatible-mode/v1.
   "qwen-cloud-max": {
     id: "qwen-cloud-max",
-    name: "Qwen Max (Qwen Cloud)",
+    name: "Qwen3.7 Max (Qwen Cloud)",
     provider: "qwen",
-    apiModel: "qwen-max",
+    apiModel: "qwen3.7-max",
     // Official Alibaba Cloud Model Studio international pricing, confirmed
     // 2026-07-20: https://www.alibabacloud.com/help/en/model-studio/model-pricing
     inputCostPer1M: 1.6,
@@ -333,9 +333,9 @@ export const MODELS: Record<string, ModelConfig> = {
   },
   "qwen-cloud-coder": {
     id: "qwen-cloud-coder",
-    name: "Qwen3 Coder Plus (Qwen Cloud)",
+    name: "Qwen3.7 Plus (Qwen Cloud)",
     provider: "qwen",
-    apiModel: "qwen3-coder-plus",
+    apiModel: "qwen3.7-plus",
     // Tiered pricing -- base tier (<=32K input tokens) confirmed 2026-07-20.
     // Rises to $1.80/$9.00 (32K-128K) then higher; capped via
     // maxSafeInputTokens to stay in the cheap tier.
@@ -344,6 +344,26 @@ export const MODELS: Record<string, ModelConfig> = {
     maxTokens: 4096,
     maxSafeInputTokens: 30000,
     tier: "strong",
+  },
+  "qwen-cloud-deepseek": {
+    id: "qwen-cloud-deepseek",
+    name: "DeepSeek V4 Pro (Qwen Cloud)",
+    provider: "qwen",
+    apiModel: "deepseek-v4-pro",
+    inputCostPer1M: 1.0,
+    outputCostPer1M: 4.0,
+    maxTokens: 4096,
+    tier: "strong",
+  },
+  "qwen-cloud-flash": {
+    id: "qwen-cloud-flash",
+    name: "Qwen3.6 Flash (Qwen Cloud)",
+    provider: "qwen",
+    apiModel: "qwen3.6-flash",
+    inputCostPer1M: 0.2,
+    outputCostPer1M: 1.0,
+    maxTokens: 4096,
+    tier: "fast",
   },
   // Both specific free model ids below were discontinued by Kilo Code
   // (404 "The free period of this model ended") -- their own error message
@@ -892,6 +912,8 @@ export async function callAIWithFallback(
     // Qwen Cloud token-plan — paid, reliable, prioritized first.
     "qwen-cloud-max",
     "qwen-cloud-coder",
+    "qwen-cloud-deepseek",
+    "qwen-cloud-flash",
     "groq-llama-3.3-70b",
     "groq-gpt-oss-120b",
     "cerebras-glm-4.7",
