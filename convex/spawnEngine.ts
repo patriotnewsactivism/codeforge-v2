@@ -20,37 +20,7 @@ import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
-
-declare const process: { env: Record<string, string | undefined> };
-
-// ─── BYOK resolver ──────────────────────────────────────────────────────────
-
-async function resolveByok(
-  ctx: any,
-  userId?: string,
-): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
-  try {
-    const sub = await ctx.runQuery(api.limits.getMyLimits, {});
-    const callerPlan: string = sub?.plan ?? "free";
-    if (callerPlan !== "lifetime") return { callerPlan };
-    if (!userId) return { callerPlan };
-
-    const userKeys: Record<string, string> = await ctx.runQuery(
-      internal.apiKeys.getAllKeysForUser,
-      { userId },
-    );
-    if (!userKeys || Object.keys(userKeys).length === 0) {
-      throw new Error(
-        "⚠️ Lifetime plan requires your own API key. " +
-          "Add one in Settings → API Keys to use AI features.",
-      );
-    }
-    return { callerPlan, userKeys };
-  } catch (err) {
-    if (err instanceof Error && err.message.startsWith("⚠️")) throw err;
-    return { callerPlan: "free" };
-  }
-}
+import { resolveByok } from "./lib/byok";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -259,11 +229,12 @@ export const executeSpawnPlan = internalAction({
 
           const task = `${shard.description}\n\nOverall goal: ${args.goal}\nExpected output files: ${shard.files.join(", ")}${depContext ? `\n\nCompleted dependencies:\n${depContext}` : ""}`;
 
-          // Run the agent through the engine
+          // Run the agent through the engine with the shard's specified role
           try {
             await ctx.runAction(api.engine.runMission, {
               projectId: args.projectId,
-              prompt: task, // In V2 engine, this is 'prompt'
+              prompt: task,
+              role: agentRole,
             });
           } catch (err) {
             console.error(

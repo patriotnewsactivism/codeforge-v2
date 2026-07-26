@@ -154,6 +154,35 @@ export const joinByInvite = mutation({
       return null;
     }
 
+    // Check if user is already a collaborator
+    const existing = await ctx.db
+      .query("collaborators")
+      .withIndex("by_project_and_user", q =>
+        q.eq("projectId", invite.projectId).eq("userId", userId),
+      )
+      .unique();
+
+    if (!existing) {
+      const user = await ctx.db.get(userId);
+      const userName = user?.name ?? user?.email ?? "Anonymous";
+
+      const allCollabs = await ctx.db
+        .query("collaborators")
+        .withIndex("by_project", q =>
+          q.eq("projectId", invite.projectId),
+        )
+        .collect();
+      const color = PRESENCE_COLORS[allCollabs.length % PRESENCE_COLORS.length];
+
+      await ctx.db.insert("collaborators", {
+        projectId: invite.projectId,
+        userId,
+        userName: String(userName),
+        lastSeenAt: Date.now(),
+        color,
+      });
+    }
+
     return invite.projectId;
   },
 });

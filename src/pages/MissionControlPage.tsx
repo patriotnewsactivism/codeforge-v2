@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "convex/react";
@@ -6,6 +7,17 @@ import type { Id } from "../../convex/_generated/dataModel";
 
 // Mission Control -- live, Convex-reactive. Feed/files/swarm/roster/project
 // title/missions list all pull from real data (see useQuery calls below).
+=======
+import { useQuery } from "convex/react";
+import { useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+
+// Mission Control — wired to real Convex reactive queries. The Live/Shipped
+// toggle switches between the in-progress view and an "everything done" view
+// derived from the same underlying data.
+>>>>>>> Stashed changes
 
 const AUTONOMY_LABEL = "Full Autopilot";
 
@@ -15,6 +27,8 @@ const AMBER = "#fbbf24";
 const MUTED = "oklch(0.55 0.02 260)";
 const INK = "oklch(0.13 0.02 260)";
 
+const VALID_CONVEX_ID = /^[a-z0-9]+$/i;
+
 type SubtaskStatus = "done" | "running" | "healed" | "queued";
 interface Subtask {
   status: SubtaskStatus;
@@ -23,9 +37,12 @@ interface Subtask {
   icon: string;
 }
 
+<<<<<<< Updated upstream
 // [SUBTASKS now derived live from Convex -- see useMemo blocks in the component below]
 
 
+=======
+>>>>>>> Stashed changes
 const SUBTASK_STYLE: Record<
   SubtaskStatus,
   { icon: string; color: string; rowBg: string }
@@ -38,16 +55,20 @@ const SUBTASK_STYLE: Record<
 
 type AgentStatus = "done" | "active" | "queued";
 interface SwarmAgent {
+  id: string;
   name: string;
+  icon: string;
   status: AgentStatus;
   depth: number;
-  model: string;
-  freeTag: string;
+  summary: string;
 }
 
+<<<<<<< Updated upstream
 // [SWARM now derived live from Convex -- see useMemo blocks in the component below]
 
 
+=======
+>>>>>>> Stashed changes
 const AGENT_STYLE: Record<
   AgentStatus,
   { dot: string; text: string; label: string; pulse: boolean }
@@ -61,57 +82,6 @@ const AGENT_STYLE: Record<
   active: { dot: CYAN, text: CYAN, label: "active", pulse: true },
   queued: { dot: MUTED, text: MUTED, label: "waiting", pulse: false },
 };
-
-const ROSTER = [
-  {
-    role: "Orchestrator",
-    model: "DeepSeek V3",
-    provider: "DeepSeek",
-    badge: "💲 Cheap",
-    badgeColor: "#60a5fa",
-    badgeBg: "rgba(96,165,250,.1)",
-  },
-  {
-    role: "Coder",
-    model: "GLM 4.7",
-    provider: "Cerebras",
-    badge: "🟢 Free",
-    badgeColor: EMERALD,
-    badgeBg: "rgba(52,211,153,.1)",
-  },
-  {
-    role: "Reviewer",
-    model: "GPT-OSS 120B",
-    provider: "Cerebras",
-    badge: "🟢 Free",
-    badgeColor: EMERALD,
-    badgeBg: "rgba(52,211,153,.1)",
-  },
-  {
-    role: "Debugger",
-    model: "DeepSeek R1",
-    provider: "DeepSeek",
-    badge: "💲 Cheap",
-    badgeColor: "#60a5fa",
-    badgeBg: "rgba(96,165,250,.1)",
-  },
-  {
-    role: "Tester",
-    model: "GPT-OSS 120B",
-    provider: "Cerebras",
-    badge: "🟢 Free",
-    badgeColor: EMERALD,
-    badgeBg: "rgba(52,211,153,.1)",
-  },
-  {
-    role: "Utility",
-    model: "Codestral",
-    provider: "Mistral",
-    badge: "🟢 Free",
-    badgeColor: EMERALD,
-    badgeBg: "rgba(52,211,153,.1)",
-  },
-];
 
 interface FeedEntry {
   id: string;
@@ -127,58 +97,72 @@ interface FeedEntry {
   isRunning?: boolean;
 }
 
+<<<<<<< Updated upstream
 // [LIVE_FEED now derived live from Convex -- see useMemo blocks in the component below]
 
 
 // [SHIPPED_FEED now derived live from Convex -- see useMemo blocks in the component below]
 
+=======
+// Map an agentThought `type` to feed styling.
+const THOUGHT_STYLE: Record<string, { icon: string; color: string }> = {
+  plan: { icon: "🗺️", color: "#a78bfa" },
+  analyze: { icon: "🔍", color: "#818cf8" },
+  code: { icon: "⚙️", color: "#4ade80" },
+  debug: { icon: "🐛", color: "#f87171" },
+  review: { icon: "🔎", color: "#fb923c" },
+  memory: { icon: "🧠", color: "#c084fc" },
+  search: { icon: "🔎", color: "#22d3ee" },
+  commit: { icon: "📦", color: "#facc15" },
+  broadcast: { icon: "📡", color: "#818cf8" },
+  done: { icon: "✅", color: EMERALD },
+  complete: { icon: "✅", color: EMERALD },
+  action: { icon: "⚡", color: "#818cf8" },
+  error: { icon: "⚠️", color: "#f87171" },
+  warning: { icon: "⚠️", color: AMBER },
+  thinking: { icon: "💭", color: "#a78bfa" },
+  finding: { icon: "💡", color: "#facc15" },
+};
 
-interface DiffLine {
-  t: "ctx" | "add" | "del";
-  s: string;
-}
+const CATEGORY_ICON: Record<string, string> = {
+  security: "🔒",
+  feature: "⚙️",
+  test: "🧪",
+  docs: "📄",
+  infra: "🏗️",
+  performance: "⚡",
+};
+>>>>>>> Stashed changes
+
 interface TouchedFile {
   path: string;
   action: "created" | "modified";
-  diff?: DiffLine[];
 }
 
+<<<<<<< Updated upstream
 // [FILES now derived live from Convex -- see useMemo blocks in the component below]
 
+=======
+function fmtTime(ts: number): string {
+  return new Date(ts).toLocaleTimeString("en-GB", { hour12: false });
+}
+>>>>>>> Stashed changes
 
-const MEMORIES = [
-  "Convex mutation validation pattern",
-  "Avoid unbounded useEffect fetch (past bug)",
-  "Preferred shadcn dialog for modals",
-  "Tailwind dark theme tokens",
-  "Debounce pattern for search inputs",
-];
+function fmtRelative(ts: number): string {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
-const SECRETS = [
-  { name: "CONVEX_DEPLOYMENT", set: true },
-  { name: "DEEPSEEK_API_KEY", set: true },
-  { name: "CEREBRAS_API_KEY", set: true },
-  { name: "RESEND_API_KEY", set: true },
-  { name: "STRIPE_SECRET_KEY", set: false },
-];
-
-const RETRO = {
-  worked: [
-    "Cerebras free tier held steady under full swarm load",
-    "Reused auth + validation patterns saved ~40% build time",
-    "Zero manual interventions needed",
-  ],
-  failed: [
-    "First checkout test failed on a null price field (auto-fixed in 1 retry)",
-  ],
-  newMemories: [
-    "Null-check pattern for price fields",
-    "Recipe schema shape",
-    "Search debounce timing",
-  ],
-  duration: "7m 42s",
-  cost: "$2.14",
-};
+function workItemToSubtaskStatus(status: string): SubtaskStatus {
+  if (status === "done") return "done";
+  if (status === "in_progress" || status === "review") return "running";
+  return "queued";
+}
 
 const SECTION_LABEL =
   "text-[10px] font-bold uppercase tracking-[.06em] text-[oklch(0.60_0.02_260)]";
@@ -270,6 +254,33 @@ export function MissionControlPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
 
+  const typedProjectId =
+    projectId && VALID_CONVEX_ID.test(projectId)
+      ? (projectId as Id<"projects">)
+      : null;
+  const qArgs = typedProjectId ? { projectId: typedProjectId } : "skip";
+
+  // ── Real Convex reactive queries ──────────────────────────────────────────
+  const project = useQuery(api.projects.get, qArgs);
+  const thoughts = useQuery(
+    api.agentThoughts.listRecent,
+    typedProjectId ? { projectId: typedProjectId, limit: 150 } : "skip",
+  );
+  const tasks = useQuery(api.tasks.listTasks, qArgs);
+  const workItems = useQuery(api.planner.listWorkItems, qArgs);
+  const memories = useQuery(
+    api.memory.listMemories,
+    typedProjectId ? { projectId: typedProjectId, limit: 8 } : "skip",
+  );
+  const retros = useQuery(api.memory.listRetrospectives, qArgs);
+  const reviews = useQuery(api.codeReview.listReviews, qArgs);
+  const toolCalls = useQuery(
+    api.engine.listToolCalls,
+    typedProjectId ? { projectId: typedProjectId, limit: 200 } : "skip",
+  );
+  const costSummary = useQuery(api.intelligence.getCostSummary, qArgs);
+  const buildSessions = useQuery(api.intelligence.listBuildSessions, qArgs);
+
   const [mode, setMode] = useState<"simple" | "advanced">("advanced");
   const [view, setView] = useState<"live" | "shipped">("live");
   const [rightTab, setRightTab] = useState<"ship" | "deploy" | "errors">(
@@ -279,7 +290,6 @@ export function MissionControlPage() {
     "desktop",
   );
   const [expandedFeed, setExpandedFeed] = useState<Record<number, boolean>>({});
-  const [expandedFile, setExpandedFile] = useState<string | null>(null);
   const [mobilePane, setMobilePane] = useState<MobilePane>("feed");
   const feedScrollRef = useRef<HTMLDivElement>(null);
   const feedNearBottomRef = useRef(true);
@@ -464,8 +474,222 @@ export function MissionControlPage() {
   const isAdvanced = mode === "advanced";
   const isShipped = view === "shipped";
   const isLive = !isShipped;
+<<<<<<< Updated upstream
   const score = realScore;
+=======
+
+  // ── Derived data ──────────────────────────────────────────────────────────
+
+  // Mission plan (subtasks) from planner work items, in creation order.
+  const subtasks: Subtask[] = useMemo(
+    () =>
+      [...(workItems ?? [])].reverse().map(w => ({
+        status: workItemToSubtaskStatus(w.status),
+        text: w.title,
+        agent: w.assignedAgentId ?? "Planner",
+        icon: CATEGORY_ICON[w.category] ?? "⚙️",
+      })),
+    [workItems],
+  );
+
+  // Agent swarm derived from unique agents across agent tasks.
+  const swarm: SwarmAgent[] = useMemo(() => {
+    const byAgent = new Map<
+      string,
+      {
+        name: string;
+        icon: string;
+        statuses: string[];
+        total: number;
+        done: number;
+      }
+    >();
+    for (const t of tasks ?? []) {
+      const key = t.agentId;
+      if (!byAgent.has(key)) {
+        byAgent.set(key, {
+          name: t.agentName,
+          icon: t.agentIcon,
+          statuses: [],
+          total: 0,
+          done: 0,
+        });
+      }
+      const a = byAgent.get(key);
+      if (!a) continue;
+      a.statuses.push(t.status);
+      a.total += 1;
+      if (t.status === "done") a.done += 1;
+    }
+    return Array.from(byAgent.entries()).map(([id, a]) => {
+      const status: AgentStatus = a.statuses.includes("running")
+        ? "active"
+        : a.statuses.length > 0 && a.statuses.every(s => s === "done")
+          ? "done"
+          : "queued";
+      const isOrchestrator =
+        /orchestrator|planner/i.test(id) ||
+        /orchestrator|planner/i.test(a.name);
+      return {
+        id,
+        name: a.name,
+        icon: a.icon,
+        status,
+        depth: isOrchestrator ? 0 : 1,
+        summary: `${a.done}/${a.total} tasks done`,
+      };
+    });
+  }, [tasks]);
+
+  const activeAgentCount = swarm.filter(a => a.status === "active").length;
+
+  // Live build feed from agent thoughts (chronological, oldest first).
+  const feed: FeedEntry[] = useMemo(() => {
+    const mapped = (thoughts ?? []).map(t => {
+      const type = t.type ?? "thinking";
+      const style = THOUGHT_STYLE[type] ?? { icon: "💭", color: "#a78bfa" };
+      return {
+        id: t._id,
+        time: fmtTime(t.timestamp),
+        type,
+        color: style.color,
+        icon: style.icon,
+        agent: t.agentName ?? "Agent",
+        content: t.content,
+        isRunning: t.isStreaming ?? false,
+        isHeal: type === "warning" || type === "error",
+      };
+    });
+    return isShipped ? mapped.filter(f => !f.isRunning) : mapped;
+  }, [thoughts, isShipped]);
+
+  // Files touched, unioned across task filesChanged + create_file tool calls.
+  const files: TouchedFile[] = useMemo(() => {
+    const map = new Map<string, "created" | "modified">();
+    for (const t of tasks ?? []) {
+      for (const f of t.filesChanged ?? []) {
+        if (!map.has(f)) map.set(f, "modified");
+      }
+    }
+    for (const c of toolCalls ?? []) {
+      if (c.tool !== "create_file" && c.tool !== "write_file") continue;
+      try {
+        const args = JSON.parse(c.args) as Record<string, unknown>;
+        const p = args.path ?? args.filePath ?? args.file;
+        if (typeof p === "string") map.set(p, "created");
+      } catch {
+        // ignore malformed tool-call args
+      }
+    }
+    return Array.from(map.entries()).map(([path, action]) => ({
+      path,
+      action,
+    }));
+  }, [tasks, toolCalls]);
+
+  // Missions rail from build sessions (most recent first).
+  const missions = useMemo(
+    () =>
+      (buildSessions ?? []).map((s, i) => {
+        const status: AgentStatus =
+          s.status === "running"
+            ? "active"
+            : s.status === "completed"
+              ? "done"
+              : "queued";
+        return {
+          label:
+            s.currentStep ??
+            `Build session ${(buildSessions ?? []).length - i}`,
+          status,
+          time: fmtRelative(s.startedAt),
+          current: i === 0 && s.status === "running",
+        };
+      }),
+    [buildSessions],
+  );
+
+  // Checkpoints from completed tasks.
+  const checkpoints = useMemo(
+    () =>
+      (tasks ?? [])
+        .filter(t => t.status === "done" && t.finishedAt)
+        .map(t => ({
+          time: fmtTime(t.finishedAt ?? t.startedAt),
+          label: t.task,
+        })),
+    [tasks],
+  );
+
+  // Production error incidents from errored tasks.
+  const errorIncidents = useMemo(
+    () =>
+      (tasks ?? [])
+        .filter(t => t.status === "error")
+        .map(t => ({
+          title: t.result ?? t.task,
+          source: `${t.agentName} · agent`,
+          time: t.finishedAt ? fmtRelative(t.finishedAt) : "",
+        })),
+    [tasks],
+  );
+
+  // Deploy history from completed build sessions.
+  const deployHistory = useMemo(
+    () =>
+      (buildSessions ?? [])
+        .filter(s => s.status === "completed")
+        .map((s, i) => ({
+          label: `Build completed ${fmtRelative(s.startedAt)}`,
+          tag: i === 0 ? "latest" : "previous",
+          tagColor: i === 0 ? EMERALD : MUTED,
+        })),
+    [buildSessions],
+  );
+
+  const memoryItems = useMemo(
+    () => (memories ?? []).map(m => m.content),
+    [memories],
+  );
+
+  const latestRetro = (retros ?? [])[0];
+  const latestReview = (reviews ?? [])[0];
+
+  const missionDuration = useMemo(() => {
+    const s = (buildSessions ?? [])[0];
+    if (!s?.finishedAt) return null;
+    const secs = Math.round((s.finishedAt - s.startedAt) / 1000);
+    const m = Math.floor(secs / 60);
+    const r = secs % 60;
+    return m > 0 ? `${m}m ${r}s` : `${r}s`;
+  }, [buildSessions]);
+
+  // ── Progress metrics ──────────────────────────────────────────────────────
+  const totalTasks = (tasks ?? []).length;
+  const doneTaskCount = (tasks ?? []).filter(t => t.status === "done").length;
+  const taskPct =
+    totalTasks > 0 ? Math.round((doneTaskCount / totalTasks) * 100) : 0;
+
+  const totalWork = (workItems ?? []).length;
+  const doneWork = (workItems ?? []).filter(w => w.status === "done").length;
+  const planPct = totalWork > 0 ? Math.round((doneWork / totalWork) * 100) : 0;
+
+  const baseScore = totalTasks > 0 ? taskPct : planPct;
+  const score = isShipped ? 100 : baseScore;
+>>>>>>> Stashed changes
   const canShip = score >= 90;
+
+  const agentRuns = costSummary?.totalAgentRuns ?? 0;
+
+  const reviewLabel = latestReview ? latestReview.consensus : "none yet";
+  const reviewPct = latestReview
+    ? latestReview.consensus === "approved"
+      ? 100
+      : latestReview.consensus === "pending"
+        ? 40
+        : 70
+    : 0;
+  const reviewColor = latestReview?.consensus === "approved" ? EMERALD : AMBER;
 
   const radius = 54;
   const circumference = 2 * Math.PI * radius;
@@ -479,6 +703,7 @@ export function MissionControlPage() {
       ? "Shipped ✅"
       : `${AUTONOMY_LABEL} · Building`;
 
+<<<<<<< Updated upstream
   const feed = realFeed;
 
   // Auto-scroll the Live Build Feed to the newest entry, but only if the
@@ -523,6 +748,9 @@ export function MissionControlPage() {
       current: i === 0,
     };
   });
+=======
+  const filesTouchedLabel = `${files.length} file${files.length === 1 ? "" : "s"}`;
+>>>>>>> Stashed changes
 
   const integrations = [
     { name: "GitHub", icon: "🐙", connected: true },
@@ -531,6 +759,7 @@ export function MissionControlPage() {
     { name: "Stripe", icon: "💳", connected: false },
   ];
 
+<<<<<<< Updated upstream
   const checkpoints = [
     { time: "14:00:05", label: "Scaffold + auth complete" },
     { time: "14:01:10", label: "Recipe CRUD + UI complete" },
@@ -578,6 +807,9 @@ export function MissionControlPage() {
     : "7 of 14";
   const liveRoster = realRoster ?? ROSTER;
   const freeRoleCount = liveRoster.filter(r => r.badge.includes("Free")).length;
+=======
+  const heroPrompt = project?.description ?? "Describe your next mission…";
+>>>>>>> Stashed changes
 
   // ── Reusable pane content — shared between the desktop 4-column layout
   // and the mobile single-pane + bottom-tab layout below, so the two
@@ -591,11 +823,16 @@ export function MissionControlPage() {
         Missions
       </div>
       <div className="flex flex-col gap-[3px]">
+        {missions.length === 0 && (
+          <div className="px-2 py-2 text-[10px] text-[oklch(0.48_0.02_260)]">
+            No build sessions yet.
+          </div>
+        )}
         {missions.map(ms => {
           const st = AGENT_STYLE[ms.status];
           return (
             <div
-              key={ms.label}
+              key={`${ms.label}-${ms.time}`}
               className="px-2 py-2 rounded-[7px] border border-transparent"
               style={{
                 background: ms.current
@@ -630,7 +867,16 @@ export function MissionControlPage() {
       <div>
         <div className={`${SECTION_LABEL} mb-2`}>Mission Plan</div>
         <div className="flex flex-col gap-1.5">
+<<<<<<< Updated upstream
           {realSubtasks.map(t => {
+=======
+          {subtasks.length === 0 && (
+            <div className="px-2 py-2 text-[10px] text-[oklch(0.48_0.02_260)]">
+              No plan generated yet.
+            </div>
+          )}
+          {subtasks.map(t => {
+>>>>>>> Stashed changes
             const st = isShipped
               ? { icon: "✓", color: EMERALD, rowBg: "transparent" }
               : SUBTASK_STYLE[t.status];
@@ -662,7 +908,16 @@ export function MissionControlPage() {
         <div>
           <div className={`${SECTION_LABEL} mb-2`}>Agent Swarm</div>
           <div className="flex flex-col gap-0.5">
+<<<<<<< Updated upstream
             {realSwarm.map(a => {
+=======
+            {swarm.length === 0 && (
+              <div className="px-2 py-2 text-[10px] text-[oklch(0.48_0.02_260)]">
+                No agents deployed yet.
+              </div>
+            )}
+            {swarm.map(a => {
+>>>>>>> Stashed changes
               const st = isShipped
                 ? {
                     dot: EMERALD,
@@ -673,7 +928,7 @@ export function MissionControlPage() {
                 : AGENT_STYLE[a.status];
               return (
                 <div
-                  key={a.name}
+                  key={a.id}
                   className="px-2 py-1.5"
                   style={{
                     marginLeft: a.depth * 16,
@@ -692,7 +947,7 @@ export function MissionControlPage() {
                       className="flex-1 font-semibold"
                       style={{ color: st.text }}
                     >
-                      {a.name}
+                      {a.icon} {a.name}
                     </span>
                     <span
                       className="text-[9px] font-bold uppercase"
@@ -702,7 +957,7 @@ export function MissionControlPage() {
                     </span>
                   </div>
                   <div className="text-[9.5px] text-[oklch(0.50_0.02_260)] ml-3.5 mt-px">
-                    {a.model} · {a.freeTag}
+                    {a.summary}
                   </div>
                 </div>
               );
@@ -714,8 +969,13 @@ export function MissionControlPage() {
       <div>
         <div className={`${SECTION_LABEL} mb-2`}>Checkpoints</div>
         <div className="flex flex-col">
+          {checkpoints.length === 0 && (
+            <div className="text-[10px] text-[oklch(0.48_0.02_260)]">
+              No completed tasks yet.
+            </div>
+          )}
           {checkpoints.map(cp => (
-            <div key={cp.time} className="flex gap-2">
+            <div key={`${cp.time}-${cp.label}`} className="flex gap-2">
               <div className="flex flex-col items-center shrink-0 w-[7px]">
                 <span className="w-[7px] h-[7px] rounded-full bg-primary shrink-0" />
                 <span className="w-px flex-1 bg-[oklch(0.22_0.02_260)] mt-[3px]" />
@@ -755,6 +1015,7 @@ export function MissionControlPage() {
           autoscroll
         </span>
       </div>
+<<<<<<< Updated upstream
       <div
         ref={feedScrollRef}
         onScroll={e => {
@@ -768,6 +1029,23 @@ export function MissionControlPage() {
           <div
             key={f.id}
             className="grid grid-cols-[56px_16px_1fr] gap-2.5 px-2.5 py-2 rounded-lg min-w-0 max-w-full cursor-pointer items-start"
+=======
+      <div className="flex-1 overflow-y-auto px-3.5 py-2.5 flex flex-col gap-1.5 text-xs">
+        {thoughts === undefined && (
+          <div className="text-[11px] text-[oklch(0.55_0.02_260)] py-4 text-center">
+            Loading activity…
+          </div>
+        )}
+        {thoughts !== undefined && feed.length === 0 && (
+          <div className="text-[11px] text-[oklch(0.55_0.02_260)] py-4 text-center">
+            No agent activity yet.
+          </div>
+        )}
+        {feed.map((f, i) => (
+          <div
+            key={f.id}
+            className="flex gap-2.5 px-2.5 py-2 rounded-lg min-w-0 max-w-full cursor-pointer"
+>>>>>>> Stashed changes
             style={{
               background: f.isHeal
                 ? "rgba(251,191,36,.07)"
@@ -793,9 +1071,11 @@ export function MissionControlPage() {
                 <span className="text-[10.5px] text-[oklch(0.55_0.02_260)]">
                   {f.agent}
                 </span>
-                <span className="ml-auto text-[8.5px] text-[oklch(0.42_0.02_260)]">
-                  why?
-                </span>
+                {f.reasoning && (
+                  <span className="ml-auto text-[8.5px] text-[oklch(0.42_0.02_260)]">
+                    why?
+                  </span>
+                )}
               </div>
               <div
                 className="leading-normal mt-0.5 break-words"
@@ -901,8 +1181,8 @@ export function MissionControlPage() {
             {!isAdvanced && (
               <p className="text-xs text-[oklch(0.75_0.02_260)] text-center leading-normal m-0">
                 {isShipped
-                  ? "Your app is built and shipped. All 18 files are live — the swarm is standing by for the next mission."
-                  : `Your app is ${score}% built. Estimated 4 minutes left — the swarm is finishing search and running final tests.`}
+                  ? `Your app is built and shipped. ${files.length} files are live — the swarm is standing by for the next mission.`
+                  : `Your app is ${score}% built. The swarm is working through ${totalTasks - doneTaskCount} remaining task${totalTasks - doneTaskCount === 1 ? "" : "s"}.`}
               </p>
             )}
           </div>
@@ -911,26 +1191,26 @@ export function MissionControlPage() {
             <div className="flex flex-col gap-[9px] shrink-0">
               <ProgressRow
                 label="Plan"
-                value="100%"
-                color={EMERALD}
-                width="100%"
+                value={`${doneWork}/${totalWork}`}
+                color={planPct === 100 && totalWork > 0 ? EMERALD : undefined}
+                width={`${planPct}%`}
               />
               <ProgressRow
                 label="Files"
-                value={isShipped ? "18 / 18" : "14 / 18"}
-                width={isShipped ? "100%" : "78%"}
+                value={`${files.length}`}
+                width={files.length > 0 ? "100%" : "0%"}
               />
               <ProgressRow
-                label="Tests"
-                value="41 / 41 passing"
-                color={EMERALD}
-                width="100%"
+                label="Tasks"
+                value={`${doneTaskCount}/${totalTasks}`}
+                color={taskPct === 100 && totalTasks > 0 ? EMERALD : undefined}
+                width={`${taskPct}%`}
               />
               <ProgressRow
                 label="Review"
-                value={isShipped ? "approved" : "in progress"}
-                color={isShipped ? EMERALD : AMBER}
-                width={isShipped ? "100%" : "60%"}
+                value={reviewLabel}
+                color={reviewColor}
+                width={`${reviewPct}%`}
               />
               <ProgressRow
                 label="Deploy"
@@ -949,51 +1229,25 @@ export function MissionControlPage() {
               </span>
             </div>
             <div className="flex flex-col gap-1">
+              {files.length === 0 && (
+                <div className="text-[10px] text-[oklch(0.48_0.02_260)]">
+                  No files touched yet.
+                </div>
+              )}
               {files.map(fl => (
-                <div key={fl.path}>
-                  <div
-                    className="flex items-center gap-1.5 text-[10.5px] font-mono text-[oklch(0.65_0.02_260)]"
-                    style={{ cursor: fl.diff ? "pointer" : "default" }}
-                    onClick={() =>
-                      fl.diff &&
-                      setExpandedFile(p => (p === fl.path ? null : fl.path))
-                    }
+                <div
+                  key={fl.path}
+                  className="flex items-center gap-1.5 text-[10.5px] font-mono text-[oklch(0.65_0.02_260)]"
+                >
+                  <span
+                    className="shrink-0"
+                    style={{
+                      color: fl.action === "created" ? EMERALD : CYAN,
+                    }}
                   >
-                    <span
-                      className="shrink-0"
-                      style={{
-                        color: fl.action === "created" ? EMERALD : CYAN,
-                      }}
-                    >
-                      {fl.action === "created" ? "+" : "±"}
-                    </span>
-                    <span className="truncate flex-1 min-w-0">{fl.path}</span>
-                    {fl.diff && (
-                      <span className="text-[9px] text-[oklch(0.45_0.02_260)] shrink-0">
-                        {expandedFile === fl.path ? "hide diff" : "view diff"}
-                      </span>
-                    )}
-                  </div>
-                  {expandedFile === fl.path && fl.diff && (
-                    <div className="mt-1 mb-0.5 ml-3.5 px-2 py-1.5 bg-[oklch(0.09_0.02_260)] border border-[oklch(0.22_0.02_260)] rounded-md font-mono text-[9.5px] leading-[1.6]">
-                      {fl.diff.map(dl => (
-                        <div
-                          key={dl.s}
-                          className="whitespace-pre-wrap break-words"
-                          style={{
-                            color:
-                              dl.t === "add"
-                                ? EMERALD
-                                : dl.t === "del"
-                                  ? "#f87171"
-                                  : "oklch(0.55 0.02 260)",
-                          }}
-                        >
-                          {dl.s}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                    {fl.action === "created" ? "+" : "±"}
+                  </span>
+                  <span className="truncate flex-1 min-w-0">{fl.path}</span>
                 </div>
               ))}
             </div>
@@ -1001,10 +1255,15 @@ export function MissionControlPage() {
 
           <div>
             <div className={`${SECTION_LABEL} mb-2`}>
-              🧠 Memory reused ({MEMORIES.length})
+              🧠 Memory reused ({memoryItems.length})
             </div>
             <div className="flex flex-wrap gap-[5px]">
-              {MEMORIES.map(m => (
+              {memoryItems.length === 0 && (
+                <span className="text-[10px] text-[oklch(0.48_0.02_260)]">
+                  No memories saved yet.
+                </span>
+              )}
+              {memoryItems.map(m => (
                 <span
                   key={m}
                   className="text-[9.5px] px-2 py-1 rounded-xl bg-[rgba(192,132,252,.12)] text-[#c084fc] border border-[rgba(192,132,252,.2)]"
@@ -1017,8 +1276,9 @@ export function MissionControlPage() {
 
           <div>
             <div className="flex items-center gap-1.5 mb-2">
-              <span className={SECTION_LABEL}>Model roster</span>
+              <span className={SECTION_LABEL}>Agent roster</span>
               <span className="text-[9.5px] px-[7px] py-0.5 rounded-[10px] bg-[rgba(52,211,153,.12)] text-[#34d399] font-bold">
+<<<<<<< Updated upstream
                 {freeRoleCount}/{liveRoster.length} free-tier
               </span>
             </div>
@@ -1047,13 +1307,40 @@ export function MissionControlPage() {
                   >
                     {r.badge}
                   </span>
-                </div>
-              ))}
+=======
+                {swarm.length} agent{swarm.length === 1 ? "" : "s"}
+              </span>
             </div>
-            <p className="m-0 text-[9.5px] text-[oklch(0.48_0.02_260)] leading-normal">
-              Utility calls moved off Groq's free tier (6K tok/min cap, stalls
-              fast) onto Cerebras + Mistral — ~1000× the daily headroom at $0.
-            </p>
+            <div className="flex flex-col gap-[5px] mb-2">
+              {swarm.length === 0 && (
+                <div className="text-[10px] text-[oklch(0.48_0.02_260)]">
+                  No agents deployed yet.
+>>>>>>> Stashed changes
+                </div>
+              )}
+              {swarm.map(a => {
+                const st = AGENT_STYLE[a.status];
+                return (
+                  <div
+                    key={a.id}
+                    className="flex items-center gap-1.5 text-[10.5px]"
+                  >
+                    <span className="w-[92px] shrink-0 text-[oklch(0.55_0.02_260)] truncate">
+                      {a.icon} {a.name}
+                    </span>
+                    <span className="flex-1 min-w-0 text-[oklch(0.88_0.01_260)] truncate">
+                      {a.summary}
+                    </span>
+                    <span
+                      className="text-[9px] font-bold px-1.5 py-0.5 rounded-lg whitespace-nowrap shrink-0 uppercase"
+                      style={{ color: st.dot }}
+                    >
+                      {st.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {isAdvanced && isLive && (
@@ -1061,13 +1348,16 @@ export function MissionControlPage() {
               <div
                 className={`${SECTION_LABEL} mb-2 flex items-center justify-between`}
               >
-                <span>Budget</span>
+                <span>Usage</span>
                 <span className="font-normal normal-case text-[oklch(0.55_0.02_260)]">
-                  $2.14 / $5.00
+                  {agentRuns} agent run{agentRuns === 1 ? "" : "s"}
                 </span>
               </div>
               <div className="h-[5px] bg-[oklch(0.20_0.02_260)] rounded-[3px] overflow-hidden mb-3">
-                <div className="h-full w-[43%] bg-[#fbbf24]" />
+                <div
+                  className="h-full bg-[#fbbf24]"
+                  style={{ width: `${score}%` }}
+                />
               </div>
               <div className={`${SECTION_LABEL} mb-1.5`}>Autonomy level</div>
               <select className="w-full bg-[rgba(255,255,255,.05)] border border-border text-[oklch(0.90_0.01_260)] text-[11px] font-semibold px-2 py-1.5 rounded-md">
@@ -1082,45 +1372,48 @@ export function MissionControlPage() {
                 Mission retrospective
               </div>
               <div className="flex gap-3 text-[10.5px] text-[oklch(0.65_0.02_260)] mb-2.5">
-                <span>⏱ {RETRO.duration}</span>
-                <span>💲 {RETRO.cost}</span>
-                <span>🖐 0 interventions</span>
+                <span>⏱ {missionDuration ?? "—"}</span>
+                <span>🤖 {agentRuns} runs</span>
+                {latestRetro && <span>★ {latestRetro.qualityScore}/10</span>}
               </div>
-              <div className="text-[9.5px] font-bold uppercase text-[#34d399] mb-[5px]">
-                What worked
-              </div>
-              {RETRO.worked.map(w => (
-                <div
-                  key={w}
-                  className="text-[10.5px] text-[oklch(0.75_0.02_260)] leading-normal mb-[3px]"
-                >
-                  ✓ {w}
-                </div>
-              ))}
-              <div className="text-[9.5px] font-bold uppercase text-[#fbbf24] mt-2 mb-[5px]">
-                What failed (self-healed)
-              </div>
-              {RETRO.failed.map(w => (
-                <div
-                  key={w}
-                  className="text-[10.5px] text-[oklch(0.75_0.02_260)] leading-normal mb-[3px]"
-                >
-                  ⚠ {w}
-                </div>
-              ))}
-              <div className="text-[9.5px] font-bold uppercase text-[#c084fc] mt-2 mb-[5px]">
-                🧠 New memories saved
-              </div>
-              <div className="flex flex-wrap gap-[5px]">
-                {RETRO.newMemories.map(nm => (
-                  <span
-                    key={nm}
-                    className="text-[9.5px] px-2 py-1 rounded-xl bg-[rgba(192,132,252,.12)] text-[#c084fc] border border-[rgba(192,132,252,.2)]"
-                  >
-                    {nm}
-                  </span>
-                ))}
-              </div>
+              {latestRetro ? (
+                <>
+                  <div className="text-[9.5px] font-bold uppercase text-[#34d399] mb-[5px]">
+                    What worked
+                  </div>
+                  {latestRetro.whatWorked.map(w => (
+                    <div
+                      key={w}
+                      className="text-[10.5px] text-[oklch(0.75_0.02_260)] leading-normal mb-[3px]"
+                    >
+                      ✓ {w}
+                    </div>
+                  ))}
+                  <div className="text-[9.5px] font-bold uppercase text-[#fbbf24] mt-2 mb-[5px]">
+                    What failed (self-healed)
+                  </div>
+                  {latestRetro.whatFailed.map(w => (
+                    <div
+                      key={w}
+                      className="text-[10.5px] text-[oklch(0.75_0.02_260)] leading-normal mb-[3px]"
+                    >
+                      ⚠ {w}
+                    </div>
+                  ))}
+                  <div className="text-[9.5px] font-bold uppercase text-[#c084fc] mt-2 mb-[5px]">
+                    🧠 New memories saved
+                  </div>
+                  <div className="text-[10.5px] text-[oklch(0.75_0.02_260)]">
+                    {latestRetro.memoriesCreated.length} memor
+                    {latestRetro.memoriesCreated.length === 1 ? "y" : "ies"}{" "}
+                    saved
+                  </div>
+                </>
+              ) : (
+                <p className="text-[10.5px] text-[oklch(0.55_0.02_260)] m-0">
+                  No retrospective recorded yet.
+                </p>
+              )}
             </div>
           )}
         </>
@@ -1131,9 +1424,9 @@ export function MissionControlPage() {
           <div>
             <div className={`${SECTION_LABEL} mb-2`}>Domain</div>
             <div className="flex items-center gap-1.5 bg-[rgba(255,255,255,.04)] border border-border rounded-md px-[9px] py-[7px] mb-1.5">
-              <span className="text-[#34d399]">●</span>
-              <span className="text-[10.5px] font-mono text-[oklch(0.85_0.01_260)] flex-1 min-w-0 truncate">
-                recipe-share-mvp.codeforge.app
+              <span className="text-[oklch(0.45_0.02_260)]">●</span>
+              <span className="text-[10.5px] font-mono text-[oklch(0.65_0.02_260)] flex-1 min-w-0 truncate">
+                Not configured
               </span>
             </div>
             <button
@@ -1147,26 +1440,9 @@ export function MissionControlPage() {
           <div>
             <div className={`${SECTION_LABEL} mb-2`}>Environment secrets</div>
             <div className="flex flex-col gap-[5px] mb-2">
-              {SECRETS.map(sec => (
-                <div
-                  key={sec.name}
-                  className="flex items-center gap-[7px] text-[10.5px] font-mono"
-                >
-                  <span
-                    style={{
-                      color: sec.set ? EMERALD : "oklch(0.35 0.02 260)",
-                    }}
-                  >
-                    ●
-                  </span>
-                  <span className="flex-1 min-w-0 text-[oklch(0.75_0.02_260)] truncate">
-                    {sec.name}
-                  </span>
-                  <span className="text-[oklch(0.45_0.02_260)] tracking-[1px]">
-                    {sec.set ? "••••••" : "not set"}
-                  </span>
-                </div>
-              ))}
+              <div className="text-[10px] text-[oklch(0.48_0.02_260)]">
+                No environment secrets configured.
+              </div>
             </div>
             <button
               type="button"
@@ -1179,6 +1455,11 @@ export function MissionControlPage() {
           <div>
             <div className={`${SECTION_LABEL} mb-2`}>Deploy history</div>
             <div className="flex flex-col gap-1.5">
+              {deployHistory.length === 0 && (
+                <div className="text-[10px] text-[oklch(0.48_0.02_260)]">
+                  No completed builds yet.
+                </div>
+              )}
               {deployHistory.map(dh => (
                 <div
                   key={dh.label}
@@ -1212,18 +1493,19 @@ export function MissionControlPage() {
             <div className="flex flex-col gap-2">
               {errorIncidents.map(err => (
                 <div
-                  key={err.title}
-                  className="p-2 rounded-[7px] bg-[rgba(52,211,153,.05)] border border-[rgba(52,211,153,.15)]"
+                  key={`${err.title}-${err.time}`}
+                  className="p-2 rounded-[7px] bg-[rgba(251,191,36,.05)] border border-[rgba(251,191,36,.15)]"
                 >
                   <div className="text-[10.5px] text-[oklch(0.85_0.01_260)] leading-[1.4]">
                     {err.title}
                   </div>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-[9px] text-[oklch(0.50_0.02_260)]">
-                      {err.source} · {err.time}
+                      {err.source}
+                      {err.time ? ` · ${err.time}` : ""}
                     </span>
-                    <span className="text-[9px] font-bold text-[#34d399]">
-                      ✓ auto-fixed
+                    <span className="text-[9px] font-bold text-[#fbbf24]">
+                      ⚠ error
                     </span>
                   </div>
                 </div>
@@ -1231,8 +1513,7 @@ export function MissionControlPage() {
             </div>
           ) : (
             <p className="text-[11px] text-[oklch(0.55_0.02_260)] leading-normal m-0">
-              Monitoring starts once this mission ships. No production errors
-              reported yet.
+              No agent errors reported. Monitoring continues.
             </p>
           )}
         </div>
@@ -1245,6 +1526,23 @@ export function MissionControlPage() {
     { id: "plan", label: "Plan", icon: "🗺️" },
     { id: "status", label: "Status", icon: "🚀" },
   ];
+
+  if (!typedProjectId) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background text-foreground">
+        <div className="text-center">
+          <div className="text-sm font-bold mb-1">Invalid project</div>
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard")}
+            className="text-primary text-xs bg-transparent border-0 cursor-pointer"
+          >
+            Back to dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
@@ -1259,7 +1557,11 @@ export function MissionControlPage() {
           {"</>"}
         </button>
         <span className="text-[13px] text-[oklch(0.60_0.02_260)] hidden sm:inline">
+<<<<<<< Updated upstream
           {realProject?.name ?? "Untitled Project"}
+=======
+          {project?.name ?? "Project"}
+>>>>>>> Stashed changes
         </span>
         <span className="text-[oklch(0.30_0.02_260)] hidden sm:inline">/</span>
         <span className="text-sm font-bold">Mission Control</span>
@@ -1315,10 +1617,17 @@ export function MissionControlPage() {
                 ＋
               </span>
               <span className="flex-1 min-w-0 text-xs italic text-[oklch(0.90_0.01_260)] truncate">
+<<<<<<< Updated upstream
                 {missions[0] ? `"${missions[0].label}"` : "No active mission"}
               </span>
               <span className="hidden sm:flex items-center gap-[5px] px-2 py-[3px] rounded-2xl bg-[rgba(251,146,60,.15)] border border-[rgba(251,146,60,.3)] text-[9.5px] font-bold text-[#fb923c] whitespace-nowrap shrink-0">
                 🐝 {realSwarm.length} agents
+=======
+                "{heroPrompt}"
+              </span>
+              <span className="hidden sm:flex items-center gap-[5px] px-2 py-[3px] rounded-2xl bg-[rgba(251,146,60,.15)] border border-[rgba(251,146,60,.3)] text-[9.5px] font-bold text-[#fb923c] whitespace-nowrap shrink-0">
+                🐝 {activeAgentCount} agent{activeAgentCount === 1 ? "" : "s"}
+>>>>>>> Stashed changes
               </span>
               <button
                 type="button"
@@ -1398,8 +1707,10 @@ export function MissionControlPage() {
           </div>
           <p className="hidden sm:block text-center mt-[5px] mb-0 text-[9.5px] text-[oklch(0.48_0.02_260)]">
             {isShipped
-              ? "Shipped in 7m 42s · Full Autopilot"
-              : "Started 6 min ago · Full Autopilot ON"}
+              ? missionDuration
+                ? `Shipped in ${missionDuration} · ${AUTONOMY_LABEL}`
+                : `Shipped · ${AUTONOMY_LABEL}`
+              : `${agentRuns} agent run${agentRuns === 1 ? "" : "s"} · ${AUTONOMY_LABEL} ON`}
           </p>
         </div>
       </div>
@@ -1484,7 +1795,10 @@ export function MissionControlPage() {
             </strong>
           </span>
           <span>
-            Tests <strong className="text-[#34d399]">41/41</strong>
+            Tasks{" "}
+            <strong className="text-[#34d399]">
+              {doneTaskCount}/{totalTasks}
+            </strong>
           </span>
         </div>
         <div className="flex items-center gap-2 ml-auto sm:ml-0">

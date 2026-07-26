@@ -495,7 +495,7 @@ export const startAutonomousExecution = action({
 
       // Get the actual items for this batch
       const batchItems = order.items.filter(
-        i =>
+        (i: any) =>
           batch.includes(i.id as string) &&
           (i.status === "planned" || i.status === "queued"),
       );
@@ -507,7 +507,7 @@ export const startAutonomousExecution = action({
         agentId: "acse-executor",
         agentName: "ACSE Executor",
         type: "broadcast",
-        content: `📦 Batch ${batchIdx + 1}/${order.batches.length}: Executing ${batchItems.length} items (${batchItems.map(i => i.title).join(", ")})`,
+        content: `📦 Batch ${batchIdx + 1}/${order.batches.length}: Executing ${batchItems.length} items (${batchItems.map((i: any) => i.title).join(", ")})`,
         isStreaming: false,
       });
 

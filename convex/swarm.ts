@@ -114,31 +114,37 @@ export const updateAgentStatus = internalMutation({
   args: {
     taskId: v.string(),
     agentUid: v.string(),
+    role: v.optional(v.string()),
     status: v.string(),
     result: v.optional(v.string()),
     errorMessage: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Find the agent task by agentId prefix
-    const tasks = await ctx.db
-      .query("agentTasks")
-      .filter(q =>
-        q.eq(q.field("agentId"), `swarm:${args.taskId}:${args.agentUid}`),
-      )
-      .take(5);
+    // agentId format is "swarm:<taskId>:<role>:<uid>" — match by role+uid if
+    // role is provided, otherwise scan by taskId prefix + uid suffix.
+    const exactId = args.role
+      ? `swarm:${args.taskId}:${args.role}:${args.agentUid}`
+      : undefined;
 
-    // Try partial match if exact fails
-    const all =
-      tasks.length > 0
-        ? tasks
-        : await ctx.db
-            .query("agentTasks")
-            .filter(q =>
-              q.eq(q.field("agentId"), `swarm:${args.taskId}:${args.agentUid}`),
-            )
-            .take(1);
+    let targets: { _id: Id<"agentTasks"> }[];
 
-    for (const t of all) {
+    if (exactId) {
+      targets = await ctx.db
+        .query("agentTasks")
+        .filter(q => q.eq(q.field("agentId"), exactId))
+        .take(1);
+    } else {
+      // No role provided — collect all agents and filter by prefix + uid suffix
+      const prefix = `swarm:${args.taskId}:`;
+      const all = await ctx.db.query("agentTasks").collect();
+      targets = all.filter(
+        a =>
+          a.agentId?.startsWith(prefix) &&
+          a.agentId.endsWith(`:${args.agentUid}`),
+      );
+    }
+
+    for (const t of targets) {
       const patch: Record<string, unknown> = { status: args.status };
       if (args.result) patch.result = args.result;
       if (args.errorMessage) patch.result = args.errorMessage;

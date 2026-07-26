@@ -18,38 +18,15 @@
 
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
-import { action, mutation, query } from "./_generated/server";
+import {
+  action,
+  internalAction,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
-
-// ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
-// Lifetime users get their stored keys injected into AI calls.
-// Weekly/monthly/free users use platform process.env keys (no userKeys passed).
-async function resolveByok(
-  ctx: any,
-  userId?: string,
-): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
-  try {
-    const sub = await ctx.runQuery(api.limits.getMyLimits, {});
-    const callerPlan: string = sub?.plan ?? "free";
-    if (callerPlan !== "lifetime") return { callerPlan };
-    if (!userId) return { callerPlan };
-
-    const userKeys: Record<string, string> = await ctx.runQuery(
-      internal.apiKeys.getAllKeysForUser,
-      { userId },
-    );
-    if (!userKeys || Object.keys(userKeys).length === 0) {
-      throw new Error(
-        "⚠️ Lifetime plan requires your own API key. " +
-          "Add one in Settings → API Keys to use AI features.",
-      );
-    }
-    return { callerPlan, userKeys };
-  } catch (err) {
-    if (err instanceof Error && err.message.startsWith("⚠️")) throw err;
-    return { callerPlan: "free" };
-  }
-}
+import { resolveByok } from "./lib/byok";
 
 // ─── DB ──────────────────────────────────────────────────────────────────────
 
@@ -508,5 +485,97 @@ Investigate and fix the root cause.`;
     });
 
     return `Healed ${healed} incidents.`;
+  },
+});
+
+// ─── CRON TICK FUNCTIONS ─────────────────────────────────────────────────────
+// Internal wrappers that iterate over autonomous projects and dispatch the
+// per-project reflection/healing actions. Registered in crons.ts.
+
+export const getAllProjectIds = internalQuery({
+  args: {},
+  handler: async ctx => {
+    const projects = await ctx.db.query("projects").take(100);
+    return projects.map(p => p._id);
+  },
+});
+
+/** Tick every 5 minutes: check for new error incidents and auto-heal. */
+export const tickMonitorAndHeal = internalAction({
+  args: {},
+  handler: async ctx => {
+    const projectIds = await ctx.runQuery(internal.reflection.getAllProjectIds, {});
+    for (const projectId of projectIds) {
+      await ctx.scheduler.runAfter(0, internal.reflection.monitorAndHealInternal, {
+        projectId,
+      });
+    }
+  },
+});
+
+/** Nightly: run reflection on all projects. */
+export const tickNightlyReflection = internalAction({
+  args: {},
+  handler: async ctx => {
+    const projectIds = await ctx.runQuery(internal.reflection.getAllProjectIds, {});
+    for (const projectId of projectIds) {
+      await ctx.scheduler.runAfter(0, internal.reflection.runNightlyReflectionInternal, {
+        projectId,
+      });
+    }
+  },
+});
+
+/** Weekly: run strategy evaluation on all projects. */
+export const tickWeeklyStrategy = internalAction({
+  args: {},
+  handler: async ctx => {
+    const projectIds = await ctx.runQuery(internal.reflection.getAllProjectIds, {});
+    for (const projectId of projectIds) {
+      await ctx.scheduler.runAfter(0, internal.reflection.runWeeklyStrategyInternal, {
+        projectId,
+      });
+    }
+  },
+});
+
+// Internal dispatchers that call the public actions (crons can't call public
+// actions directly, so these internal wrappers bridge the gap).
+export const monitorAndHealInternal = internalAction({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    try {
+      await ctx.runAction(api.reflection.monitorAndHeal, {
+        projectId: args.projectId,
+      });
+    } catch (err) {
+      console.error("[reflection] monitorAndHeal failed:", err);
+    }
+  },
+});
+
+export const runNightlyReflectionInternal = internalAction({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    try {
+      await ctx.runAction(api.reflection.runNightlyReflection, {
+        projectId: args.projectId,
+      });
+    } catch (err) {
+      console.error("[reflection] nightly reflection failed:", err);
+    }
+  },
+});
+
+export const runWeeklyStrategyInternal = internalAction({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    try {
+      await ctx.runAction(api.reflection.runWeeklyStrategy, {
+        projectId: args.projectId,
+      });
+    } catch (err) {
+      console.error("[reflection] weekly strategy failed:", err);
+    }
   },
 });

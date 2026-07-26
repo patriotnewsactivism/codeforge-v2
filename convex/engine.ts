@@ -13,37 +13,7 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
-import { MCP_MANIFEST, type AgentRole } from "./sentry";
-
-// ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
-// Lifetime users get their stored keys injected into AI calls.
-// Weekly/monthly/free users use platform process.env keys (no userKeys passed).
-async function resolveByok(
-  ctx: any,
-  userId?: string,
-): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
-  try {
-    const sub = await ctx.runQuery(api.limits.getMyLimits, {});
-    const callerPlan: string = sub?.plan ?? "free";
-    if (callerPlan !== "lifetime") return { callerPlan };
-    if (!userId) return { callerPlan };
-
-    const userKeys: Record<string, string> = await ctx.runQuery(
-      internal.apiKeys.getAllKeysForUser,
-      { userId },
-    );
-    if (!userKeys || Object.keys(userKeys).length === 0) {
-      throw new Error(
-        "⚠️ Lifetime plan requires your own API key. " +
-          "Add one in Settings → API Keys to use AI features.",
-      );
-    }
-    return { callerPlan, userKeys };
-  } catch (err) {
-    if (err instanceof Error && err.message.startsWith("⚠️")) throw err;
-    return { callerPlan: "free" };
-  }
-}
+import { resolveByok } from "./lib/byok";
 
 // ─── TOOL CALL SCHEMA ──────────────────────────────────────────────────────
 
@@ -984,11 +954,17 @@ export const runMission = action({
     projectId: v.id("projects"),
     prompt: v.string(),
     model: v.optional(v.string()),
+    role: v.optional(v.string()),
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
     const missionId = `mission_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+<<<<<<< Updated upstream
     const model = args.model ?? (await getModelForRole(ctx, "orchestrator", args.projectId));
+=======
+    const agentRole = args.role ?? "orchestrator";
+    const model = args.model ?? (await getModelForRole(ctx, agentRole));
+>>>>>>> Stashed changes
     const spawnCount = { value: 0 };
 
     // Fetch plan limits
@@ -1028,8 +1004,8 @@ export const runMission = action({
       ctx,
       args.projectId,
       missionId,
-      "orchestrator",
-      "Orchestrator",
+      agentRole,
+      agentRole.charAt(0).toUpperCase() + agentRole.slice(1),
       args.prompt,
       0,
       spawnCount,
@@ -1038,6 +1014,26 @@ export const runMission = action({
       byok,
     );
 
+    // Collect files changed during this mission from tool call records
+    let filesChanged: string[] = [];
+    try {
+      const toolCalls = await ctx.runQuery(api.engine.listToolCalls, {
+        projectId: args.projectId,
+        missionId,
+        limit: 200,
+      });
+      const fileSet = new Set<string>();
+      for (const tc of toolCalls) {
+        if (tc.tool === "create_file" || tc.tool === "edit_file") {
+          try {
+            const parsed = JSON.parse(tc.args);
+            if (parsed.path) fileSet.add(parsed.path);
+          } catch { /* skip malformed args */ }
+        }
+      }
+      filesChanged = Array.from(fileSet);
+    } catch { /* non-critical — proceed with empty list */ }
+
     // After mission completes, extract learnings asynchronously
     // (We don't await this so it doesn't block returning the final result)
     ctx
@@ -1045,8 +1041,8 @@ export const runMission = action({
         projectId: args.projectId,
         missionId,
         goal: args.prompt,
-        agentSequence: ["orchestrator"],
-        filesChanged: [], // We could collect this from toolCalls if needed
+        agentSequence: [agentRole],
+        filesChanged,
         healCycles: 0,
         success: !result.toLowerCase().includes("failed"),
       })
@@ -1072,15 +1068,24 @@ export const executeWorkItem = action({
     if (!workItem) throw new Error("Work item not found");
 
     // 2. Select appropriate agent role based on category
+    // Canonical categories (from planner): security, feature, test, docs, infra, performance, refactor
+    // Also accept legacy variants: infrastructure, ci, deploy, testing
     let agentRole = "coder";
     if (workItem.category === "security") agentRole = "forensic";
     else if (
+      workItem.category === "infra" ||
       workItem.category === "infrastructure" ||
       workItem.category === "ci" ||
       workItem.category === "deploy"
     )
       agentRole = "devops";
-    else if (workItem.category === "testing") agentRole = "tester";
+    else if (
+      workItem.category === "test" ||
+      workItem.category === "testing"
+    )
+      agentRole = "tester";
+    else if (workItem.category === "performance") agentRole = "optimizer";
+    else if (workItem.category === "refactor") agentRole = "architect";
 
     const prompt = `[WORK ITEM: ${workItem.title}]\n\nCategory: ${workItem.category}\nPriority: ${workItem.priority}\n\nDetails:\n${workItem.description}\n\nReview the project files and implement the necessary changes to complete this task.`;
 

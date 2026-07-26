@@ -19,40 +19,10 @@
  */
 
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
+import { api } from "./_generated/api";
 import { internalAction, query } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
-
-declare const process: { env: Record<string, string | undefined> };
-
-// ─── BYOK resolver (same pattern as other CodeForge modules) ────────────────
-
-async function resolveByok(
-  ctx: any,
-  userId?: string,
-): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
-  try {
-    const sub = await ctx.runQuery(api.limits.getMyLimits, {});
-    const callerPlan: string = sub?.plan ?? "free";
-    if (callerPlan !== "lifetime") return { callerPlan };
-    if (!userId) return { callerPlan };
-
-    const userKeys: Record<string, string> = await ctx.runQuery(
-      internal.apiKeys.getAllKeysForUser,
-      { userId },
-    );
-    if (!userKeys || Object.keys(userKeys).length === 0) {
-      throw new Error(
-        "⚠️ Lifetime plan requires your own API key. " +
-          "Add one in Settings → API Keys to use AI features.",
-      );
-    }
-    return { callerPlan, userKeys };
-  } catch (err) {
-    if (err instanceof Error && err.message.startsWith("⚠️")) throw err;
-    return { callerPlan: "free" };
-  }
-}
+import { resolveByok } from "./lib/byok";
 
 // ─── Extract & Store Learnings ──────────────────────────────────────────────
 

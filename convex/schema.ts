@@ -201,10 +201,40 @@ const schema = defineSchema({
     .index("by_build_session", ["buildSessionId"])
     .index("by_project", ["projectId"]),
 
+  // ─── ORCHESTRATOR SESSIONS ─────────────────────────────────────────────────
+  // Tracks the lifecycle of a multi-agent orchestration run: planning → dispatch
+  // → monitoring → aggregation → complete. Each session owns a DAG of agentTasks.
+  orchestratorSessions: defineTable({
+    projectId: v.id("projects"),
+    goal: v.string(),
+    state: v.union(
+      v.literal("planning"),
+      v.literal("dispatching"),
+      v.literal("monitoring"),
+      v.literal("aggregating"),
+      v.literal("complete"),
+      v.literal("failed"),
+    ),
+    plan: v.optional(v.string()), // JSON-serialized TaskPlan (DAG)
+    complexity: v.optional(v.string()), // "simple" | "moderate" | "complex" | "epic"
+    totalTasks: v.optional(v.number()),
+    completedTasks: v.optional(v.number()),
+    failedTasks: v.optional(v.number()),
+    totalTokensUsed: v.optional(v.number()),
+    costBudgetTokens: v.optional(v.number()),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    error: v.optional(v.string()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_state", ["projectId", "state"]),
+
   // Multi-agent tasks
   agentTasks: defineTable({
     projectId: v.id("projects"),
     buildSessionId: v.optional(v.id("buildSessions")),
+    orchestratorSessionId: v.optional(v.id("orchestratorSessions")),
+    parentTaskId: v.optional(v.id("agentTasks")),
     agentId: v.string(),
     agentName: v.string(),
     agentIcon: v.string(),
@@ -220,9 +250,18 @@ const schema = defineSchema({
     filesChanged: v.optional(v.array(v.string())),
     startedAt: v.number(),
     finishedAt: v.optional(v.number()),
+    // ─── Orchestrator extensions ───────────────────────────────────────────
+    provider: v.optional(v.string()), // "internal" | "openhands" | "codex" | "gemini" | "claude"
+    worktreePath: v.optional(v.string()), // isolated execution context
+    costBudgetTokens: v.optional(v.number()), // max tokens allocated
+    costSpentTokens: v.optional(v.number()), // tokens consumed so far
+    recoveryCheckpoints: v.optional(v.array(v.string())), // event seq refs for recovery
+    dependencies: v.optional(v.array(v.string())), // agentTask IDs that must complete first
   })
     .index("by_project", ["projectId"])
-    .index("by_build_session", ["buildSessionId"]),
+    .index("by_build_session", ["buildSessionId"])
+    .index("by_orchestrator_session", ["orchestratorSessionId"])
+    .index("by_parent_task", ["parentTaskId"]),
 
   // ─── AGENT MEMORY SYSTEM ────────────────────────────────────────────────────
 
@@ -831,7 +870,14 @@ const schema = defineSchema({
       v.literal("pr_opened"),
       v.literal("resolved"),
       v.literal("wont_fix"),
+      v.literal("escalated"),
     ),
+    // ─── Classification & retry tracking ─────────────────────────────────
+    errorClass: v.optional(v.string()), // "syntax" | "runtime" | "dependency" | "logic" | "config" | "flaky"
+    fixAttempts: v.optional(v.number()),
+    maxFixAttempts: v.optional(v.number()),
+    lastFixError: v.optional(v.string()),
+    escalated: v.optional(v.boolean()),
     forensicReportId: v.optional(v.id("forensicReports")),
     prUrl: v.optional(v.string()),
     fixSummary: v.optional(v.string()),

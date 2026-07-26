@@ -129,12 +129,12 @@ export const search = action({
 
       // Tag bonus
       const tagBonus =
-        entry.tags?.filter((tag: string) =>
+        (entry.tags?.filter((tag: string) =>
           queryWords.some(
             (w: string) =>
               tag.toLowerCase().includes(w) || w.includes(tag.toLowerCase()),
           ),
-        ).length ?? 0 * 0.15;
+        ).length ?? 0) * 0.15;
 
       score += tagBonus;
 

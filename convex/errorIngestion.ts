@@ -87,6 +87,7 @@ export const updateIncidentStatus = mutation({
       v.literal("pr_opened"),
       v.literal("resolved"),
       v.literal("wont_fix"),
+      v.literal("escalated"),
     ),
     prUrl: v.optional(v.string()),
     fixSummary: v.optional(v.string()),
@@ -409,5 +410,242 @@ export const ingestFromWebhookInternal = internalAction({
   }> => {
     // Delegate to the full public action handler (same logic, internal surface)
     return await ctx.runAction(api.errorIngestion.ingestFromWebhook, args);
+  },
+});
+
+// ─── ERROR CLASSIFICATION ────────────────────────────────────────────────────
+
+export type ErrorClass =
+  | "syntax"
+  | "runtime"
+  | "dependency"
+  | "logic"
+  | "config"
+  | "flaky";
+
+const CLASSIFICATION_RULES: { pattern: RegExp; class: ErrorClass }[] = [
+  { pattern: /SyntaxError|Unexpected token|Parse error|TS\d{4}/i, class: "syntax" },
+  { pattern: /Cannot find module|Module not found|ERR_MODULE_NOT_FOUND|package.*not installed/i, class: "dependency" },
+  { pattern: /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|network|fetch failed|timeout/i, class: "flaky" },
+  { pattern: /env|ENV|process\.env|missing.*variable|config|\.env/i, class: "config" },
+  { pattern: /TypeError|ReferenceError|Cannot read prop|undefined is not|null is not|RangeError/i, class: "runtime" },
+  { pattern: /AssertionError|expected.*received|assert|test.*fail/i, class: "logic" },
+];
+
+export function classifyError(errorType: string, errorMessage: string, stackTrace?: string): ErrorClass {
+  const combined = `${errorType} ${errorMessage} ${stackTrace ?? ""}`;
+  for (const rule of CLASSIFICATION_RULES) {
+    if (rule.pattern.test(combined)) return rule.class;
+  }
+  return "runtime"; // default
+}
+
+const MAX_FIX_ATTEMPTS: Record<ErrorClass, number> = {
+  syntax: 2,
+  runtime: 3,
+  dependency: 2,
+  logic: 3,
+  config: 1,
+  flaky: 1,
+};
+
+// ─── SMART AUTO-FIX WITH RETRY + ESCALATION ─────────────────────────────────
+
+export const smartAutoFix = action({
+  args: {
+    projectId: v.id("projects"),
+    incidentId: v.id("errorIncidents"),
+    repoFullName: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    escalated: v.boolean(),
+    attempt: v.number(),
+    errorClass: v.string(),
+    fixSummary: v.optional(v.string()),
+    error: v.optional(v.string()),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    success: boolean;
+    escalated: boolean;
+    attempt: number;
+    errorClass: string;
+    fixSummary?: string;
+    error?: string;
+  }> => {
+    const incident: any = await ctx.runQuery(
+      internal.errorIngestion.getIncidentById,
+      { incidentId: args.incidentId },
+    );
+    if (!incident) {
+      return { success: false, escalated: false, attempt: 0, errorClass: "unknown", error: "Incident not found" };
+    }
+
+    // Classify the error
+    const errorClass = classifyError(
+      incident.errorType,
+      incident.errorMessage,
+      incident.stackTrace,
+    );
+    const maxAttempts = MAX_FIX_ATTEMPTS[errorClass];
+    const currentAttempt = (incident.fixAttempts ?? 0) + 1;
+
+    // Update classification + attempt count
+    await ctx.runMutation(api.errorIngestion.updateIncidentStatus, {
+      incidentId: args.incidentId,
+      status: "analyzing",
+    });
+
+    // Check if we've exceeded max attempts → escalate
+    if (currentAttempt > maxAttempts) {
+      await ctx.runMutation(api.errorIngestion.escalateIncident, {
+        incidentId: args.incidentId,
+        errorClass,
+        reason: `Exceeded ${maxAttempts} fix attempts for ${errorClass} error. Last error: ${incident.lastFixError ?? incident.errorMessage}`,
+      });
+
+      return {
+        success: false,
+        escalated: true,
+        attempt: currentAttempt,
+        errorClass,
+        error: `Escalated after ${maxAttempts} failed attempts`,
+      };
+    }
+
+    // Record the attempt
+    await ctx.runMutation(api.errorIngestion.recordFixAttempt, {
+      incidentId: args.incidentId,
+      errorClass,
+      attempt: currentAttempt,
+    });
+
+    // Broadcast
+    await ctx.runMutation(api.agentThoughts.emit, {
+      projectId: args.projectId,
+      agentId: "error-ingestion",
+      agentName: "🚨 Error Ingestion",
+      type: "analyze",
+      content: `🔧 Smart fix attempt ${currentAttempt}/${maxAttempts} [${errorClass}]: ${incident.errorType} — ${incident.errorMessage.slice(0, 80)}`,
+      isStreaming: false,
+    });
+
+    // Attempt the fix
+    try {
+      const result = await ctx.runAction(api.errorIngestion.autoFix, {
+        projectId: args.projectId,
+        incidentId: args.incidentId,
+        repoFullName: args.repoFullName,
+      });
+
+      if (result.success) {
+        return {
+          success: true,
+          escalated: false,
+          attempt: currentAttempt,
+          errorClass,
+          fixSummary: result.fixSummary,
+        };
+      }
+
+      // Fix failed — record the error for next attempt's context
+      await ctx.runMutation(api.errorIngestion.recordFixFailure, {
+        incidentId: args.incidentId,
+        error: result.error ?? "Fix did not succeed",
+      });
+
+      return {
+        success: false,
+        escalated: false,
+        attempt: currentAttempt,
+        errorClass,
+        error: result.error,
+      };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      await ctx.runMutation(api.errorIngestion.recordFixFailure, {
+        incidentId: args.incidentId,
+        error: errMsg,
+      });
+
+      return {
+        success: false,
+        escalated: false,
+        attempt: currentAttempt,
+        errorClass,
+        error: errMsg,
+      };
+    }
+  },
+});
+
+// ─── Internal mutations for retry tracking ──────────────────────────────────
+
+export const recordFixAttempt = mutation({
+  args: {
+    incidentId: v.id("errorIncidents"),
+    errorClass: v.string(),
+    attempt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.incidentId, {
+      errorClass: args.errorClass,
+      fixAttempts: args.attempt,
+      maxFixAttempts: MAX_FIX_ATTEMPTS[args.errorClass as ErrorClass] ?? 3,
+      autoFixAttempted: true,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const recordFixFailure = mutation({
+  args: {
+    incidentId: v.id("errorIncidents"),
+    error: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.incidentId, {
+      lastFixError: args.error,
+      status: "new", // reset to "new" so monitorAndHeal picks it up again
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const escalateIncident = mutation({
+  args: {
+    incidentId: v.id("errorIncidents"),
+    errorClass: v.string(),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const incident = await ctx.db.get(args.incidentId);
+    if (!incident) return;
+
+    await ctx.db.patch(args.incidentId, {
+      status: "escalated",
+      escalated: true,
+      errorClass: args.errorClass,
+      updatedAt: Date.now(),
+    });
+
+    // Create a high-priority work item for human review
+    await ctx.db.insert("workItems", {
+      projectId: incident.projectId,
+      title: `🚨 Escalated: ${incident.errorType} — ${incident.errorMessage.slice(0, 50)}`,
+      description: `Auto-fix failed after ${incident.fixAttempts ?? 0} attempts.\n\nError class: ${args.errorClass}\nReason: ${args.reason}\n\nStack trace:\n${incident.stackTrace?.slice(0, 1000) ?? "N/A"}`,
+      category: "bug",
+      priority: "critical",
+      impact: 90,
+      effort: "medium",
+      risk: "high",
+      dependsOn: [],
+      status: "planned",
+      filesAffected: incident.affectedFile ? [incident.affectedFile] : [],
+      createdAt: Date.now(),
+    });
   },
 });

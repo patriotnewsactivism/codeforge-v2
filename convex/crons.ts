@@ -19,4 +19,40 @@ crons.interval(
   {},
 );
 
+// Self-healing: check for new error incidents every 5 minutes and dispatch
+// autonomous fixes via the ACSE execution pipeline.
+crons.interval(
+  "monitor-and-heal",
+  { minutes: 5 },
+  internal.reflection.tickMonitorAndHeal,
+  {},
+);
+
+// Nightly reflection: review pending mutations, extract lessons, update memories.
+// Runs at 03:00 UTC daily (off-peak).
+crons.daily(
+  "nightly-reflection",
+  { hourUTC: 3, minuteUTC: 0 },
+  internal.reflection.tickNightlyReflection,
+  {},
+);
+
+// Weekly strategy: evaluate agent topology, recommend improvements.
+// Runs every 168 hours (7 days).
+crons.interval(
+  "weekly-strategy",
+  { hours: 168 },
+  internal.reflection.tickWeeklyStrategy,
+  {},
+);
+
+// Task queue scheduler: dispatch queued tasks respecting concurrency limits
+// and dependency ordering. Runs every 10 seconds.
+crons.interval(
+  "task-queue-scheduler",
+  { seconds: 10 },
+  (internal as any).taskQueue.schedulerTick,
+  {},
+);
+
 export default crons;

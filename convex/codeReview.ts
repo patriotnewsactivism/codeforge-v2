@@ -253,9 +253,15 @@ export const reviewChanges = action({
       verdicts.push({
         agentId: "reviewer-1",
         role: "General Reviewer",
-        verdict: "approve",
-        findings: [],
-        reasoning: `Review failed: ${errMsg}. Defaulting to approve.`,
+        verdict: "request_changes",
+        findings: [
+          {
+            severity: "warning",
+            file: "unknown",
+            message: `General review could not complete: ${errMsg}. Manual review required.`,
+          },
+        ],
+        reasoning: `Review failed: ${errMsg}. Failing closed — manual review required.`,
       });
     }
 
@@ -280,9 +286,15 @@ export const reviewChanges = action({
       verdicts.push({
         agentId: "security-reviewer",
         role: "Security Reviewer",
-        verdict: "approve",
-        findings: [],
-        reasoning: `Security review failed: ${errMsg}. Defaulting to approve.`,
+        verdict: "request_changes",
+        findings: [
+          {
+            severity: "critical",
+            file: "unknown",
+            message: `Security review could not complete: ${errMsg}. Do not deploy without manual security review.`,
+          },
+        ],
+        reasoning: `Security review failed: ${errMsg}. Failing closed — manual security review required.`,
       });
     }
 

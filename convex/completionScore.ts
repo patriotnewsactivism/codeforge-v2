@@ -223,7 +223,7 @@ function scoreProductionReadiness(
       impact: 15,
       remediation:
         "Add GitHub Actions, GitLab CI, or equivalent CI/CD pipeline.",
-      category: "infrastructure",
+      category: "infra",
     });
   }
 
