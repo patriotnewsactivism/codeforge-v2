@@ -148,9 +148,31 @@ export const getCostSummary = query({
       .withIndex("by_project", q => q.eq("projectId", projectId))
       .collect();
 
+    // Calculate cost from token usage fields if available
+    let totalBudgetTokens = 0;
+    let totalSpentTokens = 0;
+    let tasksWithBudget = 0;
+
+    for (const task of tasks) {
+      if (task.costBudgetTokens !== undefined) {
+        totalBudgetTokens += task.costBudgetTokens;
+        tasksWithBudget++;
+      }
+      if (task.costSpentTokens !== undefined) {
+        totalSpentTokens += task.costSpentTokens;
+      }
+    }
+
+    // Estimate USD cost: ~$0.002 per 1K tokens (average across providers)
+    const estimatedCostUsd = (totalSpentTokens / 1000) * 0.002;
+
     return {
       totalAgentRuns: tasks.length,
       activeAgents: tasks.filter(t => t.status === "running").length,
+      totalBudgetTokens,
+      totalSpentTokens,
+      estimatedCostUsd: Number(estimatedCostUsd.toFixed(4)),
+      tasksWithBudget,
     };
   },
 });
