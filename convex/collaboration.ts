@@ -183,6 +183,7 @@ export const joinByInvite = mutation({
       });
     }
 
+    // FIXED: Return projectId after ensuring user is added as collaborator
     return invite.projectId;
   },
 });

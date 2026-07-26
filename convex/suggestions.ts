@@ -10,36 +10,7 @@ import {
   query,
 } from "./_generated/server";
 import { callAIWithFallback } from "./ai";
-
-// ─── BYOK: Resolve caller plan + API keys ────────────────────────────────────
-// Lifetime users get their stored keys injected into AI calls.
-// Weekly/monthly/free users use platform process.env keys (no userKeys passed).
-async function resolveByok(
-  ctx: any,
-  userId?: string,
-): Promise<{ callerPlan: string; userKeys?: Record<string, string> }> {
-  try {
-    const sub = await ctx.runQuery(api.limits.getMyLimits, {});
-    const callerPlan: string = sub?.plan ?? "free";
-    if (callerPlan !== "lifetime") return { callerPlan };
-    if (!userId) return { callerPlan };
-
-    const userKeys: Record<string, string> = await ctx.runQuery(
-      internal.apiKeys.getAllKeysForUser,
-      { userId },
-    );
-    if (!userKeys || Object.keys(userKeys).length === 0) {
-      throw new Error(
-        "⚠️ Lifetime plan requires your own API key. " +
-          "Add one in Settings → API Keys to use AI features.",
-      );
-    }
-    return { callerPlan, userKeys };
-  } catch (err) {
-    if (err instanceof Error && err.message.startsWith("⚠️")) throw err;
-    return { callerPlan: "free" };
-  }
-}
+import { resolveByok } from "./lib/byok";
 
 declare const process: { env: Record<string, string | undefined> };
 

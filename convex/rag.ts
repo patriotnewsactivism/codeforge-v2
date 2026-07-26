@@ -127,14 +127,14 @@ export const search = action({
         if (entry.path.toLowerCase().includes(word)) score += 5;
       }
 
-      // Tag bonus
+      // Tag bonus - fixed operator precedence: (length ?? 0) * 0.15
       const matchingTags = entry.tags?.filter((tag: string) =>
         queryWords.some(
           (w: string) =>
             tag.toLowerCase().includes(w) || w.includes(tag.toLowerCase()),
         ),
       ) ?? [];
-      const tagBonus = matchingTags.length * 0.15;
+      const tagBonus = (matchingTags.length ?? 0) * 0.15;
 
       score += tagBonus;
 

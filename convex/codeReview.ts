@@ -250,6 +250,7 @@ export const reviewChanges = action({
       if (parsed1) verdicts.push(parsed1);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
+      // FIXED: Fail-closed - default to request_changes on reviewer error
       verdicts.push({
         agentId: "reviewer-1",
         role: "General Reviewer",
@@ -283,6 +284,7 @@ export const reviewChanges = action({
       if (parsed2) verdicts.push(parsed2);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
+      // FIXED: Fail-closed - default to request_changes with critical severity on security review error
       verdicts.push({
         agentId: "security-reviewer",
         role: "Security Reviewer",

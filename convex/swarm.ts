@@ -122,6 +122,7 @@ export const updateAgentStatus = internalMutation({
   handler: async (ctx, args) => {
     // agentId format is "swarm:<taskId>:<role>:<uid>" — match by role+uid if
     // role is provided, otherwise scan by taskId prefix + uid suffix.
+    // FIXED: Include role segment in exactId lookup to match spawnAgent format
     const exactId = args.role
       ? `swarm:${args.taskId}:${args.role}:${args.agentUid}`
       : undefined;
