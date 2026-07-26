@@ -403,6 +403,55 @@ const schema = defineSchema({
     .index("by_session", ["sessionId"])
     .index("by_session_and_agent", ["sessionId", "agentId"]),
 
+  // ─── PROJECT KNOWLEDGE GRAPH ─────────────────────────────────────────────────
+  // Parsed entities (modules, functions, classes, types) and their relationships.
+  // Enables change impact analysis, codebase-aware context, and intelligent routing.
+  knowledgeEntities: defineTable({
+    projectId: v.id("projects"),
+    filePath: v.string(),
+    name: v.string(),
+    kind: v.string(), // "module" | "function" | "class" | "type" | "interface" | "route" | "hook" | "component"
+    startLine: v.optional(v.number()),
+    endLine: v.optional(v.number()),
+    exports: v.optional(v.array(v.string())),
+    signature: v.optional(v.string()),
+    docComment: v.optional(v.string()),
+    lastModified: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_file", ["projectId", "filePath"])
+    .index("by_project_and_kind", ["projectId", "kind"])
+    .index("by_project_and_name", ["projectId", "name"]),
+
+  // Relationships between entities (imports, calls, inherits, implements).
+  knowledgeEdges: defineTable({
+    projectId: v.id("projects"),
+    fromEntity: v.string(), // "filePath:name"
+    toEntity: v.string(), // "filePath:name"
+    relation: v.string(), // "imports" | "calls" | "inherits" | "implements" | "uses_type" | "renders"
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_and_from", ["projectId", "fromEntity"])
+    .index("by_project_and_to", ["projectId", "toEntity"]),
+
+  // ─── MULTI-FILE EDIT SETS ─────────────────────────────────────────────────────
+  // Atomic multi-file edits with snapshot/rollback capability.
+  editSets: defineTable({
+    projectId: v.id("projects"),
+    description: v.string(),
+    agentId: v.optional(v.string()),
+    fileCount: v.number(),
+    snapshots: v.string(), // JSON: [{path, content, existed}]
+    status: v.union(
+      v.literal("applying"),
+      v.literal("applied"),
+      v.literal("rolled_back"),
+    ),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    appliedAt: v.optional(v.number()),
+  }).index("by_project", ["projectId"]),
+
   // ─── CODEBASE RAG INDEX ──────────────────────────────────────────────────────
 
   // TF-IDF index of every file — enables semantic search across the codebase
