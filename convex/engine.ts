@@ -893,7 +893,7 @@ export const runMission = action({
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
     const missionId = `mission_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const model = args.model ?? (await getModelForRole(ctx, "orchestrator"));
+    const model = args.model ?? (await getModelForRole(ctx, "orchestrator", args.projectId));
     const spawnCount = { value: 0 };
 
     // Fetch plan limits
@@ -1033,7 +1033,7 @@ export const executeWorkItem = action({
       // and bump the spawn limits.
       const isRetry = iteration > 1;
       const effectiveRole = isRetry ? "architect" : agentRole;
-      const model = await getModelForRole(ctx, effectiveRole as any);
+      const model = await getModelForRole(ctx, effectiveRole as any, args.projectId);
 
       if (isRetry && planLimits) {
         planLimits.maxSpawnsPerMission = Math.min(50, planLimits.maxSpawnsPerMission + 10);

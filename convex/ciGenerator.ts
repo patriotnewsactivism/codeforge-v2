@@ -37,7 +37,7 @@ export const generateSmokeTests = action({
       isStreaming: false,
     });
 
-    const model = await getModelForRole(ctx, "tester");
+    const model = await getModelForRole(ctx, "tester", args.projectId);
     const prompt = `You are a QA / CI Engineer for CodeForge.
 Your job is to write a Playwright smoke test script (using Bun) for the following application.
 

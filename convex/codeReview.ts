@@ -230,7 +230,7 @@ export const reviewChanges = action({
 
     // 5. Run two reviewers in sequence
     const verdicts: ReviewerVerdict[] = [];
-    const model = await getModelForRole(ctx, "reviewer");
+    const model = await getModelForRole(ctx, "reviewer", args.projectId);
 
     // Reviewer 1: General
     try {

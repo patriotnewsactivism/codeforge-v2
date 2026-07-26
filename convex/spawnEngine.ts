@@ -123,7 +123,7 @@ export const planSpawn = internalAction({
   },
   handler: async (ctx, args): Promise<SpawnPlan> => {
     const { callerPlan, userKeys } = await resolveByok(ctx);
-    const model = await getModelForRole(ctx, "orchestrator");
+    const model = await getModelForRole(ctx, "orchestrator", args.projectId);
 
     // Inject accumulated wisdom
     let smartContext = "";

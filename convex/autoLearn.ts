@@ -88,7 +88,7 @@ export const extractLearnings = internalAction({
   handler: async (ctx, args): Promise<void> => {
     const { callerPlan, userKeys } = await resolveByok(ctx);
 
-    const model = await getModelForRole(ctx, "reflection");
+    const model = await getModelForRole(ctx, "reflection", args.projectId);
 
     try {
       const userMessage = `GOAL: ${args.goal}

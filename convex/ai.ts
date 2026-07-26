@@ -1012,8 +1012,45 @@ export const MODEL_PROFILES: Record<string, Record<string, string>> = {
 
 /**
  * getModelForRole — returns the best model ID for a given agent role.
+ *
+ * BUGFIX (2026-07-26): previously every sub-agent role call ignored the
+ * user's explicit model selection from the chat panel's model picker
+ * (session.model) -- only the very first top-level orchestrator turn in
+ * chat.ts respected `args.model`. Every downstream role (Coder/Reviewer/
+ * Architect/Tester/etc, spawned across ~19 call sites in engine.ts,
+ * planner.ts, codeReview.ts, debate.ts, forensic.ts, reflection.ts,
+ * ciGenerator.ts, gitops.ts, mutation.ts, crossProject.ts,
+ * errorIngestion.ts, repoImport.ts, spawnEngine.ts, xray.ts, autoLearn.ts)
+ * instead silently pulled from the hardcoded MODEL_PROFILES swarm-profile
+ * table, regardless of what the user picked in the UI.
+ *
+ * Fix: when a `projectId` is supplied, look up that project's most recent
+ * chat session and -- if it has an explicit model set -- use it directly
+ * for EVERY role, short-circuiting the profile-based routing entirely.
+ * This matches the actual UI: the model picker has no "Automatic" option,
+ * every choice is a concrete model id, so the user's pick is meant to win
+ * everywhere. Profile-based routing (MODEL_PROFILES) now only applies as
+ * a fallback when no project/session context is available at all.
  */
-export async function getModelForRole(ctx: any, role: string): Promise<string> {
+export async function getModelForRole(
+  ctx: any,
+  role: string,
+  projectId?: string,
+): Promise<string> {
+  if (projectId) {
+    try {
+      // NOTE: most callers are Convex actions (they call external LLM APIs),
+      // which have no direct ctx.db access -- must go through ctx.runQuery.
+      const sessionModel = await ctx.runQuery(
+        api.sessions.getLatestModelForProjectInternal,
+        { projectId },
+      );
+      if (sessionModel) return sessionModel;
+    } catch (_err) {
+      // Fall through to profile-based routing if the session lookup fails.
+    }
+  }
+
   let profile = "dons_pick";
   try {
     profile = await ctx.runQuery(api.users.getAiProfileInternal, {});

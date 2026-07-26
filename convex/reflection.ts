@@ -201,7 +201,7 @@ Respond with JSON only:
     // BYOK: resolve caller plan + keys for lifetime users
     const byok = await resolveByok(ctx);
     const { text: raw } = await callAIWithFallback(reflectionPrompt, {
-      model: await getModelForRole(ctx, "orchestrator"),
+      model: await getModelForRole(ctx, "orchestrator", args.projectId),
       temperature: 0.3,
       callerPlan: byok?.callerPlan,
       userKeys: byok?.userKeys,
@@ -382,7 +382,7 @@ JSON only:
     // BYOK: resolve caller plan + keys for lifetime users
     const byok = await resolveByok(ctx);
     const { text: raw } = await callAIWithFallback(prompt, {
-      model: await getModelForRole(ctx, "orchestrator"),
+      model: await getModelForRole(ctx, "orchestrator", args.projectId),
       temperature: 0.4,
       callerPlan: byok?.callerPlan,
       userKeys: byok?.userKeys,

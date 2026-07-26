@@ -1142,7 +1142,7 @@ export const runXRay = action({
 
       let summary = "";
       try {
-        const model = await getModelForRole(ctx, "architect");
+        const model = await getModelForRole(ctx, "architect", args.projectId);
         const { text } = await callAIWithFallback(
           [
             {
