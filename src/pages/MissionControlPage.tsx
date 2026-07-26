@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
-// Frontend-only demo of the Mission Control redesign. All mission data is
-// mocked; the Live/Shipped toggle switches between the two demo states.
+// Mission Control -- live, Convex-reactive. Feed/files/swarm/roster/project
+// title/missions list all pull from real data (see useQuery calls below).
 
-const LIVE_SCORE = 89;
 const AUTONOMY_LABEL = "Full Autopilot";
 
 const CYAN = "oklch(0.75 0.18 190)";
@@ -21,44 +23,8 @@ interface Subtask {
   icon: string;
 }
 
-const SUBTASKS: Subtask[] = [
-  {
-    status: "done",
-    text: "Scaffold project structure & dependencies",
-    agent: "Planner",
-    icon: "🗺️",
-  },
-  {
-    status: "done",
-    text: "Build auth (sign up / in / out)",
-    agent: "Logic Agent",
-    icon: "⚙️",
-  },
-  {
-    status: "done",
-    text: "Design recipe list + detail UI",
-    agent: "UI Agent",
-    icon: "🎨",
-  },
-  {
-    status: "running",
-    text: "Implement recipe search & filters",
-    agent: "Logic Agent",
-    icon: "⚙️",
-  },
-  {
-    status: "healed",
-    text: "Fix failing checkout test (auto-retried 2×)",
-    agent: "Test Agent",
-    icon: "🧪",
-  },
-  {
-    status: "queued",
-    text: "Final review & deploy to production",
-    agent: "Reviewer",
-    icon: "🔎",
-  },
-];
+// [SUBTASKS now derived live from Convex -- see useMemo blocks in the component below]
+
 
 const SUBTASK_STYLE: Record<
   SubtaskStatus,
@@ -79,43 +45,8 @@ interface SwarmAgent {
   freeTag: string;
 }
 
-const SWARM: SwarmAgent[] = [
-  {
-    name: "Planner",
-    status: "done",
-    depth: 0,
-    model: "DeepSeek V3",
-    freeTag: "$0.27/1M · no rate wall",
-  },
-  {
-    name: "UI Agent",
-    status: "done",
-    depth: 1,
-    model: "GLM 4.7 (Cerebras)",
-    freeTag: "Free · ~1M tok/day",
-  },
-  {
-    name: "Logic Agent",
-    status: "active",
-    depth: 1,
-    model: "GLM 4.7 (Cerebras)",
-    freeTag: "Free · ~1M tok/day",
-  },
-  {
-    name: "Test Agent",
-    status: "active",
-    depth: 1,
-    model: "GPT-OSS 120B (Cerebras)",
-    freeTag: "Free · ~1M tok/day",
-  },
-  {
-    name: "Reviewer",
-    status: "queued",
-    depth: 1,
-    model: "GPT-OSS 120B (Cerebras)",
-    freeTag: "Free · ~1M tok/day",
-  },
-];
+// [SWARM now derived live from Convex -- see useMemo blocks in the component below]
+
 
 const AGENT_STYLE: Record<
   AgentStatus,
@@ -183,6 +114,7 @@ const ROSTER = [
 ];
 
 interface FeedEntry {
+  id: string;
   time: string;
   type: string;
   color: string;
@@ -195,154 +127,11 @@ interface FeedEntry {
   isRunning?: boolean;
 }
 
-const LIVE_FEED: FeedEntry[] = [
-  {
-    time: "14:00:02",
-    type: "plan",
-    color: "#a78bfa",
-    icon: "🗺️",
-    agent: "Planner",
-    content:
-      "Breaking goal into 6 subtasks: auth, UI, search, tests, review, deploy.",
-    reasoning:
-      "Goal mentions auth, browsing, and search explicitly — split so each has an owning agent and a testable exit condition.",
-  },
-  {
-    time: "14:00:05",
-    type: "spawn",
-    color: "#818cf8",
-    icon: "⚡",
-    agent: "Planner",
-    content: "Spawned UI Agent, Logic Agent, Test Agent, Reviewer.",
-    reasoning:
-      "4 parallel-safe subtasks with little file overlap — spawning one agent per domain avoids merge conflicts.",
-  },
-  {
-    time: "14:00:41",
-    type: "code",
-    color: "#4ade80",
-    icon: "⚙️",
-    agent: "Logic Agent",
-    content: "Created convex/recipes.ts — CRUD mutations + query.",
-    reasoning:
-      "Matched the existing convex/*.ts mutation + query pattern from memory rather than inventing a new shape.",
-  },
-  {
-    time: "14:00:52",
-    type: "code",
-    color: "#4ade80",
-    icon: "🎨",
-    agent: "UI Agent",
-    content: "Created src/components/RecipeCard.tsx, RecipeList.tsx",
-    reasoning:
-      "Split card vs list so RecipeCard can be reused on both the list and detail views.",
-  },
-  {
-    time: "14:01:10",
-    type: "memory",
-    color: "#c084fc",
-    icon: "🧠",
-    agent: "Logic Agent",
-    content: "Reusing pattern: Convex mutation validation (used 4× before).",
-    reasoning:
-      "This project has used the same zod-style validation shape 4 times before with no bugs — cheaper and safer than re-deriving it.",
-  },
-  {
-    time: "14:01:44",
-    type: "test",
-    color: "#22d3ee",
-    icon: "🧪",
-    agent: "Test Agent",
-    content: "Running 41 tests against recipes + auth…",
-    reasoning:
-      "Full suite run triggered because both a schema (recipes.ts) and an auth-adjacent file changed in this batch.",
-  },
-  {
-    time: "14:01:52",
-    type: "self-heal",
-    color: AMBER,
-    icon: "⚠️",
-    agent: "Test Agent",
-    content: "checkout.test.ts failed — TypeError: undefined price",
-    isHeal: true,
-    resolved: "Auto-patched null check, retried — now passing (attempt 2/2)",
-    reasoning:
-      "Stack trace pointed at a missing null guard on recipe.price; applied the same guard pattern already used in RecipeCard.tsx.",
-  },
-  {
-    time: "14:02:31",
-    type: "code",
-    color: "#4ade80",
-    icon: "⚙️",
-    agent: "Logic Agent",
-    content: "Editing src/lib/search.ts — added fuzzy match + debounce",
-    reasoning:
-      "Plain substring search missed typos in manual testing; fuzzy match plus a 200ms debounce avoids re-querying on every keystroke.",
-  },
-  {
-    time: "14:02:40",
-    type: "review",
-    color: "#fb923c",
-    icon: "🔎",
-    agent: "Reviewer",
-    content: "Reviewing recipe-search diff (3 files)…",
-    isRunning: true,
-    reasoning:
-      "Reviewer runs after every Logic Agent commit that touches a shared file (search.ts is imported by 2 components).",
-  },
-];
+// [LIVE_FEED now derived live from Convex -- see useMemo blocks in the component below]
 
-const SHIPPED_FEED: FeedEntry[] = [
-  ...LIVE_FEED.slice(0, -1),
-  {
-    time: "14:02:40",
-    type: "review",
-    color: "#fb923c",
-    icon: "🔎",
-    agent: "Reviewer",
-    content: "Reviewed recipe-search diff (3 files) — approved.",
-  },
-  {
-    time: "14:04:12",
-    type: "test",
-    color: "#22d3ee",
-    icon: "🧪",
-    agent: "Test Agent",
-    content: "41/41 tests passing · 94% coverage.",
-    reasoning:
-      "Re-ran full suite post-review to confirm the reviewer's approved diff didn't regress anything.",
-  },
-  {
-    time: "14:05:03",
-    type: "commit",
-    color: "#facc15",
-    icon: "📦",
-    agent: "Reviewer",
-    content: 'Committed "feat: recipe search + auth" — 18 files changed.',
-    reasoning:
-      "Squashed the swarm's working commits into one reviewable commit for a cleaner history.",
-  },
-  {
-    time: "14:06:50",
-    type: "deploy",
-    color: EMERALD,
-    icon: "🚀",
-    agent: "DevOps",
-    content: "Deployed to recipe-share-mvp.codeforge.app",
-    reasoning:
-      "All tests green + review approved satisfies the auto-deploy gate for this project.",
-  },
-  {
-    time: "14:07:42",
-    type: "done",
-    color: EMERALD,
-    icon: "✅",
-    agent: "Planner",
-    content: "Mission complete — 18 files, 0 errors, shipped in 7m 42s.",
-    reasoning:
-      "All 6 plan subtasks reached done with no open blockers — nothing left to schedule.",
-  },
-];
+
+// [SHIPPED_FEED now derived live from Convex -- see useMemo blocks in the component below]
+
 
 interface DiffLine {
   t: "ctx" | "add" | "del";
@@ -354,37 +143,8 @@ interface TouchedFile {
   diff?: DiffLine[];
 }
 
-const FILES: TouchedFile[] = [
-  { path: "convex/recipes.ts", action: "created" },
-  {
-    path: "convex/schema.ts",
-    action: "modified",
-    diff: [
-      { t: "ctx", s: "  files: defineTable({ ... })," },
-      {
-        t: "add",
-        s: '+ recipes: defineTable({ title: v.string(), price: v.optional(v.number()), authorId: v.id("users") }),',
-      },
-      { t: "add", s: '+   .index("by_author", ["authorId"]),' },
-    ],
-  },
-  { path: "src/components/RecipeCard.tsx", action: "created" },
-  { path: "src/components/RecipeList.tsx", action: "created" },
-  { path: "src/components/SearchBar.tsx", action: "created" },
-  {
-    path: "src/lib/search.ts",
-    action: "modified",
-    diff: [
-      { t: "del", s: "- return items.filter(i => i.title.includes(query));" },
-      { t: "add", s: "+ const debounced = useDebounce(query, 200);" },
-      {
-        t: "add",
-        s: '+ return fuzzyMatch(items, debounced, ["title", "ingredients"]);',
-      },
-    ],
-  },
-  { path: "src/pages/Auth.tsx", action: "created" },
-];
+// [FILES now derived live from Convex -- see useMemo blocks in the component below]
+
 
 const MEMORIES = [
   "Convex mutation validation pattern",
@@ -521,11 +281,190 @@ export function MissionControlPage() {
   const [expandedFeed, setExpandedFeed] = useState<Record<number, boolean>>({});
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
   const [mobilePane, setMobilePane] = useState<MobilePane>("feed");
+  const feedScrollRef = useRef<HTMLDivElement>(null);
+  const feedNearBottomRef = useRef(true);
+
+  // ─── LIVE DATA (real, Convex-reactive -- replaces the old static demo) ───
+  // Convex IDs are lowercase base32 only; guard against a malformed URL param
+  // so we never pass a bad shape into v.id() (that crashes the whole page).
+  const validProjectId =
+    projectId && /^[a-z0-9]+$/i.test(projectId)
+      ? (projectId as Id<"projects">)
+      : null;
+
+  const rawThoughts = useQuery(
+    api.agentThoughts.listRecent,
+    validProjectId ? { projectId: validProjectId, limit: 200 } : "skip",
+  );
+  const rawToolCalls = useQuery(
+    api.engine.listToolCalls,
+    validProjectId ? { projectId: validProjectId, limit: 150 } : "skip",
+  );
+  const realProject = useQuery(
+    api.projects.get,
+    validProjectId ? { projectId: validProjectId } : "skip",
+  );
+  const rawMissions = useQuery(
+    api.missions.listByProject,
+    validProjectId ? { projectId: validProjectId } : "skip",
+  );
+  const realRoster = useQuery(api.users.getModelRoster, {});
+
+  const FEED_TYPE_META: Record<string, { color: string; icon: string }> = {
+    plan: { color: "#a78bfa", icon: "🗺️" },
+    analyze: { color: "#a78bfa", icon: "🔍" },
+    code: { color: "#4ade80", icon: "⚙️" },
+    debug: { color: AMBER, icon: "🐛" },
+    review: { color: "#fb923c", icon: "🔎" },
+    memory: { color: "#c084fc", icon: "🧠" },
+    search: { color: CYAN, icon: "🔎" },
+    commit: { color: "#facc15", icon: "📦" },
+    broadcast: { color: "#818cf8", icon: "⚡" },
+    done: { color: EMERALD, icon: "✅" },
+    action: { color: CYAN, icon: "⚡" },
+    complete: { color: EMERALD, icon: "✅" },
+    error: { color: "#f87171", icon: "⚠️" },
+    warning: { color: AMBER, icon: "⚠️" },
+    thinking: { color: CYAN, icon: "💭" },
+    finding: { color: "#a78bfa", icon: "🔎" },
+  };
+
+  const realFeed: FeedEntry[] = useMemo(() => {
+    if (!rawThoughts) return [];
+    return rawThoughts.map(t => {
+      const meta = FEED_TYPE_META[t.type ?? "action"] ?? { color: MUTED, icon: "•" };
+      return {
+        id: t._id,
+        time: new Date(t.timestamp).toLocaleTimeString(),
+        type: t.type ?? "action",
+        color: meta.color,
+        icon: meta.icon,
+        agent: t.agentName ?? "Agent",
+        content: t.content,
+        isRunning: t.isStreaming,
+        isHeal: t.type === "error" || t.type === "warning",
+      };
+    });
+  }, [rawThoughts]);
+
+  const TOOL_ICON: Record<string, string> = {
+    create_file: "⚙️",
+    edit_file: "⚙️",
+    delete_file: "🗑️",
+    read_file: "📖",
+    list_files: "📁",
+    search_files: "🔎",
+    web_search: "🌐",
+    spawn_agent: "⚡",
+    spawn_epic: "⚡",
+    send_message: "💬",
+    deploy_project: "🚀",
+    complete_task: "✅",
+  };
+
+  const realSubtasks: Subtask[] = useMemo(() => {
+    if (!rawToolCalls) return [];
+    return [...rawToolCalls]
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .map(tc => {
+        let path = "";
+        try {
+          path = JSON.parse(tc.args)?.path ?? "";
+        } catch {
+          /* ignore malformed args JSON */
+        }
+        const status: SubtaskStatus =
+          tc.status === "done"
+            ? "done"
+            : tc.status === "error"
+              ? "healed"
+              : tc.status === "running" || tc.status === "pending"
+                ? "running"
+                : "queued";
+        return {
+          status,
+          text: path ? `${tc.tool} → ${path}` : tc.tool,
+          agent: tc.agentName,
+          icon: TOOL_ICON[tc.tool] ?? "⚙️",
+        };
+      });
+  }, [rawToolCalls]);
+
+  const realSwarm: SwarmAgent[] = useMemo(() => {
+    const byAgent = new Map<
+      string,
+      { name: string; lastTs: number; running: boolean }
+    >();
+    for (const t of rawThoughts ?? []) {
+      const tAgentId = t.agentId ?? "unknown";
+      const prev = byAgent.get(tAgentId);
+      if (!prev || t.timestamp > prev.lastTs) {
+        byAgent.set(tAgentId, {
+          name: t.agentName ?? "Agent",
+          lastTs: t.timestamp,
+          running: prev?.running ?? false,
+        });
+      }
+    }
+    for (const tc of rawToolCalls ?? []) {
+      const prev = byAgent.get(tc.agentId);
+      const running = tc.status === "running" || tc.status === "pending";
+      if (!prev || tc.timestamp > prev.lastTs) {
+        byAgent.set(tc.agentId, {
+          name: tc.agentName,
+          lastTs: tc.timestamp,
+          running,
+        });
+      } else if (running) {
+        prev.running = true;
+      }
+    }
+    const now = Date.now();
+    return Array.from(byAgent.values())
+      .sort((a, b) => b.lastTs - a.lastTs)
+      .map(a => ({
+        name: a.name,
+        status: (a.running || now - a.lastTs < 60_000
+          ? "active"
+          : "done") as AgentStatus,
+        depth: a.name.toLowerCase() === "orchestrator" ? 0 : 1,
+        model: "—",
+        freeTag: "",
+      }));
+  }, [rawThoughts, rawToolCalls]);
+
+  const realFiles: TouchedFile[] = useMemo(() => {
+    if (!rawToolCalls) return [];
+    const byPath = new Map<string, TouchedFile>();
+    for (const tc of [...rawToolCalls].sort((a, b) => a.timestamp - b.timestamp)) {
+      if (!["create_file", "edit_file", "delete_file"].includes(tc.tool)) continue;
+      let path = "";
+      try {
+        path = JSON.parse(tc.args)?.path ?? "";
+      } catch {
+        continue;
+      }
+      if (!path) continue;
+      byPath.set(path, {
+        path,
+        action: tc.tool === "create_file" ? "created" : "modified",
+      });
+    }
+    return Array.from(byPath.values());
+  }, [rawToolCalls]);
+
+  const hasLiveActivity = (rawThoughts?.length ?? 0) > 0 || (rawToolCalls?.length ?? 0) > 0;
+  const realScore = useMemo(() => {
+    if (!rawToolCalls || rawToolCalls.length === 0) return 0;
+    const done = rawToolCalls.filter(tc => tc.status === "done").length;
+    return Math.round((done / rawToolCalls.length) * 100);
+  }, [rawToolCalls]);
+
 
   const isAdvanced = mode === "advanced";
   const isShipped = view === "shipped";
   const isLive = !isShipped;
-  const score = isShipped ? 100 : LIVE_SCORE;
+  const score = realScore;
   const canShip = score >= 90;
 
   const radius = 54;
@@ -534,39 +473,56 @@ export function MissionControlPage() {
 
   const pillDotColor = isShipped ? EMERALD : "#f59e0b";
   const pillTextColor = isShipped ? EMERALD : AMBER;
-  const topStatusLabel = isShipped
-    ? "Shipped ✅"
-    : `${AUTONOMY_LABEL} · Building`;
+  const topStatusLabel = !hasLiveActivity
+    ? "No missions run yet"
+    : isShipped
+      ? "Shipped ✅"
+      : `${AUTONOMY_LABEL} · Building`;
 
-  const feed = isShipped ? SHIPPED_FEED : LIVE_FEED;
-  const files = useMemo(
-    () =>
-      isShipped
-        ? [...FILES, { path: "railway.json", action: "created" as const }]
-        : FILES,
-    [isShipped],
-  );
+  const feed = realFeed;
 
-  const missions = [
-    {
-      label: "Payment checkout",
-      status: "done" as AgentStatus,
-      time: "2 days ago",
-      current: false,
-    },
-    {
-      label: "Recipe search + auth",
-      status: (isShipped ? "done" : "active") as AgentStatus,
-      time: isShipped ? "shipped" : "now",
-      current: true,
-    },
-    {
-      label: "Social sharing + comments",
-      status: "queued" as AgentStatus,
-      time: "queued",
-      current: false,
-    },
-  ];
+  // Auto-scroll the Live Build Feed to the newest entry, but only if the
+  // user was already near the bottom (so manually scrolling up to read
+  // history doesn't get yanked back down on every new agent message).
+  useEffect(() => {
+    const el = feedScrollRef.current;
+    if (!el || !feedNearBottomRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [feed.length]);
+  const files = realFiles;
+
+  // Real build-session history for this project (was a 3-item hardcoded
+  // mock -- "Payment checkout" / "Recipe search + auth" / "Social sharing"
+  // -- that never matched whatever project was actually open).
+  const missionStatusMap: Record<string, AgentStatus> = {
+    running: "active",
+    completed: "done",
+    paused: "queued",
+    error: "error" as AgentStatus,
+  };
+  const missions = (rawMissions ?? []).map((m, i) => {
+    // Prefer the real original prompt (goal) captured at session start;
+    // fall back to a derived step label for older sessions predating it.
+    const fallbackLabel =
+      m.totalSteps != null
+        ? `Step ${m.completedSteps ?? 0}/${m.totalSteps}`
+        : (m.currentStep ?? "Build session");
+    const label = m.goal ?? fallbackLabel;
+    const ageMs = Date.now() - m.startedAt;
+    const ageMin = Math.round(ageMs / 60000);
+    const time =
+      m.status === "running"
+        ? "now"
+        : ageMin < 60
+          ? `${ageMin}m ago`
+          : `${Math.round(ageMin / 60)}h ago`;
+    return {
+      label,
+      status: missionStatusMap[m.status] ?? ("queued" as AgentStatus),
+      time,
+      current: i === 0,
+    };
+  });
 
   const integrations = [
     { name: "GitHub", icon: "🐙", connected: true },
@@ -620,7 +576,8 @@ export function MissionControlPage() {
   const filesTouchedLabel = isShipped
     ? `${files.length} of ${files.length}`
     : "7 of 14";
-  const freeRoleCount = ROSTER.filter(r => r.badge.includes("Free")).length;
+  const liveRoster = realRoster ?? ROSTER;
+  const freeRoleCount = liveRoster.filter(r => r.badge.includes("Free")).length;
 
   // ── Reusable pane content — shared between the desktop 4-column layout
   // and the mobile single-pane + bottom-tab layout below, so the two
@@ -673,7 +630,7 @@ export function MissionControlPage() {
       <div>
         <div className={`${SECTION_LABEL} mb-2`}>Mission Plan</div>
         <div className="flex flex-col gap-1.5">
-          {SUBTASKS.map(t => {
+          {realSubtasks.map(t => {
             const st = isShipped
               ? { icon: "✓", color: EMERALD, rowBg: "transparent" }
               : SUBTASK_STYLE[t.status];
@@ -705,7 +662,7 @@ export function MissionControlPage() {
         <div>
           <div className={`${SECTION_LABEL} mb-2`}>Agent Swarm</div>
           <div className="flex flex-col gap-0.5">
-            {SWARM.map(a => {
+            {realSwarm.map(a => {
               const st = isShipped
                 ? {
                     dot: EMERALD,
@@ -798,11 +755,19 @@ export function MissionControlPage() {
           autoscroll
         </span>
       </div>
-      <div className="flex-1 overflow-y-auto px-3.5 py-2.5 flex flex-col gap-1.5 text-xs">
+      <div
+        ref={feedScrollRef}
+        onScroll={e => {
+          const el = e.currentTarget;
+          feedNearBottomRef.current =
+            el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        }}
+        className="flex-1 overflow-y-auto px-3.5 py-2.5 flex flex-col gap-1.5 text-xs"
+      >
         {feed.map((f, i) => (
           <div
-            key={`${f.time}-${f.type}`}
-            className="flex gap-2.5 px-2.5 py-2 rounded-lg min-w-0 max-w-full cursor-pointer"
+            key={f.id}
+            className="grid grid-cols-[56px_16px_1fr] gap-2.5 px-2.5 py-2 rounded-lg min-w-0 max-w-full cursor-pointer items-start"
             style={{
               background: f.isHeal
                 ? "rgba(251,191,36,.07)"
@@ -813,11 +778,11 @@ export function MissionControlPage() {
             }}
             onClick={() => setExpandedFeed(s => ({ ...s, [i]: !s[i] }))}
           >
-            <span className="font-mono text-[10px] text-[oklch(0.45_0.02_260)] w-14 shrink-0 mt-px">
+            <span className="font-mono text-[10px] text-[oklch(0.45_0.02_260)] mt-px">
               {f.time}
             </span>
-            <span className="shrink-0 mt-px">{f.icon}</span>
-            <div className="min-w-0 flex-1">
+            <span className="mt-px">{f.icon}</span>
+            <div className="min-w-0">
               <div className="flex items-baseline gap-[7px]">
                 <span
                   className="text-[9.5px] font-extrabold tracking-[.04em] uppercase"
@@ -1054,11 +1019,11 @@ export function MissionControlPage() {
             <div className="flex items-center gap-1.5 mb-2">
               <span className={SECTION_LABEL}>Model roster</span>
               <span className="text-[9.5px] px-[7px] py-0.5 rounded-[10px] bg-[rgba(52,211,153,.12)] text-[#34d399] font-bold">
-                {freeRoleCount}/{ROSTER.length} free-tier
+                {freeRoleCount}/{liveRoster.length} free-tier
               </span>
             </div>
             <div className="flex flex-col gap-[5px] mb-2">
-              {ROSTER.map(r => (
+              {(realRoster ?? ROSTER).map(r => (
                 <div
                   key={r.role}
                   className="flex items-center gap-1.5 text-[10.5px]"
@@ -1074,7 +1039,11 @@ export function MissionControlPage() {
                   </span>
                   <span
                     className="text-[9px] font-bold px-1.5 py-0.5 rounded-lg whitespace-nowrap shrink-0"
-                    style={{ background: r.badgeBg, color: r.badgeColor }}
+                    style={{
+                      background:
+                        "badgeBg" in r ? r.badgeBg : "rgba(96,165,250,.1)",
+                      color: "badgeColor" in r ? r.badgeColor : "#60a5fa",
+                    }}
                   >
                     {r.badge}
                   </span>
@@ -1290,7 +1259,7 @@ export function MissionControlPage() {
           {"</>"}
         </button>
         <span className="text-[13px] text-[oklch(0.60_0.02_260)] hidden sm:inline">
-          Recipe Share — MVP
+          {realProject?.name ?? "Untitled Project"}
         </span>
         <span className="text-[oklch(0.30_0.02_260)] hidden sm:inline">/</span>
         <span className="text-sm font-bold">Mission Control</span>
@@ -1346,11 +1315,10 @@ export function MissionControlPage() {
                 ＋
               </span>
               <span className="flex-1 min-w-0 text-xs italic text-[oklch(0.90_0.01_260)] truncate">
-                "Build a recipe-sharing app with user auth, recipe CRUD, and
-                search."
+                {missions[0] ? `"${missions[0].label}"` : "No active mission"}
               </span>
               <span className="hidden sm:flex items-center gap-[5px] px-2 py-[3px] rounded-2xl bg-[rgba(251,146,60,.15)] border border-[rgba(251,146,60,.3)] text-[9.5px] font-bold text-[#fb923c] whitespace-nowrap shrink-0">
-                🐝 4 agents
+                🐝 {realSwarm.length} agents
               </span>
               <button
                 type="button"

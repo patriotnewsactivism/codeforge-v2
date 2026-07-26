@@ -322,7 +322,7 @@ export const generatePlan = action({
     });
 
     // 6. Call AI to generate the plan
-    const model = await getModelForRole(ctx, "architect");
+    const model = await getModelForRole(ctx, "architect", args.projectId);
     const { text } = await callAIWithFallback(
       [
         { role: "system", content: PLANNER_SYSTEM_PROMPT },

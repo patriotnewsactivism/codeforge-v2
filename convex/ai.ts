@@ -916,19 +916,22 @@ export const MODEL_PROFILES: Record<string, Record<string, string>> = {
   // Poolside Laguna, plus Groq's free tier) — callAIWithFallback's chain
   // still cycles through everything else (more free models, more Groq
   // models, Cerebras, then paid OpenRouter) if a primary pick is down.
-  viktor: {
-    orchestrator: "mistral-codestral",
-    architect: "mistral-codestral",
-    coder: "kilocode-qwen3-coder",
-    reviewer: "mistral-codestral",
-    debugger: "groq-qwen3-32b",
-    tester: "kilocode-qwen3-coder",
-    devops: "groq-llama-3.3-70b",
-    sentry: "groq-gpt-oss-20b",
-    forensic: "groq-qwen3-32b",
-    reflection: "mistral-codestral",
-    strategist: "mistral-codestral",
-    default: "mistral-codestral",
+  // Don's Pick: Don's personal default. Qwen Max reasons/plans/reviews,
+  // Qwen3 Coder Plus writes and executes code. Two-model combo, both on
+  // Don's paid Qwen Cloud workspace -- no free-tier rate walls.
+  dons_pick: {
+    orchestrator: "qwen-cloud-max",
+    architect: "qwen-cloud-max",
+    coder: "qwen-cloud-coder",
+    reviewer: "qwen-cloud-max",
+    debugger: "qwen-cloud-coder",
+    tester: "qwen-cloud-coder",
+    devops: "qwen-cloud-coder",
+    sentry: "qwen-cloud-max",
+    forensic: "qwen-cloud-max",
+    reflection: "qwen-cloud-max",
+    strategist: "qwen-cloud-max",
+    default: "qwen-cloud-max",
   },
   // Free: fully free roster (OpenRouter free endpoints + Groq free tier).
   free: {
@@ -1009,15 +1012,62 @@ export const MODEL_PROFILES: Record<string, Record<string, string>> = {
 
 /**
  * getModelForRole — returns the best model ID for a given agent role.
+ *
+ * BUGFIX (2026-07-26): previously every sub-agent role call ignored the
+ * user's explicit model selection from the chat panel's model picker
+ * (session.model) -- only the very first top-level orchestrator turn in
+ * chat.ts respected `args.model`. Every downstream role (Coder/Reviewer/
+ * Architect/Tester/etc, spawned across ~19 call sites in engine.ts,
+ * planner.ts, codeReview.ts, debate.ts, forensic.ts, reflection.ts,
+ * ciGenerator.ts, gitops.ts, mutation.ts, crossProject.ts,
+ * errorIngestion.ts, repoImport.ts, spawnEngine.ts, xray.ts, autoLearn.ts)
+ * instead silently pulled from the hardcoded MODEL_PROFILES swarm-profile
+ * table, regardless of what the user picked in the UI.
+ *
+ * Fix: when a `projectId` is supplied, look up that project's most recent
+ * chat session and -- if it has an explicit model set -- use it directly
+ * for EVERY role, short-circuiting the profile-based routing entirely.
+ * This matches the actual UI: the model picker has no "Automatic" option,
+ * every choice is a concrete model id, so the user's pick is meant to win
+ * everywhere. Profile-based routing (MODEL_PROFILES) now only applies as
+ * a fallback when no project/session context is available at all.
  */
-export async function getModelForRole(ctx: any, role: string): Promise<string> {
-  let profile = "viktor";
+export async function getModelForRole(
+  ctx: any,
+  role: string,
+  projectId?: string,
+): Promise<string> {
+  if (projectId) {
+    try {
+      // NOTE: most callers are Convex actions (they call external LLM APIs),
+      // which have no direct ctx.db access -- must go through ctx.runQuery.
+      //
+      // CORRECTION (2026-07-26): this originally queried api.sessions.* (the
+      // `sessions` table) -- that table turned out to be dead/unused code,
+      // never written to by the real chat flow, so the lookup always
+      // silently returned null and this whole override was a no-op. The
+      // REAL model picker in ChatPanel.tsx writes to the `chatSessions`
+      // table via api.chat.updateModel. Fixed to query the right table.
+      const sessionModel = await ctx.runQuery(
+        api.chat.getLatestModelForProjectInternal,
+        { projectId },
+      );
+      // "auto" is the model picker's explicit "use automatic/profile-based
+      // routing" choice -- not a real model id, so it must NOT short-circuit
+      // here. Only a genuine concrete model id counts as a user override.
+      if (sessionModel && sessionModel !== "auto") return sessionModel;
+    } catch (_err) {
+      // Fall through to profile-based routing if the session lookup fails.
+    }
+  }
+
+  let profile = "dons_pick";
   try {
     profile = await ctx.runQuery(api.users.getAiProfileInternal, {});
   } catch (_err) {
     // Fall back to default profile if query fails or auth issues
   }
-  const profileMap = MODEL_PROFILES[profile] ?? MODEL_PROFILES.viktor;
+  const profileMap = MODEL_PROFILES[profile] ?? MODEL_PROFILES.dons_pick;
   return (
     profileMap[role.toLowerCase()] ??
     profileMap.default ??

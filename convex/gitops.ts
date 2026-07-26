@@ -177,7 +177,7 @@ Respond with JSON only:
 }`;
 
     const { text: raw } = await callAIWithFallback(reviewPrompt, {
-      model: await getModelForRole(ctx, "reviewer"),
+      model: await getModelForRole(ctx, "reviewer", args.projectId),
       temperature: 0.2,
     });
 

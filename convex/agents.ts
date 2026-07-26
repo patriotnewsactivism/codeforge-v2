@@ -195,17 +195,17 @@ export const runMultiAgent = action({
       currentUser?._id ? String(currentUser._id) : undefined,
     );
 
-    // Load the user's selected AI profile (viktor/budget/premium/reasoning/speed).
+    // Load the user's selected AI profile (dons_pick/budget/premium/reasoning/speed).
     // Falls back to the default AGENT_MODELS if the profile query fails.
-    let profileMap: Record<string, string> = MODEL_PROFILES.viktor ?? {};
+    let profileMap: Record<string, string> = MODEL_PROFILES.dons_pick ?? {};
     try {
       const profileName: string = await ctx.runQuery(
         api.users.getAiProfileInternal,
         {},
       );
-      profileMap = MODEL_PROFILES[profileName] ?? MODEL_PROFILES.viktor ?? {};
+      profileMap = MODEL_PROFILES[profileName] ?? MODEL_PROFILES.dons_pick ?? {};
     } catch {
-      /* fall back to viktor profile */
+      /* fall back to dons_pick profile */
     }
     const modelFor = (agentId: string): string => {
       const role = AGENT_ROLE_MAP[agentId] ?? "default";
