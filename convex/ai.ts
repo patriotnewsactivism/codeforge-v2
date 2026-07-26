@@ -513,9 +513,8 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
       // Tight per-request token caps but genuinely frontier-tier models.
       return "https://models.github.ai/inference";
     case "qwen":
-      // Qwen Cloud (Alibaba Cloud Model Studio) international endpoint --
-      // NOT the mainland Bailian console, that's a separate account/URL.
-      return "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
+      // Qwen Cloud token-plan endpoint (Alibaba Cloud Model Studio).
+      return "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1";
     case "cohere":
       // Cohere production tier, OpenAI-compatible endpoint. Added
       // 2026-07-26 -- genuinely live/tested key, previously unused on this
