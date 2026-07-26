@@ -103,7 +103,7 @@ export const listSteps = query({
 // ── Mutations ──
 
 export const createSession = mutation({
-  args: { projectId: v.id("projects") },
+  args: { projectId: v.id("projects"), goal: v.optional(v.string()) },
   returns: v.id("buildSessions"),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -114,6 +114,7 @@ export const createSession = mutation({
       status: "running",
       startedAt: Date.now(),
       completedSteps: 0,
+      goal: args.goal,
     });
   },
 });
@@ -187,6 +188,7 @@ export const runBuildLoop = action({
     // Create build session
     const buildSessionId = await ctx.runMutation(api.buildLoop.createSession, {
       projectId: args.projectId,
+      goal: args.prompt,
     });
 
     // Mark suggestion as implementing

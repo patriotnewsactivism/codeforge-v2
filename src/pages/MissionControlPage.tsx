@@ -490,10 +490,13 @@ export function MissionControlPage() {
     error: "error" as AgentStatus,
   };
   const missions = (rawMissions ?? []).map((m, i) => {
-    const stepsLabel =
+    // Prefer the real original prompt (goal) captured at session start;
+    // fall back to a derived step label for older sessions predating it.
+    const fallbackLabel =
       m.totalSteps != null
         ? `Step ${m.completedSteps ?? 0}/${m.totalSteps}`
         : (m.currentStep ?? "Build session");
+    const label = m.goal ?? fallbackLabel;
     const ageMs = Date.now() - m.startedAt;
     const ageMin = Math.round(ageMs / 60000);
     const time =
@@ -503,7 +506,7 @@ export function MissionControlPage() {
           ? `${ageMin}m ago`
           : `${Math.round(ageMin / 60)}h ago`;
     return {
-      label: stepsLabel,
+      label,
       status: missionStatusMap[m.status] ?? ("queued" as AgentStatus),
       time,
       current: i === 0,
@@ -1293,9 +1296,7 @@ export function MissionControlPage() {
                 ＋
               </span>
               <span className="flex-1 min-w-0 text-xs italic text-[oklch(0.90_0.01_260)] truncate">
-                {missions[0]
-                  ? `Working on: ${missions[0].label}`
-                  : "No active mission"}
+                {missions[0] ? `"${missions[0].label}"` : "No active mission"}
               </span>
               <span className="hidden sm:flex items-center gap-[5px] px-2 py-[3px] rounded-2xl bg-[rgba(251,146,60,.15)] border border-[rgba(251,146,60,.3)] text-[9.5px] font-bold text-[#fb923c] whitespace-nowrap shrink-0">
                 🐝 {realSwarm.length} agents

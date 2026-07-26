@@ -169,6 +169,12 @@ const schema = defineSchema({
       v.literal("completed"),
       v.literal("error"),
     ),
+    // The user's original build prompt for this mission (e.g. "Build a
+    // recipe-sharing app with user auth..."), captured verbatim at session
+    // creation. Used by Mission Control to show the real mission text
+    // instead of a derived step label. Optional because older sessions
+    // created before this field existed won't have it.
+    goal: v.optional(v.string()),
     currentStep: v.optional(v.string()),
     totalSteps: v.optional(v.number()),
     completedSteps: v.optional(v.number()),
