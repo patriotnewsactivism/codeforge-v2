@@ -381,7 +381,7 @@ export function getRolesForPhase(phase: ExecutionPhase): RoleDefinition[] {
 /** Get the system prompt for a role, enriched with project context. */
 export function getSystemPromptForRole(role: AgentRole, projectContext?: string): string {
   const def = ROLE_REGISTRY[role];
-  if (!def) return ROLE_REGISTRY.coder?.systemPrompt ?? "";
+  if (!def) return ROLE_REGISTRY.builder.systemPrompt;
   let prompt = def.systemPrompt;
   if (projectContext) {
     prompt += `\n\n## Project Context\n${projectContext}`;

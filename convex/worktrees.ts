@@ -74,12 +74,9 @@ export const createWorktree = mutation({
     const branchId = await ctx.db.insert("gitBranches", {
       projectId: args.projectId,
       name: branchName,
-      baseBranch: "main",
-      createdBy: args.agentId,
-      status: "active",
+      isActive: true,
+      status: "local",
       createdAt: Date.now(),
-      lastCommitAt: Date.now(),
-      commitCount: 0,
     });
 
     return { branchId, branchName };
@@ -107,8 +104,7 @@ export const commitToWorktree = mutation({
 
     if (branch) {
       await ctx.db.patch(branch._id, {
-        lastCommitAt: Date.now(),
-        commitCount: (branch.commitCount ?? 0) + 1,
+        headSha: `${args.branchName}:${Date.now().toString(36)}`,
       });
     }
 
@@ -156,11 +152,12 @@ export const cleanupStaleWorktrees = internalMutation({
 
     for (const branch of allBranches) {
       if (
-        branch.status === "active" &&
+        branch.isActive &&
+        branch.status === "local" &&
         branch.createdAt < cutoff &&
-        (branch.commitCount ?? 0) === 0
+        !branch.headSha
       ) {
-        await ctx.db.patch(branch._id, { status: "abandoned" });
+        await ctx.db.patch(branch._id, { isActive: false, status: "closed" });
         cleaned++;
       }
     }

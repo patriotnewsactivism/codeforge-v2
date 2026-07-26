@@ -377,6 +377,32 @@ const schema = defineSchema({
     .index("by_project", ["projectId"])
     .index("by_project_and_name", ["projectId", "name"]),
 
+  // ─── SESSION RECOVERY (Event Sourcing) ──────────────────────────────────────
+  // Append-only event log for crash recovery and cross-device resume.
+  sessionEvents: defineTable({
+    sessionId: v.string(),
+    projectId: v.id("projects"),
+    seq: v.number(),
+    type: v.string(),
+    payload: v.optional(v.string()),
+    agentId: v.optional(v.string()),
+    metadata: v.optional(v.string()),
+    timestamp: v.number(),
+  })
+    .index("by_session", ["sessionId", "seq"])
+    .index("by_session_and_type", ["sessionId", "type"])
+    .index("by_project", ["projectId"]),
+
+  // Agent heartbeat tracking for stale detection and auto-restart.
+  agentHeartbeats: defineTable({
+    sessionId: v.string(),
+    agentId: v.string(),
+    lastSeenAt: v.number(),
+    status: v.string(), // "alive" | "stale" | "dead"
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_session_and_agent", ["sessionId", "agentId"]),
+
   // ─── CODEBASE RAG INDEX ──────────────────────────────────────────────────────
 
   // TF-IDF index of every file — enables semantic search across the codebase

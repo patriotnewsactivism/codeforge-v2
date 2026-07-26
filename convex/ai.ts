@@ -661,34 +661,57 @@ function truncateMessagesToFit(
   const total = messages.reduce((n, m) => n + estimateTokens(m.content), 0);
   if (total <= maxTokens) return messages;
 
-  const systemTokens = messages
-    .filter(m => m.role === "system")
-    .reduce((n, m) => n + estimateTokens(m.content), 0);
-  const budgetForRest = Math.max(500, maxTokens - systemTokens);
+  // Phase 1: Truncate system messages if they alone exceed 60% of budget.
+  // Agent system prompts with full file context can blow small-context limits.
+  const systemBudget = Math.floor(maxTokens * 0.6);
+  let result = messages.map(m => {
+    if (m.role === "system" && estimateTokens(m.content) > systemBudget) {
+      const keepChars = systemBudget * 4;
+      return {
+        ...m,
+        content: `${m.content.slice(0, keepChars)}\n\n[...system prompt truncated to fit ${maxTokens} token limit...]`,
+      };
+    }
+    return m;
+  });
 
-  // Find the single largest non-system message — almost always the culprit
-  // (full file dumps / logs pasted into one user turn).
-  const nonSystem = messages.filter(m => m.role !== "system");
-  if (nonSystem.length === 0) return messages;
-  const largest = nonSystem.reduce((a, b) =>
-    estimateTokens(b.content) > estimateTokens(a.content) ? b : a,
-  );
-  const largestTokens = estimateTokens(largest.content);
-  if (largestTokens <= budgetForRest) return messages;
+  // Phase 2: Iteratively truncate the largest message until total fits.
+  // Handles cases where multiple large messages collectively exceed budget.
+  let iterations = 0;
+  while (iterations < 5) {
+    const currentTotal = result.reduce(
+      (n, m) => n + estimateTokens(m.content),
+      0,
+    );
+    if (currentTotal <= maxTokens) break;
 
-  const keepChars = Math.max(200, budgetForRest * 4);
-  const headChars = Math.floor(keepChars * 0.6);
-  const tailChars = Math.floor(keepChars * 0.4);
-  const truncatedContent =
-    largest.content.length > headChars + tailChars
-      ? `${largest.content.slice(0, headChars)}\n\n[...truncated ${
-          largest.content.length - headChars - tailChars
-        } chars to fit rate limit...]\n\n${largest.content.slice(-tailChars)}`
-      : largest.content;
+    // Find the single largest message
+    const largest = result.reduce((a, b) =>
+      estimateTokens(b.content) > estimateTokens(a.content) ? b : a,
+    );
+    const largestTokens = estimateTokens(largest.content);
+    if (largestTokens < 200) break; // can't truncate further
 
-  return messages.map(m =>
-    m === largest ? { ...m, content: truncatedContent } : m,
-  );
+    const otherTokens = currentTotal - largestTokens;
+    const budgetForLargest = Math.max(200, maxTokens - otherTokens);
+    const keepChars = Math.max(200, budgetForLargest * 4);
+    const headChars = Math.floor(keepChars * 0.6);
+    const tailChars = Math.floor(keepChars * 0.4);
+
+    result = result.map(m => {
+      if (m !== largest) return m;
+      if (m.content.length <= headChars + tailChars) return m;
+      return {
+        ...m,
+        content: `${m.content.slice(0, headChars)}\n\n[...truncated ${
+          m.content.length - headChars - tailChars
+        } chars to fit rate limit...]\n\n${m.content.slice(-tailChars)}`,
+      };
+    });
+    iterations++;
+  }
+
+  return result;
 }
 
 export async function callAI(

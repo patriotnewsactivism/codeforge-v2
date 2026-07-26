@@ -959,12 +959,8 @@ export const runMission = action({
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
     const missionId = `mission_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-<<<<<<< Updated upstream
-    const model = args.model ?? (await getModelForRole(ctx, "orchestrator", args.projectId));
-=======
     const agentRole = args.role ?? "orchestrator";
     const model = args.model ?? (await getModelForRole(ctx, agentRole));
->>>>>>> Stashed changes
     const spawnCount = { value: 0 };
 
     // Fetch plan limits
