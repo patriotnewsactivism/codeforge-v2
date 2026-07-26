@@ -435,7 +435,11 @@ export const MODELS: Record<string, ModelConfig> = {
     tier: "balanced",
   },};
 
-export const DEFAULT_MODEL = "deepseek-v3";
+// 2026-07-26: was "deepseek-v3" -- removed, confirmed erroring ("Insufficient
+// Balance") against this deployment's actual DEEPSEEK_API_KEY. Swapped to a
+// confirmed-live free-tier model per "remove models that keep returning
+// errors, get them out."
+export const DEFAULT_MODEL = "cerebras-gpt-oss-120b";
 
 // Agents are spawned in large numbers, so the defaults are deliberately the
 // cheapest-yet-capable models: DeepSeek for reasoning/coding and Kimi K2 for
@@ -453,19 +457,24 @@ export const DEFAULT_MODEL = "deepseek-v3";
 // no per-minute wall) and Cerebras (free tier, ~1M tokens/day, generous TPM);
 // Groq is reserved for small/fast utility calls only. DeepSeek is cheap
 // ($0.27/$1.10 per M) and Cerebras GLM 4.7 is free.
+// 2026-07-26: every "deepseek-v3"/"deepseek-reasoner" slot below was
+// confirmed erroring (Insufficient Balance on this deployment's actual
+// DEEPSEEK_API_KEY) -- swapped to confirmed-live free-tier models
+// (cerebras-gpt-oss-120b / groq-llama-3.3-70b) per explicit instruction to
+// remove providers that keep returning errors.
 export const AGENT_MODELS: Record<string, string> = {
-  orchestrator: "deepseek-v3",
-  architect: "deepseek-v3",
+  orchestrator: "cerebras-gpt-oss-120b",
+  architect: "cerebras-gpt-oss-120b",
   coder: "cerebras-glm-4.7",
   reviewer: "cerebras-gpt-oss-120b",
-  debugger: "deepseek-reasoner",
+  debugger: "groq-llama-3.3-70b",
   tester: "cerebras-gpt-oss-120b",
   devops: "cerebras-gpt-oss-120b",
   sentry: "groq-llama-3.1-8b",
-  forensic: "deepseek-reasoner",
-  reflection: "deepseek-v3",
-  strategist: "deepseek-v3",
-  default: "deepseek-v3",
+  forensic: "groq-llama-3.3-70b",
+  reflection: "cerebras-gpt-oss-120b",
+  strategist: "cerebras-gpt-oss-120b",
+  default: "cerebras-gpt-oss-120b",
 };
 
 // ─── PROVIDER BASE URLS ────────────────────────────────────────────────────
@@ -881,11 +890,20 @@ export async function callAIWithFallback(
   // exhausted still doesn't surface "All models failed" to the user.
   const fullChain = [
     requested,
-    // Promoted to front 2026-07-26: confirmed 100% live via direct API
-    // test the same day, while mistral-codestral/qwen-cloud-* below are
-    // confirmed DEAD (401 / "API-key is blocked") with no replacement key
-    // available anywhere in the credential pool. Don't waste every
-    // request's first attempts on guaranteed failures.
+    // 2026-07-26: removed per explicit instruction ("remove models that keep
+    // returning errors, get them out") -- mistral-codestral (401 Unauthorized,
+    // confirmed against this deployment's actual MISTRAL_API_KEY),
+    // kilocode-qwen3-coder/kilocode-llama-3.3-70b (402, negative Kilo Code
+    // account balance), qwen-cloud-coder/qwen-cloud-max (confirmed
+    // "API-key is blocked" against this deployment's actual QWENCLOUD_API_KEY,
+    // both the shared and dedicated-workspace endpoints), deepseek-v3
+    // (confirmed "Insufficient Balance" against this deployment's actual
+    // DEEPSEEK_API_KEY -- also removed as DEFAULT_MODEL/AGENT_MODELS default,
+    // see below). github-* kept: got Cloudflare "Too many requests" during
+    // this same audit, which is ambiguous (looks like rate-limiting from my
+    // own repeated testing today, not the clean structured "no_access" error
+    // seen on genuinely-blocked tokens elsewhere) -- was live as recently as
+    // 2026-07-20, not removing on an inconclusive signal.
     "groq-llama-3.3-70b",
     "groq-gpt-oss-120b",
     "cerebras-glm-4.7",
@@ -895,22 +913,17 @@ export async function callAIWithFallback(
     "groq-qwen3-32b",
     "groq-gpt-oss-20b",
     "groq-llama-3.1-8b",
-    "mistral-codestral",
-    "kilocode-qwen3-coder",
-    "kilocode-llama-3.3-70b",
     "github-gpt-4.1",
     "github-codestral",
     "github-llama-4-maverick",
-    "qwen-cloud-coder",
-    "qwen-cloud-max",
     "or-gpt-oss-20b-free",
     "or-nemotron-3-super-free",
     // Paid last resort — only reached once every free option above has
-    // failed; each is a no-op if its API key isn't configured.
-    "deepseek-v3",
+    // failed; each is a no-op if its API key isn't configured (kimi-k2 and
+    // gpt-4o-mini have no key configured on this deployment at all, so they
+    // were already harmless no-ops, not actively erroring -- left as-is).
     "kimi-k2",
     "gpt-4o-mini",
-    "grok-3-fast",
   ].filter((m, i, arr) => arr.indexOf(m) === i && MODELS[m]);
 
   // For lifetime users: filter chain to only models their keys can serve
@@ -971,45 +984,57 @@ export const MODEL_PROFILES: Record<string, Record<string, string>> = {
   // Don's Pick: Don's personal default. Qwen Max reasons/plans/reviews,
   // Qwen3 Coder Plus writes and executes code. Two-model combo, both on
   // Don's paid Qwen Cloud workspace -- no free-tier rate walls.
+  // 2026-07-26: Qwen Cloud removed entirely -- confirmed "API-key is blocked"
+  // on this deployment's actual key, no working replacement in the credential
+  // pool. Swapped to the two next-best confirmed-live options: Cohere
+  // production (command-r-plus, real headroom, no shared-quota risk) for
+  // reasoning/planning/review, Cerebras (free, generous daily tokens) for
+  // execution/coding -- closest match to the original "two-model combo, no
+  // free-tier rate walls" intent.
   dons_pick: {
-    orchestrator: "qwen-cloud-max",
-    architect: "qwen-cloud-max",
-    coder: "qwen-cloud-coder",
-    reviewer: "qwen-cloud-max",
-    debugger: "qwen-cloud-coder",
-    tester: "qwen-cloud-coder",
-    devops: "qwen-cloud-coder",
-    sentry: "qwen-cloud-max",
-    forensic: "qwen-cloud-max",
-    reflection: "qwen-cloud-max",
-    strategist: "qwen-cloud-max",
-    default: "qwen-cloud-max",
+    orchestrator: "cohere-command-r-plus",
+    architect: "cohere-command-r-plus",
+    coder: "cerebras-gpt-oss-120b",
+    reviewer: "cohere-command-r-plus",
+    debugger: "cerebras-gpt-oss-120b",
+    tester: "cerebras-gpt-oss-120b",
+    devops: "cerebras-gpt-oss-120b",
+    sentry: "cohere-command-r-plus",
+    forensic: "cohere-command-r-plus",
+    reflection: "cohere-command-r-plus",
+    strategist: "cohere-command-r-plus",
+    default: "cohere-command-r-plus",
   },
   // Free: fully free roster (OpenRouter free endpoints + Groq free tier).
+  // 2026-07-26: mistral-codestral (401, dead key) and kilocode-qwen3-coder
+  // (402, negative balance) removed -- swapped to confirmed-live free-tier
+  // Groq/Cerebras models.
   free: {
-    orchestrator: "mistral-codestral",
+    orchestrator: "groq-llama-3.3-70b",
     architect: "groq-llama-3.3-70b",
-    coder: "kilocode-qwen3-coder",
-    reviewer: "mistral-codestral",
+    coder: "cerebras-glm-4.7",
+    reviewer: "groq-llama-3.3-70b",
     debugger: "groq-qwen3-32b",
-    tester: "kilocode-qwen3-coder",
+    tester: "cerebras-glm-4.7",
     devops: "groq-llama-3.3-70b",
     sentry: "groq-gpt-oss-20b",
     forensic: "groq-qwen3-32b",
     reflection: "groq-llama-3.3-70b",
-    strategist: "mistral-codestral",
-    default: "mistral-codestral",
+    strategist: "groq-llama-3.3-70b",
+    default: "groq-llama-3.3-70b",
   },
   // Budget: all fast cheap models
+  // 2026-07-26: qwen-cloud-coder removed (confirmed dead) -- unified on
+  // confirmed-live groq-llama-3.3-70b throughout.
   budget: {
     orchestrator: "groq-llama-3.3-70b",
     architect: "groq-llama-3.3-70b",
     coder: "groq-llama-3.3-70b",
-    reviewer: "qwen-cloud-coder",
+    reviewer: "groq-llama-3.3-70b",
     debugger: "groq-llama-3.3-70b",
-    tester: "qwen-cloud-coder",
-    devops: "qwen-cloud-coder",
-    sentry: "qwen-cloud-coder",
+    tester: "groq-llama-3.3-70b",
+    devops: "groq-llama-3.3-70b",
+    sentry: "groq-llama-3.3-70b",
     forensic: "groq-llama-3.3-70b",
     reflection: "groq-llama-3.3-70b",
     strategist: "groq-llama-3.3-70b",
