@@ -889,20 +889,9 @@ export async function callAIWithFallback(
   // exhausted still doesn't surface "All models failed" to the user.
   const fullChain = [
     requested,
-    // 2026-07-26: removed per explicit instruction ("remove models that keep
-    // returning errors, get them out") -- mistral-codestral (401 Unauthorized,
-    // confirmed against this deployment's actual MISTRAL_API_KEY),
-    // kilocode-qwen3-coder/kilocode-llama-3.3-70b (402, negative Kilo Code
-    // account balance), qwen-cloud-coder/qwen-cloud-max (confirmed
-    // "API-key is blocked" against this deployment's actual QWENCLOUD_API_KEY,
-    // both the shared and dedicated-workspace endpoints), deepseek-v3
-    // (confirmed "Insufficient Balance" against this deployment's actual
-    // DEEPSEEK_API_KEY -- also removed as DEFAULT_MODEL/AGENT_MODELS default,
-    // see below). github-* kept: got Cloudflare "Too many requests" during
-    // this same audit, which is ambiguous (looks like rate-limiting from my
-    // own repeated testing today, not the clean structured "no_access" error
-    // seen on genuinely-blocked tokens elsewhere) -- was live as recently as
-    // 2026-07-20, not removing on an inconclusive signal.
+    // Qwen Cloud token-plan — paid, reliable, prioritized first.
+    "qwen-cloud-max",
+    "qwen-cloud-coder",
     "groq-llama-3.3-70b",
     "groq-gpt-oss-120b",
     "cerebras-glm-4.7",
