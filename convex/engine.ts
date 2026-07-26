@@ -192,7 +192,7 @@ async function executeTool(
   call: ToolCall,
   spawnDepth: number,
   spawnCount: { value: number },
-  _model: string,
+  model: string,
   planLimits?: PlanLimits,
 ): Promise<ToolResult> {
   const toolCallId = await ctx.runMutation(api.engine.createToolCall, {
@@ -409,7 +409,7 @@ async function executeTool(
 
         spawnCount.value++;
         const { role, task } = call.args as { role: string; task: string };
-        const childModel = await getModelForRole(ctx, role);
+        const childModel = model;
 
         await ctx.runMutation(api.agentThoughts.emit, {
           projectId,
