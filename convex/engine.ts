@@ -512,6 +512,72 @@ async function executeTool(
   }
 }
 
+// ─── COMPLETION INTEGRITY GATE ─────────────────────────────────────────────
+// Agents have repeatedly called complete_task while the project was left in a
+// broken state (e.g. a created file importing "./utils/offlineQueue" that was
+// never actually created). This is a static, cheap, zero-build check: it scans
+// every JS/TS file's relative and "@/" imports and confirms the target
+// actually exists among the project's files, before complete_task is allowed
+// to end the mission. It cannot catch every possible break (no real
+// npm run build / bundler resolution happens here), but it catches exactly
+// the class of bug that prompted this: an agent claiming "done" while a
+// dynamically/statically imported local file plainly doesn't exist.
+const CODE_EXTS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
+
+function resolveCandidates(fromDir: string, spec: string, aliasRoot: string): string[] {
+  let base: string;
+  if (spec.startsWith("@/")) {
+    base = aliasRoot ? `${aliasRoot}/${spec.slice(2)}` : spec.slice(2);
+  } else {
+    // relative import — resolve against the importing file's directory
+    const parts = fromDir ? fromDir.split("/") : [];
+    for (const seg of spec.split("/")) {
+      if (seg === "." || seg === "") continue;
+      if (seg === "..") parts.pop();
+      else parts.push(seg);
+    }
+    base = parts.join("/");
+  }
+  const candidates = [base];
+  for (const ext of CODE_EXTS) candidates.push(`${base}${ext}`);
+  for (const ext of CODE_EXTS) candidates.push(`${base}/index${ext}`);
+  return candidates;
+}
+
+async function findBrokenImports(
+  ctx: any,
+  projectId: Id<"projects">,
+): Promise<string[]> {
+  const files = await ctx.runQuery(api.files.listByProject, { projectId });
+  const pathSet = new Set<string>(files.map((f: any) => f.path));
+  // detect a "src" root to serve as the "@/" alias target (matches the
+  // convention this platform's own generated projects use: "@" -> "src")
+  const aliasRoot = pathSet.has("src") || [...pathSet].some(p => p.startsWith("src/"))
+    ? "src"
+    : "";
+  const importRe = /(?:from\s+|import\()\s*["']([^"']+)["']/g;
+  const broken: string[] = [];
+  for (const file of files) {
+    if (file.isDirectory) continue;
+    if (!CODE_EXTS.some(ext => file.path.endsWith(ext))) continue;
+    if (file.path.endsWith(".d.ts")) continue;
+    const fromDir = file.path.includes("/")
+      ? file.path.slice(0, file.path.lastIndexOf("/"))
+      : "";
+    let m: RegExpExecArray | null;
+    importRe.lastIndex = 0;
+    while ((m = importRe.exec(file.content)) !== null) {
+      const spec = m[1]!;
+      if (!spec.startsWith(".") && !spec.startsWith("@/")) continue; // skip npm packages
+      const candidates = resolveCandidates(fromDir, spec, aliasRoot);
+      if (!candidates.some(c => pathSet.has(c))) {
+        broken.push(`${file.path} imports "${spec}" — no matching file found`);
+      }
+    }
+  }
+  return broken;
+}
+
 // ─── AGENT LOOP ────────────────────────────────────────────────────────────
 // think → act → observe → repeat
 // - Tight, action-forcing prompts with concrete JSON examples
@@ -799,8 +865,37 @@ Rules:
     }
     lastToolCallKey = toolKey;
 
-    // complete_task → we're done
+    // complete_task → verify before we actually let the agent claim "done".
+    // Only worth checking if this agent actually wrote files this mission —
+    // a read-only/exploration task has nothing to break.
     if (toolCall.tool === "complete_task") {
+      if (fileWriteCount > 0) {
+        const broken = await findBrokenImports(ctx, projectId);
+        if (broken.length > 0) {
+          await ctx.runMutation(api.agentThoughts.emit, {
+            projectId,
+            agentId,
+            agentName,
+            type: "warning",
+            content:
+              `⚠ complete_task rejected — ${broken.length} broken import(s) found:\n` +
+              broken.slice(0, 8).join("\n"),
+            isStreaming: false,
+          });
+          conversationHistory.push({
+            role: "assistant",
+            content: JSON.stringify(toolCall),
+          });
+          conversationHistory.push({
+            role: "user",
+            content:
+              `You called complete_task, but the project has broken imports and cannot actually run:\n` +
+              broken.slice(0, 8).join("\n") +
+              `\nFix these (create the missing file, or correct the import path) before calling complete_task again. Do not claim the work is done while these are unresolved.`,
+          });
+          continue;
+        }
+      }
       finalSummary = (toolCall.args as any).summary ?? finalSummary;
       await ctx.runMutation(api.agentThoughts.emit, {
         projectId,
