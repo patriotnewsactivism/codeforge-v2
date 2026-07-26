@@ -1065,7 +1065,7 @@ export const executeWorkItem = action({
 
     // 2. Select appropriate agent role based on category
     // Canonical categories (from planner): security, feature, test, docs, infra, performance, refactor
-    // Also accept legacy variants: infrastructure, ci, deploy, testing
+    // Also accept legacy variants: infrastructure, ci, deploy, testing, bug
     let agentRole = "coder";
     if (workItem.category === "security") agentRole = "forensic";
     else if (
@@ -1082,6 +1082,7 @@ export const executeWorkItem = action({
       agentRole = "tester";
     else if (workItem.category === "performance") agentRole = "optimizer";
     else if (workItem.category === "refactor") agentRole = "architect";
+    else if (workItem.category === "bug") agentRole = "debugger";
 
     const prompt = `[WORK ITEM: ${workItem.title}]\n\nCategory: ${workItem.category}\nPriority: ${workItem.priority}\n\nDetails:\n${workItem.description}\n\nReview the project files and implement the necessary changes to complete this task.`;
 
