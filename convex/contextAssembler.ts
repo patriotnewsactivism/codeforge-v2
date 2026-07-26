@@ -19,7 +19,10 @@ import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, query } from "./_generated/server";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// Pre-codegen: new modules not yet in generated types
+const selfApi = api as any;
+
+// ─── Types ─────────────────────────────────────────────────────────────────
 
 export interface AssembledContext {
   relevantFiles: { path: string; relevance: number; snippet: string }[];
@@ -71,7 +74,7 @@ export const assembleContext = action({
 
     // 2. Knowledge graph: find related entities
     try {
-      const entities: any[] = await ctx.runQuery(api.knowledgeGraph.listEntities, {
+      const entities: any[] = await ctx.runQuery(selfApi.knowledgeGraph.listEntities, {
         projectId: args.projectId,
         limit: 50,
       });
@@ -103,7 +106,7 @@ export const assembleContext = action({
     if (args.includeImpact && args.targetFiles?.length) {
       try {
         for (const filePath of args.targetFiles.slice(0, 3)) {
-          const impact: any = await ctx.runQuery(api.knowledgeGraph.getChangeImpact, {
+          const impact: any = await ctx.runQuery(selfApi.knowledgeGraph.getChangeImpact, {
             projectId: args.projectId,
             filePath,
             depth: 2,
@@ -252,7 +255,7 @@ export const selectFilesForTask = action({
 
     // Source 2: Knowledge graph entity name matching
     try {
-      const entities: any[] = await ctx.runQuery(api.knowledgeGraph.listEntities, {
+      const entities: any[] = await ctx.runQuery(selfApi.knowledgeGraph.listEntities, {
         projectId: args.projectId,
         limit: 100,
       });

@@ -1349,7 +1349,7 @@ export function MissionControlPage() {
             {planColumnContent}
           </div>
 
-          <div className="flex-1 flex flex-col min-w-0 bg-[oklch(0.115_0.02_260)]">
+          <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-[oklch(0.115_0.02_260)]">
             {feedColumnContent}
           </div>
 
@@ -1362,7 +1362,7 @@ export function MissionControlPage() {
         <div className="flex xl:hidden flex-1 flex-col overflow-hidden min-h-0">
           <div className="flex-1 overflow-y-auto">
             {mobilePane === "feed" && (
-              <div className="h-full flex flex-col bg-[oklch(0.115_0.02_260)]">
+              <div className="h-full flex flex-col min-h-0 overflow-hidden bg-[oklch(0.115_0.02_260)]">
                 {feedColumnContent}
               </div>
             )}

@@ -57,18 +57,20 @@ export const listEntities = query({
   },
   handler: async (ctx, args) => {
     if (args.filePath) {
+      const fp = args.filePath;
       return await ctx.db
         .query("knowledgeEntities")
         .withIndex("by_project_and_file", q =>
-          q.eq("projectId", args.projectId).eq("filePath", args.filePath),
+          q.eq("projectId", args.projectId).eq("filePath", fp),
         )
         .take(args.limit ?? 100);
     }
     if (args.kind) {
+      const k = args.kind;
       return await ctx.db
         .query("knowledgeEntities")
         .withIndex("by_project_and_kind", q =>
-          q.eq("projectId", args.projectId).eq("kind", args.kind),
+          q.eq("projectId", args.projectId).eq("kind", k),
         )
         .take(args.limit ?? 100);
     }

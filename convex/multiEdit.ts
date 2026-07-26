@@ -16,6 +16,9 @@ import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
 
+// Pre-codegen: new module not yet in generated types
+const selfApi = api as any;
+
 // ─── Queries ────────────────────────────────────────────────────────────────
 
 /** List edit sets for a project (most recent first). */
@@ -86,7 +89,7 @@ export const applyMultiEdit = action({
     }
 
     // 2. Create the edit set record
-    const editSetId = await ctx.runMutation(api.multiEdit.createEditSet, {
+    const editSetId = await ctx.runMutation(selfApi.multiEdit.createEditSet, {
       projectId: args.projectId,
       description: args.description,
       agentId: args.agentId,
@@ -104,7 +107,7 @@ export const applyMultiEdit = action({
             path: edit.path,
           });
           if (existing) {
-            await ctx.runMutation(api.files.deleteFile, {
+            await ctx.runMutation(api.files.remove, {
               fileId: existing._id,
             });
           }
@@ -148,7 +151,7 @@ export const applyMultiEdit = action({
       }
 
       // 4. Mark edit set as applied
-      await ctx.runMutation(api.multiEdit.markEditSetApplied, { editSetId });
+      await ctx.runMutation(selfApi.multiEdit.markEditSetApplied, { editSetId });
 
       return { success: true, editSetId, filesChanged: applied };
     } catch (err) {
@@ -162,7 +165,7 @@ export const applyMultiEdit = action({
               path: snap.path,
             });
             if (created) {
-              await ctx.runMutation(api.files.deleteFile, { fileId: created._id });
+              await ctx.runMutation(api.files.remove, { fileId: created._id });
             }
           } else if (snap.content !== null) {
             // File was modified — restore original content
@@ -182,7 +185,7 @@ export const applyMultiEdit = action({
         }
       }
 
-      await ctx.runMutation(api.multiEdit.markEditSetFailed, {
+      await ctx.runMutation(selfApi.multiEdit.markEditSetFailed, {
         editSetId,
         error: err instanceof Error ? err.message : String(err),
       });
@@ -205,7 +208,7 @@ export const rollbackEditSet = action({
   args: { editSetId: v.id("editSets") },
   returns: v.object({ success: v.boolean(), filesRestored: v.number() }),
   handler: async (ctx, args): Promise<{ success: boolean; filesRestored: number }> => {
-    const editSet: any = await ctx.runQuery(api.multiEdit.getEditSet, {
+    const editSet: any = await ctx.runQuery(selfApi.multiEdit.getEditSet, {
       editSetId: args.editSetId,
     });
     if (!editSet || !editSet.snapshots) return { success: false, filesRestored: 0 };
@@ -225,7 +228,7 @@ export const rollbackEditSet = action({
         });
 
         if (!snap.existed && existing) {
-          await ctx.runMutation(api.files.deleteFile, { fileId: existing._id });
+          await ctx.runMutation(api.files.remove, { fileId: existing._id });
           restored++;
         } else if (snap.content !== null && existing) {
           await ctx.runMutation(api.files.update, {
@@ -237,7 +240,7 @@ export const rollbackEditSet = action({
       } catch { /* best-effort */ }
     }
 
-    await ctx.runMutation(api.multiEdit.markEditSetRolledBack, {
+    await ctx.runMutation(selfApi.multiEdit.markEditSetRolledBack, {
       editSetId: args.editSetId,
     });
 
