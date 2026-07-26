@@ -261,7 +261,8 @@ const schema = defineSchema({
     .index("by_project", ["projectId"])
     .index("by_build_session", ["buildSessionId"])
     .index("by_orchestrator_session", ["orchestratorSessionId"])
-    .index("by_parent_task", ["parentTaskId"]),
+    .index("by_parent_task", ["parentTaskId"])
+    .index("by_status", ["status"]),
 
   // ─── AGENT MEMORY SYSTEM ────────────────────────────────────────────────────
 

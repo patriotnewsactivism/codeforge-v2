@@ -256,7 +256,7 @@ export const getProjectsWithQueuedTasks = internalQuery({
   handler: async ctx => {
     const queued = await ctx.db
       .query("agentTasks")
-      .filter(q => q.eq(q.field("status"), "queued"))
+      .withIndex("by_status", q => q.eq("status", "queued"))
       .take(100);
     const projectIds = new Set(queued.map(t => t.projectId));
     return Array.from(projectIds);
