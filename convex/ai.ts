@@ -35,7 +35,8 @@ export interface ModelConfig {
     | "kilocode"
     | "mistral"
     | "github"
-    | "qwen";
+    | "qwen"
+    | "cohere";
   apiModel: string;
   inputCostPer1M: number;
   outputCostPer1M: number;
@@ -192,6 +193,21 @@ export const MODELS: Record<string, ModelConfig> = {
     inputCostPer1M: 0.0,
     outputCostPer1M: 0.0,
     maxTokens: 16384,
+    tier: "strong",
+  },
+  // Cohere production tier -- added 2026-07-26 as a confirmed-live, genuinely
+  // untapped fallback slot (this deployment had a real COHERE_API_KEY
+  // available but no chain entry using it). command-r-plus-08-2024 is the
+  // production, non-deprecated chat model (NOT "command-r", removed
+  // 2025-09-15).
+  "cohere-command-r-plus": {
+    id: "cohere-command-r-plus",
+    name: "Command R+ (Cohere)",
+    provider: "cohere",
+    apiModel: "command-r-plus-08-2024",
+    inputCostPer1M: 2.5,
+    outputCostPer1M: 10.0,
+    maxTokens: 8192,
     tier: "strong",
   },
   // ── Google Gemini — generous free tier via AI Studio. Capable coder /
@@ -491,6 +507,14 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
       // Qwen Cloud (Alibaba Cloud Model Studio) international endpoint --
       // NOT the mainland Bailian console, that's a separate account/URL.
       return "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
+    case "cohere":
+      // Cohere production tier, OpenAI-compatible endpoint. Added
+      // 2026-07-26 -- genuinely live/tested key, previously unused on this
+      // deployment despite being available. Requires COHERE_API_KEY (a real
+      // Production-tab key, NOT the Trial-tab key which hard-caps at
+      // 1000 calls/month and returns a "You are using a Trial key" error
+      // instead of a completion).
+      return "https://api.cohere.com/compatibility/v1";
   }
 }
 
@@ -510,6 +534,7 @@ const PROVIDER_KEY_MAP: Record<ModelConfig["provider"], string> = {
   mistral: "mistral",
   github: "github",
   qwen: "qwen",
+  cohere: "cohere",
 };
 
 /**
@@ -565,6 +590,8 @@ function getApiKey(
       return process.env.GITHUB_TOKEN_4 ?? process.env.GITHUB_TOKEN_9 ?? "";
     case "qwen":
       return process.env.QWENCLOUD_API_KEY ?? "";
+    case "cohere":
+      return process.env.COHERE_API_KEY ?? "";
   }
 }
 
@@ -854,26 +881,28 @@ export async function callAIWithFallback(
   // exhausted still doesn't surface "All models failed" to the user.
   const fullChain = [
     requested,
+    // Promoted to front 2026-07-26: confirmed 100% live via direct API
+    // test the same day, while mistral-codestral/qwen-cloud-* below are
+    // confirmed DEAD (401 / "API-key is blocked") with no replacement key
+    // available anywhere in the credential pool. Don't waste every
+    // request's first attempts on guaranteed failures.
+    "groq-llama-3.3-70b",
+    "groq-gpt-oss-120b",
+    "cerebras-glm-4.7",
+    "cerebras-gpt-oss-120b",
+    "cohere-command-r-plus",
+    "groq-llama-4-scout",
+    "groq-qwen3-32b",
+    "groq-gpt-oss-20b",
+    "groq-llama-3.1-8b",
     "mistral-codestral",
     "kilocode-qwen3-coder",
     "kilocode-llama-3.3-70b",
     "github-gpt-4.1",
     "github-codestral",
     "github-llama-4-maverick",
-    "mistral-codestral",
-    "kilocode-qwen3-coder",
-    "groq-llama-3.3-70b",
-    "groq-gpt-oss-120b",
-    "groq-llama-4-scout",
-    "groq-qwen3-32b",
-    "groq-gpt-oss-20b",
-    "groq-llama-3.1-8b",
-    "cerebras-glm-4.7",
-    "cerebras-gpt-oss-120b",
     "qwen-cloud-coder",
     "qwen-cloud-max",
-    "groq-llama-3.3-70b",
-    "qwen-cloud-coder",
     "or-gpt-oss-20b-free",
     "or-nemotron-3-super-free",
     // Paid last resort — only reached once every free option above has
