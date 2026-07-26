@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -281,6 +281,8 @@ export function MissionControlPage() {
   const [expandedFeed, setExpandedFeed] = useState<Record<number, boolean>>({});
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
   const [mobilePane, setMobilePane] = useState<MobilePane>("feed");
+  const feedScrollRef = useRef<HTMLDivElement>(null);
+  const feedNearBottomRef = useRef(true);
 
   // ─── LIVE DATA (real, Convex-reactive -- replaces the old static demo) ───
   // Convex IDs are lowercase base32 only; guard against a malformed URL param
@@ -478,6 +480,15 @@ export function MissionControlPage() {
       : `${AUTONOMY_LABEL} · Building`;
 
   const feed = realFeed;
+
+  // Auto-scroll the Live Build Feed to the newest entry, but only if the
+  // user was already near the bottom (so manually scrolling up to read
+  // history doesn't get yanked back down on every new agent message).
+  useEffect(() => {
+    const el = feedScrollRef.current;
+    if (!el || !feedNearBottomRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [feed.length]);
   const files = realFiles;
 
   // Real build-session history for this project (was a 3-item hardcoded
@@ -744,7 +755,15 @@ export function MissionControlPage() {
           autoscroll
         </span>
       </div>
-      <div className="flex-1 overflow-y-auto px-3.5 py-2.5 flex flex-col gap-1.5 text-xs">
+      <div
+        ref={feedScrollRef}
+        onScroll={e => {
+          const el = e.currentTarget;
+          feedNearBottomRef.current =
+            el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        }}
+        className="flex-1 overflow-y-auto px-3.5 py-2.5 flex flex-col gap-1.5 text-xs"
+      >
         {feed.map((f, i) => (
           <div
             key={f.id}
