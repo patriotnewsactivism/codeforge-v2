@@ -913,6 +913,10 @@ export async function callAIWithFallback(
     "groq-qwen3-32b",
     "groq-gpt-oss-20b",
     "groq-llama-3.1-8b",
+    // mistral-codestral RE-ADDED 2026-07-26: Don rotated a fresh MISTRAL_API_KEY
+    // same-day, confirmed live via direct completion call (codestral-latest,
+    // real "OK!" response) before re-adding.
+    "mistral-codestral",
     "github-gpt-4.1",
     "github-codestral",
     "github-llama-4-maverick",
@@ -1006,14 +1010,14 @@ export const MODEL_PROFILES: Record<string, Record<string, string>> = {
     default: "cohere-command-r-plus",
   },
   // Free: fully free roster (OpenRouter free endpoints + Groq free tier).
-  // 2026-07-26: mistral-codestral (401, dead key) and kilocode-qwen3-coder
-  // (402, negative balance) removed -- swapped to confirmed-live free-tier
-  // Groq/Cerebras models.
+  // 2026-07-26: mistral-codestral RE-ADDED same day after Don rotated a
+  // fresh live key; kilocode-qwen3-coder stays removed (402, still negative
+  // balance, unrelated key).
   free: {
     orchestrator: "groq-llama-3.3-70b",
     architect: "groq-llama-3.3-70b",
-    coder: "cerebras-glm-4.7",
-    reviewer: "groq-llama-3.3-70b",
+    coder: "mistral-codestral",
+    reviewer: "mistral-codestral",
     debugger: "groq-qwen3-32b",
     tester: "cerebras-glm-4.7",
     devops: "groq-llama-3.3-70b",
