@@ -133,6 +133,7 @@ http.route({
       const body = (await req.json()) as {
         taskId: string;
         agentUid: string;
+        role?: string;
         status: string;
         result?: string;
         errorMessage?: string;
@@ -140,6 +141,7 @@ http.route({
       const result = await ctx.runMutation(internal.swarm.updateAgentStatus, {
         taskId: body.taskId,
         agentUid: body.agentUid,
+        role: body.role,
         status: body.status as "queued" | "running" | "done" | "error",
         result: body.result,
         errorMessage: body.errorMessage,
