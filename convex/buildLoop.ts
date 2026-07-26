@@ -1,3 +1,20 @@
+/**
+ * @deprecated buildLoop.ts is DEPRECATED as of 2025-01
+ * 
+ * This is the original v0 single-agent build loop. It has been superseded by:
+ * - convex/engine.ts (v2 tool-loop engine) — canonical execution engine with multi-agent support,
+ *   tool calls, Sentry integration, Debate guardrails, and self-healing loops
+ * - convex/agents.ts (v1 multi-agent) — sequential 9-agent pipeline with GitHub auto-PR
+ * 
+ * DO NOT add new features to this file. Existing functionality is preserved for backward
+ * compatibility only. All new agent execution should use engine.runMission or engine.executeWorkItem.
+ * 
+ * Migration path:
+ * - Simple single-agent tasks → engine.executeWorkItem with role="coder"
+ * - Multi-agent workflows → engine.runMission with agent roster
+ * - GitHub auto-PR → already integrated in engine.ts (ported from agents.ts)
+ */
+
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
