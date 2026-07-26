@@ -64,8 +64,8 @@ export const getAiProfileInternal = query({
   args: {},
   handler: async ctx => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) return "viktor";
+    if (!userId) return "dons_pick";
     const user = await ctx.db.get(userId);
-    return user?.aiProfile ?? "viktor";
+    return user?.aiProfile ?? "dons_pick";
   },
 });

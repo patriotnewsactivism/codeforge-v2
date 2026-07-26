@@ -21,22 +21,22 @@ import { api } from "../../../convex/_generated/api";
 
 const SWARM_PROFILES = [
   {
-    id: "viktor",
-    name: "Viktor's Pick",
-    tagline: "Recommended Swarm Configuration",
-    cost: "$0.10–$0.25 / build",
+    id: "dons_pick",
+    name: "Don's Pick",
+    tagline: "Personal Default — Qwen Cloud",
+    cost: "$0.15–$0.40 / build",
     description:
-      "DeepSeek R1 handles complex plans, Gemini 2.5 Flash writes high-speed code, and Claude Haiku 4.5 catches bugs during reviews. Insane quality/price ratio.",
+      "Qwen Max handles planning, architecture, and review. Qwen3 Coder Plus writes the code. Both run on the paid Qwen Cloud workspace — no free-tier rate walls, no rate-limit surprises mid-build.",
     reasoning: 5,
     speed: 4,
-    priceLevel: 2, // 1-5 scale
+    priceLevel: 3,
     badgeColor: "bg-primary/20 text-primary border-primary/30",
     icon: Sparkles,
     roles: {
-      "Planner / Architect": "DeepSeek R1",
-      Coder: "Gemini 2.5 Flash",
-      Reviewer: "Claude Haiku 4.5",
-      Debugger: "Gemini 2.5 Flash",
+      "Planner / Architect": "Qwen Max",
+      Coder: "Qwen3 Coder Plus",
+      Reviewer: "Qwen Max",
+      Debugger: "Qwen3 Coder Plus",
     },
   },
   {
@@ -372,7 +372,7 @@ export function AIModelsTab() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
 
-  const currentProfile = profile?.aiProfile ?? "viktor";
+  const currentProfile = profile?.aiProfile ?? "dons_pick";
 
   const handleSelectProfile = async (id: string) => {
     setSaving(true);
