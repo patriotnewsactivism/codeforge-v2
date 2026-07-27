@@ -597,7 +597,10 @@ function getApiKey(
     case "xai":
       return process.env.XAI_API_KEY ?? "";
     case "moonshot":
-      return process.env.MOONSHOT_API_KEY ?? "";
+      // Accept KIMI_API_KEY too — Moonshot's model is branded "Kimi" (see
+      // kimi-k2 in MODELS above), so it's the more likely env var name to
+      // actually get set even though the provider/API is "moonshot".
+      return process.env.MOONSHOT_API_KEY ?? process.env.KIMI_API_KEY ?? "";
     case "openai":
       return process.env.OPENAI_API_KEY ?? "";
     case "groq":
