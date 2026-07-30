@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install --legacy-peer-deps
       - run: npx biome check .
 
   typecheck:
@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install --legacy-peer-deps
       - run: npx tsc -b
       - run: npx tsc -p convex/tsconfig.json
 
@@ -43,7 +43,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install --legacy-peer-deps
       # convex/_generated is committed, so codegen is only needed to refresh it.
       # Run it when a deploy key is configured, but best-effort: codegen needs a
       # reachable deployment, so an invalid/expired key or a disabled/paused
@@ -63,7 +63,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install --legacy-peer-deps
       - run: npm run test
 
   deploy-convex:
@@ -80,7 +80,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install --legacy-peer-deps
       - name: Deploy to Convex production
         if: ${{ env.CONVEX_DEPLOY_KEY != '' }}
         run: npx convex deploy
