@@ -13,7 +13,7 @@
  */
 
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
+import { api } from "./_generated/api";
 import { action, mutation, query } from "./_generated/server";
 import { callAIWithFallback } from "./ai";
 import { resolveByok } from "./lib/byok";

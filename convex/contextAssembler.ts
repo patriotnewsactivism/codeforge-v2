@@ -17,7 +17,7 @@
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { action, query } from "./_generated/server";
+import { action } from "./_generated/server";
 
 // Pre-codegen: new modules not yet in generated types
 const selfApi = api as any;
@@ -26,7 +26,12 @@ const selfApi = api as any;
 
 export interface AssembledContext {
   relevantFiles: { path: string; relevance: number; snippet: string }[];
-  relatedEntities: { name: string; kind: string; filePath: string; signature?: string }[];
+  relatedEntities: {
+    name: string;
+    kind: string;
+    filePath: string;
+    signature?: string;
+  }[];
   conventions: string[];
   changeImpact?: { impactedCount: number; impactedEntities: string[] };
   summary: string;
@@ -52,7 +57,7 @@ export const assembleContext = action({
   handler: async (ctx, args): Promise<string> => {
     const maxTokens = args.maxTokens ?? 6000;
     const sections: string[] = [];
-    let tokenBudget = maxTokens;
+    let _tokenBudget = maxTokens;
 
     // 1. RAG search: find relevant files by keyword
     try {
@@ -65,28 +70,42 @@ export const assembleContext = action({
       if (ragResults.length > 0) {
         const fileSection = ragResults
           .slice(0, 5)
-          .map((r: any) => `  ${r.path} (score: ${r.score.toFixed(1)})\n    ${r.snippet.slice(0, 200)}`)
+          .map(
+            (r: any) =>
+              `  ${r.path} (score: ${r.score.toFixed(1)})\n    ${r.snippet.slice(0, 200)}`,
+          )
           .join("\n");
         sections.push(`## Relevant Files (by search)\n${fileSection}`);
-        tokenBudget -= Math.floor(fileSection.length / 4);
+        _tokenBudget -= Math.floor(fileSection.length / 4);
       }
-    } catch { /* RAG optional */ }
+    } catch {
+      /* RAG optional */
+    }
 
     // 2. Knowledge graph: find related entities
     try {
-      const entities: any[] = await ctx.runQuery(selfApi.knowledgeGraph.listEntities, {
-        projectId: args.projectId,
-        limit: 50,
-      });
+      const entities: any[] = await ctx.runQuery(
+        selfApi.knowledgeGraph.listEntities,
+        {
+          projectId: args.projectId,
+          limit: 50,
+        },
+      );
 
       // Score entities by name overlap with task keywords
-      const taskWords = args.task.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      const taskWords = args.task
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(w => w.length > 3);
       const scored = entities
         .map((e: any) => {
-          const nameMatch = taskWords.filter(w =>
-            e.name.toLowerCase().includes(w) || w.includes(e.name.toLowerCase()),
+          const nameMatch = taskWords.filter(
+            w =>
+              e.name.toLowerCase().includes(w) ||
+              w.includes(e.name.toLowerCase()),
           ).length;
-          const kindBonus = e.kind === "component" || e.kind === "function" ? 1 : 0;
+          const kindBonus =
+            e.kind === "component" || e.kind === "function" ? 1 : 0;
           return { ...e, relevance: nameMatch * 2 + kindBonus };
         })
         .filter((e: any) => e.relevance > 0)
@@ -95,52 +114,71 @@ export const assembleContext = action({
 
       if (scored.length > 0) {
         const entitySection = scored
-          .map((e: any) => `  [${e.kind}] ${e.name} (${e.filePath})${e.signature ? ` — ${e.signature.slice(0, 80)}` : ""}`)
+          .map(
+            (e: any) =>
+              `  [${e.kind}] ${e.name} (${e.filePath})${e.signature ? ` — ${e.signature.slice(0, 80)}` : ""}`,
+          )
           .join("\n");
         sections.push(`## Related Code Entities\n${entitySection}`);
-        tokenBudget -= Math.floor(entitySection.length / 4);
+        _tokenBudget -= Math.floor(entitySection.length / 4);
       }
-    } catch { /* knowledge graph optional */ }
+    } catch {
+      /* knowledge graph optional */
+    }
 
     // 3. Change impact (if target files specified)
     if (args.includeImpact && args.targetFiles?.length) {
       try {
         for (const filePath of args.targetFiles.slice(0, 3)) {
-          const impact: any = await ctx.runQuery(selfApi.knowledgeGraph.getChangeImpact, {
-            projectId: args.projectId,
-            filePath,
-            depth: 2,
-          });
+          const impact: any = await ctx.runQuery(
+            selfApi.knowledgeGraph.getChangeImpact,
+            {
+              projectId: args.projectId,
+              filePath,
+              depth: 2,
+            },
+          );
           if (impact.impactedCount > 0) {
             sections.push(
               `## Change Impact: ${filePath}\n  ${impact.impactedCount} entities depend on this file:\n  ${impact.impactedEntities.slice(0, 8).join(", ")}`,
             );
           }
         }
-      } catch { /* impact optional */ }
+      } catch {
+        /* impact optional */
+      }
     }
 
     // 4. Convention detection
     try {
       const conventions = await detectConventions(ctx, args.projectId);
       if (conventions.length > 0) {
-        sections.push(`## Project Conventions\n${conventions.map(c => `  - ${c}`).join("\n")}`);
+        sections.push(
+          `## Project Conventions\n${conventions.map(c => `  - ${c}`).join("\n")}`,
+        );
       }
-    } catch { /* conventions optional */ }
+    } catch {
+      /* conventions optional */
+    }
 
     // 5. Recent activity (temporal awareness)
     try {
-      const recentThoughts: any[] = await ctx.runQuery(api.agentThoughts.listRecent, {
-        projectId: args.projectId,
-        limit: 5,
-      });
+      const recentThoughts: any[] = await ctx.runQuery(
+        api.agentThoughts.listRecent,
+        {
+          projectId: args.projectId,
+          limit: 5,
+        },
+      );
       if (recentThoughts.length > 0) {
         const recentSection = recentThoughts
           .map((t: any) => `  [${t.agentName}] ${t.content.slice(0, 100)}`)
           .join("\n");
         sections.push(`## Recent Agent Activity\n${recentSection}`);
       }
-    } catch { /* recent activity optional */ }
+    } catch {
+      /* recent activity optional */
+    }
 
     if (sections.length === 0) {
       return "No relevant context found for this task.";
@@ -149,7 +187,9 @@ export const assembleContext = action({
     // Trim to budget
     let assembled = sections.join("\n\n");
     if (assembled.length > maxTokens * 4) {
-      assembled = assembled.slice(0, maxTokens * 4) + "\n\n[...context truncated to fit token budget]";
+      assembled =
+        assembled.slice(0, maxTokens * 4) +
+        "\n\n[...context truncated to fit token budget]";
     }
 
     return assembled;
@@ -166,8 +206,12 @@ async function detectConventions(
   ctx: any,
   projectId: Id<"projects">,
 ): Promise<string[]> {
-  const files: any[] = await ctx.runQuery(api.files.listByProject, { projectId });
-  const codeFiles = files.filter((f: any) => !f.isDirectory && f.path.match(/\.(ts|tsx)$/));
+  const files: any[] = await ctx.runQuery(api.files.listByProject, {
+    projectId,
+  });
+  const codeFiles = files.filter(
+    (f: any) => !f.isDirectory && f.path.match(/\.(ts|tsx)$/),
+  );
   const conventions: string[] = [];
 
   if (codeFiles.length === 0) return conventions;
@@ -179,28 +223,40 @@ async function detectConventions(
   // Quote style
   const doubleQuotes = (allContent.match(/"/g) ?? []).length;
   const singleQuotes = (allContent.match(/'/g) ?? []).length;
-  if (doubleQuotes > singleQuotes * 2) conventions.push("Uses double quotes for strings");
-  else if (singleQuotes > doubleQuotes * 2) conventions.push("Uses single quotes for strings");
+  if (doubleQuotes > singleQuotes * 2)
+    conventions.push("Uses double quotes for strings");
+  else if (singleQuotes > doubleQuotes * 2)
+    conventions.push("Uses single quotes for strings");
 
   // Semicolons
   const semicolons = (allContent.match(/;\s*$/gm) ?? []).length;
   if (semicolons > codeFiles.length * 5) conventions.push("Uses semicolons");
 
   // Component style
-  const arrowComponents = (allContent.match(/export const \w+ = \(/g) ?? []).length;
-  const functionComponents = (allContent.match(/export function [A-Z]/g) ?? []).length;
-  if (arrowComponents > functionComponents) conventions.push("Prefers arrow function components (export const X = () => ...)");
-  else if (functionComponents > arrowComponents) conventions.push("Prefers named function components (export function X() ...)");
+  const arrowComponents = (allContent.match(/export const \w+ = \(/g) ?? [])
+    .length;
+  const functionComponents = (allContent.match(/export function [A-Z]/g) ?? [])
+    .length;
+  if (arrowComponents > functionComponents)
+    conventions.push(
+      "Prefers arrow function components (export const X = () => ...)",
+    );
+  else if (functionComponents > arrowComponents)
+    conventions.push(
+      "Prefers named function components (export function X() ...)",
+    );
 
   // Import style
   const aliasImports = (allContent.match(/from ["']@\//g) ?? []).length;
   const relativeImports = (allContent.match(/from ["']\.\.?\//g) ?? []).length;
-  if (aliasImports > relativeImports) conventions.push("Uses @/ path aliases for imports");
+  if (aliasImports > relativeImports)
+    conventions.push("Uses @/ path aliases for imports");
 
   // Type vs interface
   const interfaces = (allContent.match(/export interface /g) ?? []).length;
   const types = (allContent.match(/export type /g) ?? []).length;
-  if (interfaces > types) conventions.push("Prefers interface for object shapes");
+  if (interfaces > types)
+    conventions.push("Prefers interface for object shapes");
   else if (types > interfaces) conventions.push("Prefers type aliases");
 
   // Error handling
@@ -208,12 +264,16 @@ async function detectConventions(
   if (tryCatch > 3) conventions.push("Uses try/catch for error handling");
 
   // Naming
-  const camelFns = (allContent.match(/(?:export )?(?:const|function) [a-z][a-zA-Z]+/g) ?? []).length;
+  const camelFns = (
+    allContent.match(/(?:export )?(?:const|function) [a-z][a-zA-Z]+/g) ?? []
+  ).length;
   if (camelFns > 5) conventions.push("Uses camelCase for functions/variables");
 
   // Convex patterns
-  if (allContent.includes("ctx.auth.getUserIdentity")) conventions.push("Convex: checks auth via getUserIdentity()");
-  if (allContent.includes("v.id(")) conventions.push("Convex: uses typed v.id() references");
+  if (allContent.includes("ctx.auth.getUserIdentity"))
+    conventions.push("Convex: checks auth via getUserIdentity()");
+  if (allContent.includes("v.id("))
+    conventions.push("Convex: uses typed v.id() references");
 
   return conventions.slice(0, 10);
 }
@@ -230,12 +290,17 @@ export const selectFilesForTask = action({
     task: v.string(),
     maxFiles: v.optional(v.number()),
   },
-  returns: v.array(v.object({
-    path: v.string(),
-    reason: v.string(),
-    relevance: v.number(),
-  })),
-  handler: async (ctx, args): Promise<{ path: string; reason: string; relevance: number }[]> => {
+  returns: v.array(
+    v.object({
+      path: v.string(),
+      reason: v.string(),
+      relevance: v.number(),
+    }),
+  ),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ path: string; reason: string; relevance: number }[]> => {
     const maxFiles = args.maxFiles ?? 10;
     const fileScores = new Map<string, { score: number; reason: string }>();
 
@@ -251,18 +316,28 @@ export const selectFilesForTask = action({
         const newScore = (existing?.score ?? 0) + r.score;
         fileScores.set(r.path, { score: newScore, reason: "keyword match" });
       }
-    } catch { /* optional */ }
+    } catch {
+      /* optional */
+    }
 
     // Source 2: Knowledge graph entity name matching
     try {
-      const entities: any[] = await ctx.runQuery(selfApi.knowledgeGraph.listEntities, {
-        projectId: args.projectId,
-        limit: 100,
-      });
-      const taskWords = args.task.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      const entities: any[] = await ctx.runQuery(
+        selfApi.knowledgeGraph.listEntities,
+        {
+          projectId: args.projectId,
+          limit: 100,
+        },
+      );
+      const taskWords = args.task
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(w => w.length > 3);
       for (const e of entities) {
-        const matches = taskWords.filter(w =>
-          e.name.toLowerCase().includes(w) || w.includes(e.name.toLowerCase()),
+        const matches = taskWords.filter(
+          w =>
+            e.name.toLowerCase().includes(w) ||
+            w.includes(e.name.toLowerCase()),
         ).length;
         if (matches > 0) {
           const existing = fileScores.get(e.filePath);
@@ -273,7 +348,9 @@ export const selectFilesForTask = action({
           });
         }
       }
-    } catch { /* optional */ }
+    } catch {
+      /* optional */
+    }
 
     // Sort by score and return top N
     return Array.from(fileScores.entries())

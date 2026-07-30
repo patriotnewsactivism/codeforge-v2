@@ -453,7 +453,8 @@ export const MODELS: Record<string, ModelConfig> = {
     maxTokens: 4096,
     maxSafeInputTokens: 5500,
     tier: "balanced",
-  },};
+  },
+};
 
 // 2026-07-26: was "deepseek-v3" -- removed, confirmed erroring ("Insufficient
 // Balance") against this deployment's actual DEEPSEEK_API_KEY. Swapped to a

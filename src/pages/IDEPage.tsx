@@ -388,7 +388,7 @@ export function IDEPage() {
         toast.error("Failed to create file");
       }
     },
-    [projectId, createFile],
+    [createFile, validProjectId],
   );
 
   const handleDeleteFile = useCallback(

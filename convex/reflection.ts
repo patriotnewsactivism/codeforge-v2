@@ -466,7 +466,7 @@ Investigate and fix the root cause.`;
         });
 
         healed++;
-      } catch (err: any) {
+      } catch (_err: any) {
         // Mark as fixing if failed
         await ctx.runMutation(api.errorIngestion.updateIncidentStatus, {
           incidentId: incident._id,
@@ -504,11 +504,18 @@ export const getAllProjectIds = internalQuery({
 export const tickMonitorAndHeal = internalAction({
   args: {},
   handler: async ctx => {
-    const projectIds = await ctx.runQuery(internal.reflection.getAllProjectIds, {});
+    const projectIds = await ctx.runQuery(
+      internal.reflection.getAllProjectIds,
+      {},
+    );
     for (const projectId of projectIds) {
-      await ctx.scheduler.runAfter(0, internal.reflection.monitorAndHealInternal, {
-        projectId,
-      });
+      await ctx.scheduler.runAfter(
+        0,
+        internal.reflection.monitorAndHealInternal,
+        {
+          projectId,
+        },
+      );
     }
   },
 });
@@ -517,11 +524,18 @@ export const tickMonitorAndHeal = internalAction({
 export const tickNightlyReflection = internalAction({
   args: {},
   handler: async ctx => {
-    const projectIds = await ctx.runQuery(internal.reflection.getAllProjectIds, {});
+    const projectIds = await ctx.runQuery(
+      internal.reflection.getAllProjectIds,
+      {},
+    );
     for (const projectId of projectIds) {
-      await ctx.scheduler.runAfter(0, internal.reflection.runNightlyReflectionInternal, {
-        projectId,
-      });
+      await ctx.scheduler.runAfter(
+        0,
+        internal.reflection.runNightlyReflectionInternal,
+        {
+          projectId,
+        },
+      );
     }
   },
 });
@@ -530,11 +544,18 @@ export const tickNightlyReflection = internalAction({
 export const tickWeeklyStrategy = internalAction({
   args: {},
   handler: async ctx => {
-    const projectIds = await ctx.runQuery(internal.reflection.getAllProjectIds, {});
+    const projectIds = await ctx.runQuery(
+      internal.reflection.getAllProjectIds,
+      {},
+    );
     for (const projectId of projectIds) {
-      await ctx.scheduler.runAfter(0, internal.reflection.runWeeklyStrategyInternal, {
-        projectId,
-      });
+      await ctx.scheduler.runAfter(
+        0,
+        internal.reflection.runWeeklyStrategyInternal,
+        {
+          projectId,
+        },
+      );
     }
   },
 });

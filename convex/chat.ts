@@ -1,8 +1,13 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
+import { api } from "./_generated/api";
 import { action, mutation, query } from "./_generated/server";
-import { callAIWithFallback, estimateCost, getModelForRole, MODELS } from "./ai";
+import {
+  callAIWithFallback,
+  estimateCost,
+  getModelForRole,
+  MODELS,
+} from "./ai";
 import { resolveByok } from "./lib/byok";
 
 // ─── Session Management ──────────────────────────────────────────────────────
@@ -325,7 +330,7 @@ export const sendMessage = action({
       if (charBudget <= 0) break;
       const content = f.content ?? "";
       const truncated =
-        content.length <= 500 ? content : content.slice(0, 300) + "\n// ...";
+        content.length <= 500 ? content : `${content.slice(0, 300)}\n// ...`;
       const entry = `--- ${f.path} ---\n${truncated}\n\n`;
       projectContext += entry;
       charBudget -= entry.length;

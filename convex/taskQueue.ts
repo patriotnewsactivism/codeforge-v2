@@ -13,7 +13,6 @@
 
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import {
   internalAction,
   internalMutation,
@@ -28,7 +27,6 @@ const selfInternal = internal as any;
 // ─── Configuration ──────────────────────────────────────────────────────────
 
 const DEFAULT_MAX_CONCURRENT_AGENTS = 5;
-const MAX_RETRY_COUNT = 3;
 const AGING_BOOST_PER_TICK = 1; // priority boost per tick waiting
 const DEAD_LETTER_THRESHOLD = 3; // failures before dead-letter
 
@@ -214,8 +212,10 @@ export const schedulerTick = internalAction({
         // Aging: tasks waiting longer get boosted
         const ageA = Date.now() - a.startedAt;
         const ageB = Date.now() - b.startedAt;
-        const agedA = priorityA - Math.floor(ageA / 60000) * AGING_BOOST_PER_TICK;
-        const agedB = priorityB - Math.floor(ageB / 60000) * AGING_BOOST_PER_TICK;
+        const agedA =
+          priorityA - Math.floor(ageA / 60000) * AGING_BOOST_PER_TICK;
+        const agedB =
+          priorityB - Math.floor(ageB / 60000) * AGING_BOOST_PER_TICK;
         return agedA - agedB;
       });
 

@@ -86,7 +86,7 @@ export function ChatPanel({
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages?.length]);
+  }, []);
 
   // Auto-grow textarea, max 120px
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

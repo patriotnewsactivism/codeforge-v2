@@ -56,11 +56,17 @@ export const applyMultiEdit = action({
     projectId: v.id("projects"),
     description: v.string(),
     agentId: v.optional(v.string()),
-    edits: v.array(v.object({
-      path: v.string(),
-      content: v.string(),
-      operation: v.union(v.literal("create"), v.literal("update"), v.literal("delete")),
-    })),
+    edits: v.array(
+      v.object({
+        path: v.string(),
+        content: v.string(),
+        operation: v.union(
+          v.literal("create"),
+          v.literal("update"),
+          v.literal("delete"),
+        ),
+      }),
+    ),
   },
   returns: v.object({
     success: v.boolean(),
@@ -68,14 +74,21 @@ export const applyMultiEdit = action({
     filesChanged: v.number(),
     error: v.optional(v.string()),
   }),
-  handler: async (ctx, args): Promise<{
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
     success: boolean;
     editSetId?: Id<"editSets">;
     filesChanged: number;
     error?: string;
   }> => {
     // 1. Snapshot current state of all affected files
-    const snapshots: { path: string; content: string | null; existed: boolean }[] = [];
+    const snapshots: {
+      path: string;
+      content: string | null;
+      existed: boolean;
+    }[] = [];
     for (const edit of args.edits) {
       const existing: any = await ctx.runQuery(api.files.getByPath, {
         projectId: args.projectId,
@@ -151,7 +164,9 @@ export const applyMultiEdit = action({
       }
 
       // 4. Mark edit set as applied
-      await ctx.runMutation(selfApi.multiEdit.markEditSetApplied, { editSetId });
+      await ctx.runMutation(selfApi.multiEdit.markEditSetApplied, {
+        editSetId,
+      });
 
       return { success: true, editSetId, filesChanged: applied };
     } catch (err) {
@@ -207,11 +222,14 @@ export const applyMultiEdit = action({
 export const rollbackEditSet = action({
   args: { editSetId: v.id("editSets") },
   returns: v.object({ success: v.boolean(), filesRestored: v.number() }),
-  handler: async (ctx, args): Promise<{ success: boolean; filesRestored: number }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ success: boolean; filesRestored: number }> => {
     const editSet: any = await ctx.runQuery(selfApi.multiEdit.getEditSet, {
       editSetId: args.editSetId,
     });
-    if (!editSet || !editSet.snapshots) return { success: false, filesRestored: 0 };
+    if (!editSet?.snapshots) return { success: false, filesRestored: 0 };
 
     const snapshots = JSON.parse(editSet.snapshots) as {
       path: string;
@@ -237,7 +255,9 @@ export const rollbackEditSet = action({
           });
           restored++;
         }
-      } catch { /* best-effort */ }
+      } catch {
+        /* best-effort */
+      }
     }
 
     await ctx.runMutation(selfApi.multiEdit.markEditSetRolledBack, {
@@ -308,8 +328,15 @@ export const markEditSetRolledBack = mutation({
 function detectLanguage(path: string): string {
   const ext = path.split(".").pop() ?? "";
   const map: Record<string, string> = {
-    ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript",
-    css: "css", html: "html", json: "json", md: "markdown", py: "python",
+    ts: "typescript",
+    tsx: "typescript",
+    js: "javascript",
+    jsx: "javascript",
+    css: "css",
+    html: "html",
+    json: "json",
+    md: "markdown",
+    py: "python",
   };
   return map[ext] ?? "plaintext";
 }

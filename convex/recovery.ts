@@ -13,13 +13,7 @@
  */
 
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
-import {
-  internalMutation,
-  internalQuery,
-  mutation,
-  query,
-} from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 
 // ─── Event Types ────────────────────────────────────────────────────────────
 
@@ -218,6 +212,8 @@ export const detectStaleAgents = internalQuery({
       .query("agentHeartbeats")
       .withIndex("by_session", q => q.eq("sessionId", args.sessionId))
       .collect();
-    return heartbeats.filter(h => h.lastSeenAt < cutoff && h.status === "alive");
+    return heartbeats.filter(
+      h => h.lastSeenAt < cutoff && h.status === "alive",
+    );
   },
 });

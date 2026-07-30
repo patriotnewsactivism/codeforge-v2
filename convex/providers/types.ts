@@ -172,7 +172,10 @@ export function selectProvider(
   // If budget is tight, prefer cheapest
   if (budgetUsd !== undefined && budgetUsd < 0.01) {
     const cheapest = candidates.sort(
-      (a, b) => a.costPer1kInput + a.costPer1kOutput - (b.costPer1kInput + b.costPer1kOutput),
+      (a, b) =>
+        a.costPer1kInput +
+        a.costPer1kOutput -
+        (b.costPer1kInput + b.costPer1kOutput),
     );
     return cheapest[0];
   }

@@ -409,7 +409,8 @@ export function AIModelsTab() {
         </h2>
         <p className="text-sm text-zinc-400 mt-1">
           Select a multi-agent swarm profile to balance reasoning, speed, and
-          API token costs, or browse our model catalog (OpenRouter + free-tier fallbacks).
+          API token costs, or browse our model catalog (OpenRouter + free-tier
+          fallbacks).
         </p>
       </div>
 

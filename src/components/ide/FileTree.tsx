@@ -196,8 +196,6 @@ function TreeItem({
             value={renameValue}
             onChange={e => setRenameValue(e.target.value)}
             onBlur={handleRenameSubmit}
-            // eslint-disable-next-line jsx-a11y/no-autofocus
-            autoFocus
             onKeyDown={e => {
               if (e.key === "Enter") handleRenameSubmit();
               if (e.key === "Escape") {
@@ -339,8 +337,6 @@ export function FileTree({
             aria-label="New item name"
             value={newFileName}
             onChange={e => setNewFileName(e.target.value)}
-            // eslint-disable-next-line jsx-a11y/no-autofocus
-            autoFocus
             onKeyDown={e => {
               if (e.key === "Enter") handleCreate();
               if (e.key === "Escape") {

@@ -174,7 +174,8 @@ export const runMultiAgent = action({
         api.users.getAiProfileInternal,
         {},
       );
-      profileMap = MODEL_PROFILES[profileName] ?? MODEL_PROFILES.dons_pick ?? {};
+      profileMap =
+        MODEL_PROFILES[profileName] ?? MODEL_PROFILES.dons_pick ?? {};
     } catch {
       /* fall back to dons_pick profile */
     }

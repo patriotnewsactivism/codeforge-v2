@@ -14,17 +14,15 @@
 
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import {
   action,
   internalAction,
   internalMutation,
-  mutation,
   query,
 } from "./_generated/server";
 import { callAIWithFallback, getModelForRole } from "./ai";
 import { resolveByok } from "./lib/byok";
-import { selectProvider, type AgentCapability } from "./providers/types";
+import { type AgentCapability, selectProvider } from "./providers/types";
 
 // Self-references require codegen to be typed. Cast until `npx convex codegen` runs.
 const selfApi = api as any;
@@ -361,7 +359,7 @@ export const dispatchTasks = internalAction({
     const session = await ctx.runQuery(selfApi.orchestrator.getSession, {
       sessionId: args.sessionId,
     });
-    if (!session || !session.plan) return;
+    if (!session?.plan) return;
 
     const plan: TaskPlan = JSON.parse(session.plan);
     const existingTasks = await ctx.runQuery(

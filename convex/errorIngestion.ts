@@ -424,15 +424,39 @@ export type ErrorClass =
   | "flaky";
 
 const CLASSIFICATION_RULES: { pattern: RegExp; class: ErrorClass }[] = [
-  { pattern: /SyntaxError|Unexpected token|Parse error|TS\d{4}/i, class: "syntax" },
-  { pattern: /Cannot find module|Module not found|ERR_MODULE_NOT_FOUND|package.*not installed/i, class: "dependency" },
-  { pattern: /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|network|fetch failed|timeout/i, class: "flaky" },
-  { pattern: /env|ENV|process\.env|missing.*variable|config|\.env/i, class: "config" },
-  { pattern: /TypeError|ReferenceError|Cannot read prop|undefined is not|null is not|RangeError/i, class: "runtime" },
-  { pattern: /AssertionError|expected.*received|assert|test.*fail/i, class: "logic" },
+  {
+    pattern: /SyntaxError|Unexpected token|Parse error|TS\d{4}/i,
+    class: "syntax",
+  },
+  {
+    pattern:
+      /Cannot find module|Module not found|ERR_MODULE_NOT_FOUND|package.*not installed/i,
+    class: "dependency",
+  },
+  {
+    pattern: /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|network|fetch failed|timeout/i,
+    class: "flaky",
+  },
+  {
+    pattern: /env|ENV|process\.env|missing.*variable|config|\.env/i,
+    class: "config",
+  },
+  {
+    pattern:
+      /TypeError|ReferenceError|Cannot read prop|undefined is not|null is not|RangeError/i,
+    class: "runtime",
+  },
+  {
+    pattern: /AssertionError|expected.*received|assert|test.*fail/i,
+    class: "logic",
+  },
 ];
 
-export function classifyError(errorType: string, errorMessage: string, stackTrace?: string): ErrorClass {
+export function classifyError(
+  errorType: string,
+  errorMessage: string,
+  stackTrace?: string,
+): ErrorClass {
   const combined = `${errorType} ${errorMessage} ${stackTrace ?? ""}`;
   for (const rule of CLASSIFICATION_RULES) {
     if (rule.pattern.test(combined)) return rule.class;
@@ -481,7 +505,13 @@ export const smartAutoFix = action({
       { incidentId: args.incidentId },
     );
     if (!incident) {
-      return { success: false, escalated: false, attempt: 0, errorClass: "unknown", error: "Incident not found" };
+      return {
+        success: false,
+        escalated: false,
+        attempt: 0,
+        errorClass: "unknown",
+        error: "Incident not found",
+      };
     }
 
     // Classify the error

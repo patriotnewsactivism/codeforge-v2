@@ -216,7 +216,7 @@ export const executeSpawnPlan = internalAction({
       });
 
       // Execute each ready shard in parallel by spawning agents through the engine
-      const parallelExecutions = ready.flatMap(({ shard, i }) => {
+      const parallelExecutions = ready.flatMap(({ shard, i: _i }) => {
         return shard.agents.map(agentRole => {
           // Build the task description with dependency context
           const depContext = shard.dependsOn
@@ -230,16 +230,18 @@ export const executeSpawnPlan = internalAction({
           const task = `${shard.description}\n\nOverall goal: ${args.goal}\nExpected output files: ${shard.files.join(", ")}${depContext ? `\n\nCompleted dependencies:\n${depContext}` : ""}`;
 
           // Run the agent through the engine with the shard's specified role
-          return ctx.runAction(api.engine.runMission, {
-            projectId: args.projectId,
-            prompt: task,
-            role: agentRole,
-          }).catch(err => {
-            console.error(
-              `[spawnEngine] Shard "${shard.name}" agent "${agentRole}" failed:`,
-              err,
-            );
-          });
+          return ctx
+            .runAction(api.engine.runMission, {
+              projectId: args.projectId,
+              prompt: task,
+              role: agentRole,
+            })
+            .catch(err => {
+              console.error(
+                `[spawnEngine] Shard "${shard.name}" agent "${agentRole}" failed:`,
+                err,
+              );
+            });
         });
       });
 

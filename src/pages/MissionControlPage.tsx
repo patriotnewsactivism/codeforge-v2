@@ -259,7 +259,6 @@ export function MissionControlPage() {
   const hasLiveActivity =
     (thoughts?.length ?? 0) > 0 || (toolCalls?.length ?? 0) > 0;
 
-
   const isAdvanced = mode === "advanced";
   const isShipped = view === "shipped";
   const isLive = !isShipped;

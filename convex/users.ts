@@ -71,7 +71,6 @@ export const getAiProfileInternal = query({
   },
 });
 
-
 // Real live model roster for the Mission Control "Model roster" panel --
 // reflects the user's ACTUAL selected swarm profile (e.g. dons_pick),
 // not a hardcoded snapshot. Replaces a static mock array that still showed

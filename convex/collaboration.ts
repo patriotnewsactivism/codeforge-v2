@@ -168,9 +168,7 @@ export const joinByInvite = mutation({
 
       const allCollabs = await ctx.db
         .query("collaborators")
-        .withIndex("by_project", q =>
-          q.eq("projectId", invite.projectId),
-        )
+        .withIndex("by_project", q => q.eq("projectId", invite.projectId))
         .collect();
       const color = PRESENCE_COLORS[allCollabs.length % PRESENCE_COLORS.length];
 

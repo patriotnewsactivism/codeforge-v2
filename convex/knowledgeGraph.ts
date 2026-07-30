@@ -15,14 +15,7 @@
 
 import { v } from "convex/values";
 import { api } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
-import {
-  action,
-  internalAction,
-  internalMutation,
-  mutation,
-  query,
-} from "./_generated/server";
+import { action, mutation, query } from "./_generated/server";
 
 // Self-references for pre-codegen compatibility
 const selfApi = api as any;
@@ -185,41 +178,65 @@ export const getChangeImpact = query({
 
 const ENTITY_PATTERNS: { pattern: RegExp; kind: string }[] = [
   { pattern: /export\s+(?:default\s+)?function\s+(\w+)/g, kind: "function" },
-  { pattern: /export\s+const\s+(\w+)\s*=\s*(?:\([^)]*\)|[^=])\s*=>/g, kind: "function" },
+  {
+    pattern: /export\s+const\s+(\w+)\s*=\s*(?:\([^)]*\)|[^=])\s*=>/g,
+    kind: "function",
+  },
   { pattern: /export\s+(?:abstract\s+)?class\s+(\w+)/g, kind: "class" },
   { pattern: /export\s+(?:interface)\s+(\w+)/g, kind: "interface" },
   { pattern: /export\s+type\s+(\w+)/g, kind: "type" },
-  { pattern: /export\s+const\s+(\w+)\s*=\s*(?:query|mutation|action|internalAction|internalMutation|internalQuery)\(/g, kind: "function" },
-  { pattern: /export\s+const\s+(\w+)\s*=\s*(?:memo|forwardRef)\(/g, kind: "component" },
+  {
+    pattern:
+      /export\s+const\s+(\w+)\s*=\s*(?:query|mutation|action|internalAction|internalMutation|internalQuery)\(/g,
+    kind: "function",
+  },
+  {
+    pattern: /export\s+const\s+(\w+)\s*=\s*(?:memo|forwardRef)\(/g,
+    kind: "component",
+  },
   { pattern: /export\s+function\s+([A-Z]\w+)/g, kind: "component" },
   { pattern: /export\s+const\s+(use\w+)\s*=/g, kind: "hook" },
   { pattern: /export\s+const\s+(\w+)\s*=\s*defineTable\(/g, kind: "type" },
 ];
 
-const IMPORT_PATTERN = /import\s+(?:type\s+)?(?:\{([^}]+)\}|(\w+))\s+from\s+["']([^"']+)["']/g;
+const IMPORT_PATTERN =
+  /import\s+(?:type\s+)?(?:\{([^}]+)\}|(\w+))\s+from\s+["']([^"']+)["']/g;
 
-export function parseFile(filePath: string, content: string): { entities: ParsedEntity[]; edges: ParsedEdge[] } {
+export function parseFile(
+  filePath: string,
+  content: string,
+): { entities: ParsedEntity[]; edges: ParsedEdge[] } {
   const entities: ParsedEntity[] = [];
   const edges: ParsedEdge[] = [];
-  const lines = content.split("\n");
   const seen = new Set<string>();
 
   // Extract entities
   for (const { pattern, kind } of ENTITY_PATTERNS) {
     pattern.lastIndex = 0;
     let match: RegExpExecArray | null;
-    while ((match = pattern.exec(content)) !== null) {
+    match = pattern.exec(content);
+    while (match !== null) {
       const name = match[1];
-      if (!name || seen.has(name)) continue;
+      if (!name || seen.has(name)) {
+        match = pattern.exec(content);
+        continue;
+      }
       seen.add(name);
 
       const startLine = content.slice(0, match.index).split("\n").length;
 
       // Extract doc comment (look backwards for /** ... */)
       let docComment: string | undefined;
-      const preceding = content.slice(Math.max(0, match.index - 500), match.index);
+      const preceding = content.slice(
+        Math.max(0, match.index - 500),
+        match.index,
+      );
       const docMatch = preceding.match(/\/\*\*([\s\S]*?)\*\/\s*$/);
-      if (docMatch) docComment = docMatch[1].trim().replace(/\n\s*\*\s*/g, " ").slice(0, 200);
+      if (docMatch)
+        docComment = docMatch[1]
+          .trim()
+          .replace(/\n\s*\*\s*/g, " ")
+          .slice(0, 200);
 
       entities.push({
         name,
@@ -229,6 +246,7 @@ export function parseFile(filePath: string, content: string): { entities: Parsed
         signature: match[0].slice(0, 150),
         docComment,
       });
+      match = pattern.exec(content);
     }
   }
 
@@ -236,7 +254,8 @@ export function parseFile(filePath: string, content: string): { entities: Parsed
   const moduleEntity = `${filePath}:*`;
   IMPORT_PATTERN.lastIndex = 0;
   let importMatch: RegExpExecArray | null;
-  while ((importMatch = IMPORT_PATTERN.exec(content)) !== null) {
+  importMatch = IMPORT_PATTERN.exec(content);
+  while (importMatch !== null) {
     const namedImports = importMatch[1];
     const defaultImport = importMatch[2];
     const fromPath = importMatch[3];
@@ -247,7 +266,12 @@ export function parseFile(filePath: string, content: string): { entities: Parsed
       : fromPath; // external package
 
     if (namedImports) {
-      for (const name of namedImports.split(",").map(s => s.trim().split(/\s+as\s+/)[0].replace(/^type\s+/, ""))) {
+      for (const name of namedImports.split(",").map(s =>
+        s
+          .trim()
+          .split(/\s+as\s+/)[0]
+          .replace(/^type\s+/, ""),
+      )) {
         if (name && name !== "type") {
           edges.push({
             fromEntity: moduleEntity,
@@ -264,13 +288,16 @@ export function parseFile(filePath: string, content: string): { entities: Parsed
         relation: "imports",
       });
     }
+    importMatch = IMPORT_PATTERN.exec(content);
   }
 
   return { entities, edges };
 }
 
 function resolveRelativePath(fromFile: string, importPath: string): string {
-  const fromDir = fromFile.includes("/") ? fromFile.slice(0, fromFile.lastIndexOf("/")) : "";
+  const fromDir = fromFile.includes("/")
+    ? fromFile.slice(0, fromFile.lastIndexOf("/"))
+    : "";
   const parts = (fromDir ? `${fromDir}/${importPath}` : importPath).split("/");
   const resolved: string[] = [];
   for (const part of parts) {
@@ -295,7 +322,8 @@ export const indexFile = action({
   returns: v.object({ entities: v.number(), edges: v.number() }),
   handler: async (ctx, args): Promise<{ entities: number; edges: number }> => {
     // Skip non-code files
-    if (!args.filePath.match(/\.(ts|tsx|js|jsx)$/)) return { entities: 0, edges: 0 };
+    if (!args.filePath.match(/\.(ts|tsx|js|jsx)$/))
+      return { entities: 0, edges: 0 };
 
     const { entities, edges } = parseFile(args.filePath, args.content);
 
@@ -326,8 +354,19 @@ export const indexFile = action({
 /** Re-index all files in a project (full rebuild). */
 export const indexProject = action({
   args: { projectId: v.id("projects") },
-  returns: v.object({ filesIndexed: v.number(), totalEntities: v.number(), totalEdges: v.number() }),
-  handler: async (ctx, args): Promise<{ filesIndexed: number; totalEntities: number; totalEdges: number }> => {
+  returns: v.object({
+    filesIndexed: v.number(),
+    totalEntities: v.number(),
+    totalEdges: v.number(),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    filesIndexed: number;
+    totalEntities: number;
+    totalEdges: number;
+  }> => {
     const files: any[] = await ctx.runQuery(api.files.listByProject, {
       projectId: args.projectId,
     });
@@ -359,20 +398,24 @@ export const replaceFileEntities = mutation({
   args: {
     projectId: v.id("projects"),
     filePath: v.string(),
-    entities: v.array(v.object({
-      name: v.string(),
-      kind: v.string(),
-      startLine: v.optional(v.number()),
-      endLine: v.optional(v.number()),
-      exports: v.optional(v.array(v.string())),
-      signature: v.optional(v.string()),
-      docComment: v.optional(v.string()),
-    })),
-    edges: v.array(v.object({
-      fromEntity: v.string(),
-      toEntity: v.string(),
-      relation: v.string(),
-    })),
+    entities: v.array(
+      v.object({
+        name: v.string(),
+        kind: v.string(),
+        startLine: v.optional(v.number()),
+        endLine: v.optional(v.number()),
+        exports: v.optional(v.array(v.string())),
+        signature: v.optional(v.string()),
+        docComment: v.optional(v.string()),
+      }),
+    ),
+    edges: v.array(
+      v.object({
+        fromEntity: v.string(),
+        toEntity: v.string(),
+        relation: v.string(),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
     // Delete old entities for this file

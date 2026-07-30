@@ -12,9 +12,9 @@ import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
+import { selectRoleForCategory } from "./agentRoles";
 import { callAIWithFallback, getModelForRole } from "./ai";
 import { resolveByok } from "./lib/byok";
-import { selectRoleForCategory } from "./agentRoles";
 
 // ─── TOOL CALL SCHEMA ──────────────────────────────────────────────────────
 
@@ -495,7 +495,11 @@ async function executeTool(
 // dynamically/statically imported local file plainly doesn't exist.
 const CODE_EXTS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
 
-function resolveCandidates(fromDir: string, spec: string, aliasRoot: string): string[] {
+function resolveCandidates(
+  fromDir: string,
+  spec: string,
+  aliasRoot: string,
+): string[] {
   let base: string;
   if (spec.startsWith("@/")) {
     base = aliasRoot ? `${aliasRoot}/${spec.slice(2)}` : spec.slice(2);
@@ -523,9 +527,10 @@ async function findBrokenImports(
   const pathSet = new Set<string>(files.map((f: any) => f.path));
   // detect a "src" root to serve as the "@/" alias target (matches the
   // convention this platform's own generated projects use: "@" -> "src")
-  const aliasRoot = pathSet.has("src") || [...pathSet].some(p => p.startsWith("src/"))
-    ? "src"
-    : "";
+  const aliasRoot =
+    pathSet.has("src") || [...pathSet].some(p => p.startsWith("src/"))
+      ? "src"
+      : "";
   const importRe = /(?:from\s+|import\()\s*["']([^"']+)["']/g;
   const broken: string[] = [];
   for (const file of files) {
@@ -537,13 +542,20 @@ async function findBrokenImports(
       : "";
     let m: RegExpExecArray | null;
     importRe.lastIndex = 0;
-    while ((m = importRe.exec(file.content)) !== null) {
+    m = importRe.exec(file.content);
+    while (m !== null) {
       const spec = m[1]!;
-      if (!spec.startsWith(".") && !spec.startsWith("@/")) continue; // skip npm packages
-      const candidates = resolveCandidates(fromDir, spec, aliasRoot);
-      if (!candidates.some(c => pathSet.has(c))) {
-        broken.push(`${file.path} imports "${spec}" — no matching file found`);
+      if (!spec.startsWith(".") && !spec.startsWith("@/")) {
+        // skip npm packages
+      } else {
+        const candidates = resolveCandidates(fromDir, spec, aliasRoot);
+        if (!candidates.some(c => pathSet.has(c))) {
+          broken.push(
+            `${file.path} imports "${spec}" — no matching file found`,
+          );
+        }
       }
+      m = importRe.exec(file.content);
     }
   }
   return broken;
@@ -567,7 +579,9 @@ function extractToolCall(rawResponse: string): ToolCall | null {
   try {
     const parsed = JSON.parse(rawResponse.trim());
     if (parsed.tool && parsed.args !== undefined) return parsed as ToolCall;
-  } catch { /* continue */ }
+  } catch {
+    /* continue */
+  }
 
   // Strategy 2: Extract from markdown code fences
   const fenceMatch = rawResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -575,7 +589,9 @@ function extractToolCall(rawResponse: string): ToolCall | null {
     try {
       const parsed = JSON.parse(fenceMatch[1].trim());
       if (parsed.tool && parsed.args !== undefined) return parsed as ToolCall;
-    } catch { /* continue */ }
+    } catch {
+      /* continue */
+    }
   }
 
   // Strategy 3: Find the first {...} block that contains "tool"
@@ -585,7 +601,9 @@ function extractToolCall(rawResponse: string): ToolCall | null {
       try {
         const parsed = JSON.parse(block);
         if (parsed.tool && parsed.args !== undefined) return parsed as ToolCall;
-      } catch { /* continue */ }
+      } catch {
+        /* continue */
+      }
     }
   }
 
@@ -595,7 +613,9 @@ function extractToolCall(rawResponse: string): ToolCall | null {
     try {
       const parsed = JSON.parse(deepMatch[1]);
       if (parsed.tool && parsed.args !== undefined) return parsed as ToolCall;
-    } catch { /* continue */ }
+    } catch {
+      /* continue */
+    }
   }
 
   // Strategy 5: Partial extraction — find tool name and reconstruct
@@ -605,7 +625,9 @@ function extractToolCall(rawResponse: string): ToolCall | null {
     try {
       const args = JSON.parse(argsMatch[1]);
       return { tool: toolMatch[1] as ToolName, args };
-    } catch { /* continue */ }
+    } catch {
+      /* continue */
+    }
   }
 
   return null;
@@ -641,7 +663,8 @@ async function runAgentLoop(
         const truncated =
           content.length <= 2000
             ? content
-            : content.slice(0, 1500) + "\n\n// ... (truncated, use read_file to see full content)";
+            : content.slice(0, 1500) +
+              "\n\n// ... (truncated, use read_file to see full content)";
         return `--- ${f.path} ---\n${truncated}`;
       })
       .join("\n\n");
@@ -813,7 +836,7 @@ Rules:
       conversationHistory.push({
         role: "user",
         content:
-          "Your response was not valid JSON. You MUST respond with ONLY a JSON object like: {\"tool\": \"create_file\", \"args\": {\"path\": \"file.txt\", \"content\": \"...\"}}. No other text.",
+          'Your response was not valid JSON. You MUST respond with ONLY a JSON object like: {"tool": "create_file", "args": {"path": "file.txt", "content": "..."}}. No other text.',
       });
       continue;
     }
@@ -1025,11 +1048,15 @@ export const runMission = action({
           try {
             const parsed = JSON.parse(tc.args);
             if (parsed.path) fileSet.add(parsed.path);
-          } catch { /* skip malformed args */ }
+          } catch {
+            /* skip malformed args */
+          }
         }
       }
       filesChanged = Array.from(fileSet);
-    } catch { /* non-critical — proceed with empty list */ }
+    } catch {
+      /* non-critical — proceed with empty list */
+    }
 
     // After mission completes, extract learnings asynchronously
     // (We don't await this so it doesn't block returning the final result)
@@ -1108,15 +1135,22 @@ export const executeWorkItem = action({
     for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
       const missionId = `mission_${args.workItemId}_iter_${iteration}`;
       const spawnCount = { value: 0 };
-      
+
       // Adaptive Scaling: On retry, escalate to "architect" tier to solve harder problems
       // and bump the spawn limits.
       const isRetry = iteration > 1;
       const effectiveRole = isRetry ? "architect" : agentRole;
-      const model = await getModelForRole(ctx, effectiveRole as any, args.projectId);
+      const model = await getModelForRole(
+        ctx,
+        effectiveRole as any,
+        args.projectId,
+      );
 
       if (isRetry && planLimits) {
-        planLimits.maxSpawnsPerMission = Math.min(50, planLimits.maxSpawnsPerMission + 10);
+        planLimits.maxSpawnsPerMission = Math.min(
+          50,
+          planLimits.maxSpawnsPerMission + 10,
+        );
         planLimits.maxSpawnDepth = Math.min(5, planLimits.maxSpawnDepth + 1);
       }
 

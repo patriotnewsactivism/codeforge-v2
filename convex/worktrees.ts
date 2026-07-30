@@ -11,7 +11,6 @@
  */
 
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
 import {
   internalMutation,
   internalQuery,
@@ -68,7 +67,8 @@ export const createWorktree = mutation({
     branchName: v.string(),
   }),
   handler: async (ctx, args) => {
-    const slug = args.missionSlug ?? `agent-${args.role}-${Date.now().toString(36)}`;
+    const slug =
+      args.missionSlug ?? `agent-${args.role}-${Date.now().toString(36)}`;
     const branchName = `codeforge/${slug}/${args.role}`;
 
     const branchId = await ctx.db.insert("gitBranches", {

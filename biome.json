@@ -48,7 +48,8 @@
       },
       "suspicious": {
         "noExplicitAny": "off",
-        "noArrayIndexKey": "off"
+        "noArrayIndexKey": "off",
+        "noControlCharactersInRegex": "off"
       },
       "security": {
         "noDangerouslySetInnerHtml": "off"
