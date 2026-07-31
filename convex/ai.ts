@@ -207,7 +207,11 @@ export const MODELS: Record<string, ModelConfig> = {
     apiModel: "command-r-plus-08-2024",
     inputCostPer1M: 2.5,
     outputCostPer1M: 10.0,
-    maxTokens: 8192,
+    // FIXED 2026-07-31: this model's real Cohere API output cap is 4096, not
+    // 8192. Was causing every single call to fail with a 400 "too many
+    // tokens" error, taking Cohere out of the fallback chain entirely even
+    // though the key/quota were fine -- pure client-side misconfiguration.
+    maxTokens: 4096,
     tier: "strong",
   },
   // ── Google Gemini — generous free tier via AI Studio. Capable coder /
