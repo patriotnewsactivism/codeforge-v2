@@ -5,6 +5,5 @@ dist
 server/dist
 .env
 .env.*
-convex-export.zip
 convex.legacy
 *.log

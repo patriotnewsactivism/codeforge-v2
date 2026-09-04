@@ -7,8 +7,8 @@ RUN npm run build
 
 FROM node:22-bookworm-slim AS server-build
 WORKDIR /server
-COPY server/package.json ./
-RUN npm install
+COPY server/package.json server/package-lock.json ./
+RUN npm ci
 COPY server/tsconfig.json ./
 COPY server/src ./src
 COPY server/scripts ./scripts
@@ -19,11 +19,13 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV STATIC_DIR=/app/public
 
-COPY server/package.json ./package.json
-RUN npm install --omit=dev && npm cache clean --force
+COPY server/package.json server/package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
-COPY --from=server-build /server/dist/src ./dist
+COPY --from=server-build /server/dist ./dist
+COPY server/sql ./dist/sql
+COPY convex-export.zip /app/convex-export.zip
 COPY --from=frontend /app/dist ./public
 
 USER node
-CMD ["node", "dist/index.js"]
+CMD ["sh", "-c", "if [ \"$RUN_MIGRATION\" = \"1\" ]; then node dist/scripts/migrate.js && node dist/scripts/import-convex-export.js /app/convex-export.zip; fi && exec node dist/src/index.js"]
