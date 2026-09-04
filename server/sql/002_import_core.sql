@@ -30,8 +30,15 @@ select
     to_timestamp(creation_time / 1000.0),
     now()
   )
-from legacy_convex_documents
-where table_name = 'users'
+from (
+  select distinct on (lower(coalesce(document->>'email', convex_id)))
+    convex_id,
+    document,
+    creation_time
+  from legacy_convex_documents
+  where table_name = 'users'
+  order by lower(coalesce(document->>'email', convex_id)), creation_time desc
+) newest_users
 on conflict (id) do update
 set name = excluded.name,
     image = excluded.image,
@@ -43,6 +50,39 @@ set name = excluded.name,
     subscription_status = excluded.subscription_status,
     ai_profile = excluded.ai_profile,
     updated_at = now();
+
+-- Merge duplicate Convex user ids: real exports contain >1 user doc
+-- per email (Convex never enforced uniqueness). Keep the newest; remap
+-- project/chat ownership from dropped ids to the kept user so no data
+-- is silently lost by the FK filters below.
+create temp table legacy_user_merges (drop_id text primary key, keep_id text not null);
+
+insert into legacy_user_merges (drop_id, keep_id)
+select r.convex_id, k.keep_id
+from (
+  select convex_id, lower(document->>'email') as email, creation_time
+  from legacy_convex_documents
+  where table_name = 'users' and document->>'email' is not null
+) r
+join (
+  select distinct on (lower(document->>'email'))
+    convex_id as keep_id, lower(document->>'email') as email
+  from legacy_convex_documents
+  where table_name = 'users' and document->>'email' is not null
+  order by lower(document->>'email'), creation_time desc
+) k on k.email = r.email and k.keep_id <> r.convex_id;
+
+update legacy_convex_documents l
+set document = jsonb_set(l.document, '{ownerId}', to_jsonb(m.keep_id))
+from legacy_user_merges m
+where l.table_name = 'projects'
+  and l.document->>'ownerId' = m.drop_id;
+
+update legacy_convex_documents l
+set document = jsonb_set(l.document, '{userId}', to_jsonb(m.keep_id))
+from legacy_user_merges m
+where l.table_name in ('chatSessions', 'chatMessages')
+  and l.document->>'userId' = m.drop_id;
 
 insert into projects (
   id,

@@ -2,6 +2,21 @@
 
 **Status: Phase 2 (bundle applied) — approved by Don 2026-09-04: "rebuild on railway, no convex."**
 
+> **2026-09-04 STAGING RUN (real data, local Postgres):** the full pipeline
+> was executed against the committed `convex-export.zip` (Aug 4 snapshot,
+> 35.7MB): schema applied (29 tables), 107,142 raw docs preserved into
+> `legacy_convex_documents`, normalization verified — users 9→7 (2
+> duplicate-email Convex docs merged with ownership remapped, nothing lost),
+> projects 29/29, files 8,333/8,333, chatSessions 30/30, chatMessages 107/107.
+> Two real-data bugs found+fixed: (1) the export contains duplicate-email
+> user docs (Convex never enforced uniqueness) — 002 now dedupes newest-per-
+> email and REMAPS project/chat ownership so no data is silently dropped;
+> (2) JSZip rejects the original zip's central directory ("expected 141
+> records, got 0") — re-zip with `python3 -m zipfile`-style rewrite before
+> import, or swap the library. Full auth + RPC shim + orchestrator swarm
+> contract smoke-tested live: register/login (Argon2id+JWT), projects.list/
+> create via Convex-compatible RPC, task create→pending→atomic claim→
+> heartbeat→complete→user-visible status. No Convex needed anywhere.
 > **2026-09-04 update:** the full migration bundle (server/, src/lib/backend-*,
 > Dockerfile.railway, migration gates, orchestrator cutover scripts) has been
 > applied to this branch on top of the Phase 1 scaffold. Both coexist:
