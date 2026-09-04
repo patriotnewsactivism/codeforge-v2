@@ -99,7 +99,7 @@ async function legacyFirst(
 function taskShape(row: Record<string, unknown>) {
   return {
     _id: String(row.id),
-    _creationTime: millis(String(row.created_at)),
+    _creationTime: millis(String(row.started_at)),
     projectId: String(row.project_id),
     buildSessionId: row.build_session_id ?? undefined,
     orchestratorSessionId: row.orchestrator_session_id ?? undefined,
@@ -366,7 +366,7 @@ async function swarmReadsRpc(
     const projectId = asString(args.projectId, "projectId");
     await assertProjectAccess(user.id, projectId);
     const result = await sql(
-      "select * from agent_tasks where project_id = $1 order by created_at desc limit 50",
+      "select * from agent_tasks where project_id = $1 order by started_at desc limit 50",
       [projectId],
     );
     return result.rows.map((row) => taskShape(row));

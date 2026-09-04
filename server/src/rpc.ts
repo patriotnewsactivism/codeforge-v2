@@ -797,14 +797,6 @@ export async function executeRpc(
     return filesRpc(name, args, user);
   }
 
-  if (name.startsWith("chat.")) {
-    return chatRpc(name, args, user);
-  }
-
-  if (name.startsWith("users.")) {
-    return usersRpc(name, args, user);
-  }
-
   try {
     return await executePortedRpc(name, args, user);
   } catch (error) {
@@ -812,10 +804,18 @@ export async function executeRpc(
       error instanceof Error &&
       error.message.startsWith("not a batch-1 RPC")
     ) {
-      // fall through to the not-implemented error below
+      // fall through to the module handlers below
     } else {
       throw error;
     }
+  }
+
+  if (name.startsWith("chat.")) {
+    return chatRpc(name, args, user);
+  }
+
+  if (name.startsWith("users.")) {
+    return usersRpc(name, args, user);
   }
 
   throw new RpcNotImplementedError(name);
