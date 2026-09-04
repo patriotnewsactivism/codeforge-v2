@@ -1,6 +1,21 @@
 # CodeForge: Convex → Railway/Postgres Rebuild
 
-**Status: Phase 1 (scaffold) — approved by Don 2026-09-04: "rebuild on railway, no convex."**
+**Status: Phase 2 (bundle applied) — approved by Don 2026-09-04: "rebuild on railway, no convex."**
+
+> **2026-09-04 update:** the full migration bundle (server/, src/lib/backend-*,
+> Dockerfile.railway, migration gates, orchestrator cutover scripts) has been
+> applied to this branch on top of the Phase 1 scaffold. Both coexist:
+> `server/sql/001-003` is the operative schema for the new runtime;
+> `railway/migrations/0001_convex_to_postgres.sql` remains as the complete
+> 51-table + authTables reference DDL (superset — useful when porting the
+> remaining RPCs, since it covers every Convex table the bundle's core schema
+> does not yet normalize). Real validation this session: both server packages
+> `npm install` + `tsc --noEmit` CLEAN (19 strict-null errors found and fixed
+> in the bundle's server sources first), SQL structurally verified, secret
+> scan clean. NOT deployed; NOT on main. Convex stays live until
+> `rpc-coverage.mjs` passes and the manual gates in the bundle README clear.
+> Note: `.env.local` + `.env.local.backup` are tracked on origin/main —
+> private repo, but rotation recommended before/after cutover.
 
 ## Target architecture
 

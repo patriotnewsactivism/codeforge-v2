@@ -1,0 +1,10 @@
+.git
+node_modules
+server/node_modules
+dist
+server/dist
+.env
+.env.*
+convex-export.zip
+convex.legacy
+*.log
