@@ -1,4 +1,5 @@
 import type { AuthUser } from "./auth.js";
+import { executePortedRpc } from "./rpc-port.js";
 import {
   assertProjectAccess,
   assertProjectOwner,
@@ -802,6 +803,19 @@ export async function executeRpc(
 
   if (name.startsWith("users.")) {
     return usersRpc(name, args, user);
+  }
+
+  try {
+    return await executePortedRpc(name, args, user);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("not a batch-1 RPC")
+    ) {
+      // fall through to the not-implemented error below
+    } else {
+      throw error;
+    }
   }
 
   throw new RpcNotImplementedError(name);

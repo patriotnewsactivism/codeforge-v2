@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import staticPlugin from "@fastify/static";
@@ -332,6 +332,21 @@ process.on("SIGINT", () => {
 process.on("SIGTERM", () => {
   void shutdown("SIGTERM");
 });
+
+// Idempotent batch-1 port schema (project_settings + legacy-read indexes).
+// Safe on every boot: all statements are IF NOT EXISTS. Applied here instead
+// of RUN_MIGRATION=1 so the heavy Convex re-import is not re-run.
+try {
+  const batch1Sql = readFileSync(
+    new URL("../sql/004_batch1_port.sql", import.meta.url),
+    "utf8",
+  );
+  await sql(batch1Sql);
+  console.log("[boot] batch-1 port schema ensured");
+} catch (error) {
+  console.error("[boot] failed to ensure batch-1 schema:", error);
+  process.exit(1);
+}
 
 await app.listen({
   host: "0.0.0.0",
