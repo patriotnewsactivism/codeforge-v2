@@ -35,7 +35,6 @@ export interface ModelConfig {
     | "kilocode"
     | "mistral"
     | "github"
-    | "qwen"
     | "cohere";
   apiModel: string;
   inputCostPer1M: number;
@@ -318,57 +317,6 @@ export const MODELS: Record<string, ModelConfig> = {
     maxTokens: 8192,
     tier: "balanced",
   },
-  // Qwen Cloud (Alibaba Cloud Model Studio, international/dashscope-intl) --
-  // PAID pay-as-you-go, NOT a free tier. Placed late in the fallback chain,
-  // after every free option, as a cheap/high-quality paid tier before the
-  // priciest last-resort OpenRouter paid models. Verified live 2026-07-20
-  // against https://dashscope-intl.aliyuncs.com/compatible-mode/v1.
-  "qwen-cloud-max": {
-    id: "qwen-cloud-max",
-    name: "Qwen3.7 Max (Qwen Cloud)",
-    provider: "qwen",
-    apiModel: "qwen3.7-max",
-    // Official Alibaba Cloud Model Studio international pricing, confirmed
-    // 2026-07-20: https://www.alibabacloud.com/help/en/model-studio/model-pricing
-    inputCostPer1M: 1.6,
-    outputCostPer1M: 6.4,
-    maxTokens: 4096,
-    tier: "strong",
-  },
-  "qwen-cloud-coder": {
-    id: "qwen-cloud-coder",
-    name: "Qwen3.7 Plus (Qwen Cloud)",
-    provider: "qwen",
-    apiModel: "qwen3.7-plus",
-    // Tiered pricing -- base tier (<=32K input tokens) confirmed 2026-07-20.
-    // Rises to $1.80/$9.00 (32K-128K) then higher; capped via
-    // maxSafeInputTokens to stay in the cheap tier.
-    inputCostPer1M: 1.0,
-    outputCostPer1M: 5.0,
-    maxTokens: 4096,
-    maxSafeInputTokens: 30000,
-    tier: "strong",
-  },
-  "qwen-cloud-deepseek": {
-    id: "qwen-cloud-deepseek",
-    name: "DeepSeek V4 Pro (Qwen Cloud)",
-    provider: "qwen",
-    apiModel: "deepseek-v4-pro",
-    inputCostPer1M: 1.0,
-    outputCostPer1M: 4.0,
-    maxTokens: 4096,
-    tier: "strong",
-  },
-  "qwen-cloud-flash": {
-    id: "qwen-cloud-flash",
-    name: "Qwen3.6 Flash (Qwen Cloud)",
-    provider: "qwen",
-    apiModel: "qwen3.6-flash",
-    inputCostPer1M: 0.2,
-    outputCostPer1M: 1.0,
-    maxTokens: 4096,
-    tier: "fast",
-  },
   // Both specific free model ids below were discontinued by Kilo Code
   // (404 "The free period of this model ended") -- their own error message
   // names the replacement: kilo-auto/free for limited free inference.
@@ -537,9 +485,6 @@ function getBaseUrl(provider: ModelConfig["provider"]): string {
       // GitHub Models — free tier for existing GitHub PATs, OpenAI-compatible.
       // Tight per-request token caps but genuinely frontier-tier models.
       return "https://models.github.ai/inference";
-    case "qwen":
-      // Qwen Cloud token-plan endpoint (Alibaba Cloud Model Studio).
-      return "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1";
     case "cohere":
       // Cohere production tier, OpenAI-compatible endpoint. Added
       // 2026-07-26 -- genuinely live/tested key, previously unused on this
@@ -566,7 +511,6 @@ const PROVIDER_KEY_MAP: Record<ModelConfig["provider"], string> = {
   kilocode: "kilocode",
   mistral: "mistral",
   github: "github",
-  qwen: "qwen",
   cohere: "cohere",
 };
 
@@ -624,8 +568,6 @@ function getApiKey(
       return process.env.MISTRAL_API_KEY ?? "";
     case "github":
       return process.env.GITHUB_TOKEN_4 ?? process.env.GITHUB_TOKEN_9 ?? "";
-    case "qwen":
-      return process.env.QWENCLOUD_API_KEY ?? "";
     case "cohere":
       return process.env.COHERE_API_KEY ?? "";
   }
@@ -917,11 +859,8 @@ export async function callAIWithFallback(
   // exhausted still doesn't surface "All models failed" to the user.
   const fullChain = [
     requested,
-    // Qwen Cloud token-plan — paid, reliable, prioritized first.
-    "qwen-cloud-max",
-    "qwen-cloud-coder",
-    "qwen-cloud-deepseek",
-    "qwen-cloud-flash",
+    // Qwen Cloud (Alibaba Model Studio) removed 2026-10-29: account suspended
+    // for an unpaid balance, so these rungs could only fail. Groq leads now.
     "groq-llama-3.3-70b",
     "groq-gpt-oss-120b",
     "cerebras-glm-4.7",

@@ -23,20 +23,20 @@ const SWARM_PROFILES = [
   {
     id: "dons_pick",
     name: "Don's Pick",
-    tagline: "Personal Default — Qwen Cloud",
+    tagline: "Personal Default — Cohere + Cerebras",
     cost: "$0.15–$0.40 / build",
     description:
-      "Qwen Max handles planning, architecture, and review. Qwen3 Coder Plus writes the code. Both run on the paid Qwen Cloud workspace — no free-tier rate walls, no rate-limit surprises mid-build.",
+      "Cohere Command R+ handles planning, architecture, and review. Cerebras GPT-OSS 120B writes the code. A two-model combo with real headroom and no shared-quota surprises mid-build.",
     reasoning: 5,
     speed: 4,
     priceLevel: 3,
     badgeColor: "bg-primary/20 text-primary border-primary/30",
     icon: Sparkles,
     roles: {
-      "Planner / Architect": "Qwen Max",
-      Coder: "Qwen3 Coder Plus",
-      Reviewer: "Qwen Max",
-      Debugger: "Qwen3 Coder Plus",
+      "Planner / Architect": "Cohere Command R+",
+      Coder: "Cerebras GPT-OSS 120B",
+      Reviewer: "Cohere Command R+",
+      Debugger: "Cerebras GPT-OSS 120B",
     },
   },
   {
@@ -341,28 +341,6 @@ const MODELS = [
     speed: 4,
     price: "Free",
     costLevel: "$",
-  },
-  // Qwen Cloud (Alibaba Cloud Model Studio) -- genuinely paid, not free.
-  // Live in the fallback chain (convex/ai.ts) as of 2026-07-20.
-  {
-    id: "qwen-cloud-max",
-    name: "Qwen Max (Qwen Cloud)",
-    provider: "Qwen Cloud",
-    reason: 4,
-    quality: 4,
-    speed: 3,
-    price: "$1.60 / $6.40",
-    costLevel: "$$",
-  },
-  {
-    id: "qwen-cloud-coder",
-    name: "Qwen3 Coder Plus (Qwen Cloud)",
-    provider: "Qwen Cloud",
-    reason: 4,
-    quality: 4,
-    speed: 3,
-    price: "$1.00 / $5.00",
-    costLevel: "$$",
   },
 ];
 export function AIModelsTab() {
